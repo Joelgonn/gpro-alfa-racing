@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  
+  /* Fontes - Assumindo que você usa Geist ou Inter */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Adicionando cores personalizadas para o tema Racing */
+  --color-glass: rgba(24, 24, 27, 0.6);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+}
+
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --primary: #8b5cf6; /* Violet */
+  --border: #27272a;
+}
+
+@layer base {
+  body {
+    background-color: #000000;
+    /* Fundo degradê sutil para dar profundidade */
+    background-image: 
+      radial-gradient(circle at 50% 0%, #1c1c22 0%, transparent 70%),
+      radial-gradient(circle at 80% 10%, rgba(139, 92, 246, 0.05) 0%, transparent 30%);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Scrollbar Fina e Premium */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #52525b;
+  }
+}
+
+/* Utilitários Premium */
+@layer components {
+  /* Painéis estilo vidro */
+  .glass-panel {
+    @apply bg-zinc-900/60 backdrop-blur-md border border-white/5 shadow-xl rounded-2xl;
+  }
+  
+  /* Inputs modernos */
+  .input-premium {
+    @apply bg-black/40 border border-white/10 text-white rounded-lg focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 focus:outline-none transition-all duration-300;
+  }
+
+  /* Texto de cabeçalho pequeno */
+  .label-header {
+    @apply text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500;
+  }
+}
