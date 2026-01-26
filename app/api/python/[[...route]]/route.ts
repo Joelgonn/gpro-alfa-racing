@@ -43,11 +43,11 @@ const getCellAddr = (sheetId: number, colStr: string, rowNum: number) => {
 
 const safeVal = (val: any) => {
     if (val === null || val === undefined || val === "") return null;
-    if (typeof val === 'object' && val?.error) return null;
+    if (typeof val === 'object' && val?.error) return null; // Retorna null se for erro de fórmula
     if (typeof val === 'string') {
         const v = val.trim();
         if (v.toLowerCase() === "opt") return "Opt";
-        if (v.toLowerCase() === "best") return "Best"; // Tratamento para Estratégia
+        if (v.toLowerCase() === "best") return "Best";
         const num = Number(v.replace(',', '.'));
         return isNaN(num) ? v : num;
     }
@@ -55,7 +55,7 @@ const safeVal = (val: any) => {
     return val;
 };
 
-// --- MOTOR DE EXCEL ---
+// --- MOTOR DE EXCEL (ENGINE) ---
 async function getEngine() {
     if (hfInstance && sheetIdMap[CELLS.MAIN_SHEET] !== undefined) {
         return { hf: hfInstance, sheetIdMap };
@@ -93,7 +93,6 @@ async function getEngine() {
                     sheetData.push(cleanValues.slice(1));
                 });
 
-                // Correção Shared Formulas
                 worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
                     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
                         if (cell.type === ExcelJS.ValueType.Formula && cell.formulaType === ExcelJS.FormulaType.Shared) {
@@ -114,6 +113,17 @@ async function getEngine() {
             console.log("Construindo HyperFormula...");
             const hf = HyperFormula.buildFromSheets(sheetsContent, { licenseKey: 'gpl-v3' });
             hf.getSheetNames().forEach(name => { sheetIdMap[name] = hf.getSheetId(name)!; });
+            
+            // --- CORREÇÃO DO NAMED RANGE (SEM A FUNÇÃO isNamedExpression QUE CAUSA ERRO) ---
+            try {
+                // Apenas adicionamos. Se já existir internamente (raro no init), ele sobrescreve ou ignora.
+                // Isso conecta a referência "tyrediff" usada nas fórmulas ao intervalo na aba Tables
+                hf.addNamedExpression('tyrediff', '=Tables!$A$60:$D$69');
+                console.log("Named Range 'tyrediff' registrado com sucesso.");
+            } catch (err) {
+                console.error("Aviso: Falha ao registrar tyrediff (não crítico se já existir)", err);
+            }
+
             hfInstance = hf;
             console.log("Engine Pronto.");
             return { hf, sheetIdMap };
@@ -149,7 +159,7 @@ export async function GET(request: Request, context: any) {
 
         if (pathStr.includes('state')) {
             const setupSid = sheetIdMap['Setup&WS'];
-            const tfSid = sheetIdMap['Tyre&Fuel']; // Adicionado para ler desg pneu
+            const tfSid = sheetIdMap['Tyre&Fuel']; 
             
             const driverData: any = {};
             ["concentracao", "talento", "agressividade", "experiencia", "tecnica", "resistencia", "carisma", "motivacao", "reputacao", "peso", "idade", "energia"].forEach((k, i) => {
@@ -181,7 +191,6 @@ export async function GET(request: Request, context: any) {
                 r4_temp_max: safeVal(hf.getCellValue(getCellAddr(setupSid, 'T', 15))),
             };
 
-            // Options para recuperar estado na pagina strategy
             const raceOptions = {
                  avg_temp: safeVal(hf.getCellValue(getCellAddr(setupSid, 'R', 9))),
                  desgaste_pneu_percent: safeVal(hf.getCellValue(getCellAddr(tfSid, 'G', 3))),
@@ -223,7 +232,6 @@ export async function POST(request: Request, context: any) {
         const body = await request.json();
         const setupSid = sheetIdMap[CELLS.MAIN_SHEET];
 
-        // Helper de escrita
         const write = (sheetId: number, col: string, row: number, val: any) => {
              const finalVal = (val === "" || val === null) ? null : val;
              hf.setCellContents(getCellAddr(sheetId, col, row), [[finalVal]]);
@@ -285,7 +293,7 @@ export async function POST(request: Request, context: any) {
             return NextResponse.json({ sucesso: true, data: performanceResults });
         }
 
-        // --- 2. UPDATE SETUP WEATHER (Salvar Clima) ---
+        // --- 2. UPDATE SETUP WEATHER ---
         if (pathStr.includes('update_setup_weather')) {
             write(setupSid, 'R', 7, body.tempQ1);
             write(setupSid, 'R', 8, body.tempQ2);
@@ -294,7 +302,6 @@ export async function POST(request: Request, context: any) {
             write(setupSid, 'T', 8, body.weatherQ2);
             write(setupSid, 'T', 9, body.weatherRace);
             
-            // Stints Temps (S12-T15)
             write(setupSid, 'S', 12, body.r1_temp_min); write(setupSid, 'T', 12, body.r1_temp_max);
             write(setupSid, 'S', 13, body.r2_temp_min); write(setupSid, 'T', 13, body.r2_temp_max);
             write(setupSid, 'S', 14, body.r3_temp_min); write(setupSid, 'T', 14, body.r3_temp_max);
@@ -303,7 +310,7 @@ export async function POST(request: Request, context: any) {
             return NextResponse.json({ sucesso: true });
         }
 
-        // --- 3. CALCULATE SETUP (Cálculo Completo) ---
+        // --- 3. CALCULATE SETUP ---
         if (pathStr.includes('setup/calculate')) {
             if (body.pista && body.pista !== "Selecionar Pista") write(setupSid, 'R', 5, body.pista);
             
@@ -315,7 +322,6 @@ export async function POST(request: Request, context: any) {
             write(setupSid, 'T', 8, body.weatherQ2);
             write(setupSid, 'T', 9, body.weatherRace);
 
-            // Leitura Setup (AC6:AE11) - Índices 5 a 10
             const setupParts = ["asaDianteira", "asaTraseira", "motor", "freios", "cambio", "suspensao"];
             const wearResults: any[] = [];
             for (let r = 5; r <= 15; r++) {
@@ -350,34 +356,58 @@ export async function POST(request: Request, context: any) {
             return NextResponse.json({ sucesso: true, data: resultado });
         }
 
-        // --- 4. STRATEGY CALCULATE (INSERIDO AGORA) ---
+        // --- 4. STRATEGY CALCULATE ---
         if (pathStr.includes('strategy/calculate')) {
-            const tfSid = sheetIdMap['Tyre&Fuel']; // Identifica a aba Tyre&Fuel
+            const tfSid = sheetIdMap['Tyre&Fuel']; 
             
-            // A. INPUTS
-            if (body.pista) write(setupSid, 'R', 5, body.pista);
+            // A. INPUTS GERAIS
+            if (body.pista && body.pista !== "Selecionar Pista") {
+                write(setupSid, 'R', 5, body.pista);
+            }
             
             const ro = body.race_options || {};
-            write(tfSid, 'G', 3, ro.desgaste_pneu_percent);
+            
+            // Opções
+            write(tfSid, 'G', 3, Number(ro.desgaste_pneu_percent) || 0);
             write(tfSid, 'C', 3, ro.condicao);
-            write(tfSid, 'C', 4, ro.ct_valor);
-            write(tfSid, 'C', 5, ro.pneus_fornecedor);
+            write(tfSid, 'C', 4, Number(ro.ct_valor) || 0);
+            write(tfSid, 'C', 5, ro.pneus_fornecedor); 
             write(tfSid, 'C', 6, ro.tipo_pneu);
-            write(tfSid, 'C', 7, ro.pitstops_num);
-            if(ro.avg_temp) write(setupSid, 'R', 9, ro.avg_temp);
+            write(tfSid, 'C', 7, Number(ro.pitstops_num) || 0);
+            
+            // Temperatura
+            if(ro.avg_temp !== undefined && ro.avg_temp !== null && ro.avg_temp !== "") {
+                write(setupSid, 'R', 9, Number(ro.avg_temp));
+            }
 
+            // B. PILOTO E CARRO
+            if(body.driver) {
+                const dFields = ["concentracao", "talento", "agressividade", "experiencia", "tecnica", "resistencia", "carisma", "motivacao", "reputacao", "peso", "idade", "energia"];
+                const dVals = dFields.map(k => [Number(body.driver[k]) || 0]);
+                hf.setCellContents({ sheet: setupSid, col: 4, row: 5 }, dVals);
+            }
+            if(body.car) {
+                const cLvl = body.car.map((c: any) => [Number(c.lvl)||1]);
+                const cWear = body.car.map((c: any) => [Number(c.wear)||0]);
+                hf.setCellContents({ sheet: setupSid, col: 8, row: 5 }, cLvl);
+                hf.setCellContents({ sheet: setupSid, col: 9, row: 5 }, cWear);
+            }
+
+            // C. STINTS
             const ps = body.personal_stint_voltas || {};
             for (let i = 1; i <= 8; i++) {
-                const colChar = String.fromCharCode(70 + i); // G..N
-                write(tfSid, colChar, 21, ps[`stint${i}`]);
+                const colChar = String.fromCharCode(70 + i); 
+                const rawVal = ps[`stint${i}`];
+                const finalVal = (rawVal === "" || rawVal === null) ? null : Number(rawVal);
+                write(tfSid, colChar, 21, finalVal);
             }
 
             const bl = body.boost_laps || {};
-            write(tfSid, 'R', 20, bl.boost1?.volta);
-            write(tfSid, 'R', 21, bl.boost2?.volta);
-            write(tfSid, 'R', 22, bl.boost3?.volta);
+            write(tfSid, 'R', 20, bl.boost1?.volta ? Number(bl.boost1.volta) : null);
+            write(tfSid, 'R', 21, bl.boost2?.volta ? Number(bl.boost2.volta) : null);
+            write(tfSid, 'R', 22, bl.boost3?.volta ? Number(bl.boost3.volta) : null);
 
-            // B. OUTPUTS
+            // D. OUTPUTS
             const output: any = {
                 race_calculated_data: {
                     nivel_aderencia: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 24))),
@@ -386,7 +416,7 @@ export async function POST(request: Request, context: any) {
                     ultrapassagem: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 17))),
                     voltas: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 18))),
                     pit_io: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 19))),
-                    tcd_corrida: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 21))),
+                    tcd_corrida: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 21))), 
                 },
                 compound_details_outputs: {},
                 stints_predefined: {},
@@ -469,7 +499,6 @@ export async function POST(request: Request, context: any) {
                 write(setupSid, 'N', 7, Number(body.test_points.handling));
                 write(setupSid, 'N', 8, Number(body.test_points.accel));
             }
-            
             const oa = safeVal(hf.getCellValue(getCellAddr(setupSid, 'E', 5)));
             return NextResponse.json({ sucesso: true, oa });
         }

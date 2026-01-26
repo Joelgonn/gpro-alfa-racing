@@ -22,7 +22,14 @@ const TRACK_FLAGS: { [key: string]: string } = {
 };
 
 export default function StrategyPage() {
-  const { track, updateTrack, raceAvgTemp, tracksList, tyreSuppliers, updateWeather, updateDriver, updateCar } = useGame(); 
+  // ADICIONEI 'driver' e 'car' AQUI:
+  const { 
+    track, updateTrack, raceAvgTemp, tracksList, tyreSuppliers, 
+    updateWeather, 
+    driver, updateDriver, // <--- AQUI 
+    car, updateCar        // <--- AQUI
+  } = useGame(); 
+  
 
   const [inputs, setInputs] = useState<InputsState>({
     race_options: { desgaste_pneu_percent: 18, condicao: "Dry", pneus_fornecedor: "Pipirelli", tipo_pneu: "Medium", pitstops_num: 2, ct_valor: 0, avg_temp: 0 },
@@ -71,7 +78,7 @@ export default function StrategyPage() {
     loadState();
   }, [raceAvgTemp, updateTrack, updateWeather, updateDriver, updateCar]);
 
-  // --- 2. CALCULATE STRATEGY ---
+  // --- 2. CALCULATE STRATEGY (Atualizado) ---
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
     if (!currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
     setLoading(true);
@@ -82,6 +89,9 @@ export default function StrategyPage() {
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ 
             pista: currentTrack, 
+            // ADICIONADO: Enviar Piloto e Carro para garantir o cálculo do desgaste
+            driver: driver, 
+            car: car,
             ...currInputs 
         }) 
       });
@@ -93,7 +103,7 @@ export default function StrategyPage() {
     } finally { 
         setLoading(false); 
     }
-  }, [isSyncing]);
+  }, [isSyncing, driver, car]); // Adicione driver e car nas dependências
 
   useEffect(() => {
     if (!isSyncing) {
@@ -439,7 +449,7 @@ function SupplierCarousel({ value, options, onChange }: { value: string, options
                         className="flex flex-col items-center"
                     >
                         <img 
-                            src={`/tyres/${value?.toLowerCase().trim() === 'contimental' ? 'continental' : value?.toLowerCase().trim()}.gif`} 
+                            src={`/tyres/${value?.toLowerCase().trim() === 'contimental' ? 'contimental' : value?.toLowerCase().trim()}.gif`} 
                             alt={value} 
                             className="h-10 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]" 
                             onError={(e) => { e.currentTarget.style.display = 'none'; }} 
