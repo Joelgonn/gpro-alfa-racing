@@ -47,6 +47,7 @@ const safeVal = (val: any) => {
     if (typeof val === 'string') {
         const v = val.trim();
         if (v.toLowerCase() === "opt") return "Opt";
+        if (v.toLowerCase() === "best") return "Best"; // Tratamento para Estratégia
         const num = Number(v.replace(',', '.'));
         return isNaN(num) ? v : num;
     }
@@ -148,6 +149,8 @@ export async function GET(request: Request, context: any) {
 
         if (pathStr.includes('state')) {
             const setupSid = sheetIdMap['Setup&WS'];
+            const tfSid = sheetIdMap['Tyre&Fuel']; // Adicionado para ler desg pneu
+            
             const driverData: any = {};
             ["concentracao", "talento", "agressividade", "experiencia", "tecnica", "resistencia", "carisma", "motivacao", "reputacao", "peso", "idade", "energia"].forEach((k, i) => {
                 driverData[k] = safeVal(hf.getCellValue(getCellAddr(setupSid, 'E', 6 + i)));
@@ -178,7 +181,27 @@ export async function GET(request: Request, context: any) {
                 r4_temp_max: safeVal(hf.getCellValue(getCellAddr(setupSid, 'T', 15))),
             };
 
-            return NextResponse.json({ sucesso: true, data: { current_track: safeVal(hf.getCellValue(getCellAddr(setupSid, 'R', 5))), driver: driverData, car: carData, weather: weatherData } });
+            // Options para recuperar estado na pagina strategy
+            const raceOptions = {
+                 avg_temp: safeVal(hf.getCellValue(getCellAddr(setupSid, 'R', 9))),
+                 desgaste_pneu_percent: safeVal(hf.getCellValue(getCellAddr(tfSid, 'G', 3))),
+                 condicao: safeVal(hf.getCellValue(getCellAddr(tfSid, 'C', 3))),
+                 ct_valor: safeVal(hf.getCellValue(getCellAddr(tfSid, 'C', 4))),
+                 pneus_fornecedor: safeVal(hf.getCellValue(getCellAddr(tfSid, 'C', 5))),
+                 tipo_pneu: safeVal(hf.getCellValue(getCellAddr(tfSid, 'C', 6))),
+                 pitstops_num: safeVal(hf.getCellValue(getCellAddr(tfSid, 'C', 7))),
+            };
+
+            return NextResponse.json({ 
+                sucesso: true, 
+                data: { 
+                    current_track: safeVal(hf.getCellValue(getCellAddr(setupSid, 'R', 5))), 
+                    driver: driverData, 
+                    car: carData, 
+                    weather: weatherData,
+                    race_options: raceOptions
+                } 
+            });
         }
         return NextResponse.json({ sucesso: true });
     } catch(e: any) {
@@ -294,9 +317,6 @@ export async function POST(request: Request, context: any) {
 
             // Leitura Setup (AC6:AE11) - Índices 5 a 10
             const setupParts = ["asaDianteira", "asaTraseira", "motor", "freios", "cambio", "suspensao"];
-            const wearKeys = ["chassi", "motor", "asaDianteira", "asaTraseira", "assoalho", "laterais", "radiador", "cambio", "freios", "suspensao", "eletronicos"];
-            
-            // Leitura de Desgastes (J6:K16) - Índices 5 a 15
             const wearResults: any[] = [];
             for (let r = 5; r <= 15; r++) {
                  wearResults.push({
@@ -315,7 +335,6 @@ export async function POST(request: Request, context: any) {
                 };
             });
 
-            // Mapeamento manual dos desgastes para a estrutura do retorno
             resultado.chassi = { wear: wearResults[0] };
             resultado.motor.wear = wearResults[1];
             resultado.asaDianteira.wear = wearResults[2];
@@ -331,7 +350,108 @@ export async function POST(request: Request, context: any) {
             return NextResponse.json({ sucesso: true, data: resultado });
         }
 
-        // --- 4. UPDATE DRIVER CAR ---
+        // --- 4. STRATEGY CALCULATE (INSERIDO AGORA) ---
+        if (pathStr.includes('strategy/calculate')) {
+            const tfSid = sheetIdMap['Tyre&Fuel']; // Identifica a aba Tyre&Fuel
+            
+            // A. INPUTS
+            if (body.pista) write(setupSid, 'R', 5, body.pista);
+            
+            const ro = body.race_options || {};
+            write(tfSid, 'G', 3, ro.desgaste_pneu_percent);
+            write(tfSid, 'C', 3, ro.condicao);
+            write(tfSid, 'C', 4, ro.ct_valor);
+            write(tfSid, 'C', 5, ro.pneus_fornecedor);
+            write(tfSid, 'C', 6, ro.tipo_pneu);
+            write(tfSid, 'C', 7, ro.pitstops_num);
+            if(ro.avg_temp) write(setupSid, 'R', 9, ro.avg_temp);
+
+            const ps = body.personal_stint_voltas || {};
+            for (let i = 1; i <= 8; i++) {
+                const colChar = String.fromCharCode(70 + i); // G..N
+                write(tfSid, colChar, 21, ps[`stint${i}`]);
+            }
+
+            const bl = body.boost_laps || {};
+            write(tfSid, 'R', 20, bl.boost1?.volta);
+            write(tfSid, 'R', 21, bl.boost2?.volta);
+            write(tfSid, 'R', 22, bl.boost3?.volta);
+
+            // B. OUTPUTS
+            const output: any = {
+                race_calculated_data: {
+                    nivel_aderencia: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 24))),
+                    consumo_combustivel: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 22))),
+                    desgaste_pneu_str: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 23))),
+                    ultrapassagem: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 17))),
+                    voltas: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 18))),
+                    pit_io: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 19))),
+                    tcd_corrida: safeVal(hf.getCellValue(getCellAddr(tfSid, 'D', 21))),
+                },
+                compound_details_outputs: {},
+                stints_predefined: {},
+                stints_personal: {},
+                boost_laps_outputs: {},
+                boost_mini_stints_outputs: {}
+            };
+
+            const rowsComp: Record<string, number> = { "Extra Soft": 6, "Soft": 7, "Medium": 8, "Hard": 9 };
+            Object.entries(rowsComp).forEach(([comp, row]) => {
+                output.compound_details_outputs[comp] = {
+                    req_stops: safeVal(hf.getCellValue(getCellAddr(tfSid, 'G', row))),
+                    fuel_load: safeVal(hf.getCellValue(getCellAddr(tfSid, 'K', row))),
+                    tyre_wear: safeVal(hf.getCellValue(getCellAddr(tfSid, 'N', row))),
+                    total: safeVal(hf.getCellValue(getCellAddr(tfSid, 'O', row)))
+                };
+            });
+
+            const stintConfigs = [
+                { key: "stints_predefined", rowStart: 14 },
+                { key: "stints_personal", rowStart: 21 }
+            ];
+
+            stintConfigs.forEach(conf => {
+                const baseRow = conf.rowStart;
+                const rowsData = [
+                    { key: "voltas", offset: 0 },
+                    { key: "desg_final_pneu", offset: 1 },
+                    { key: "comb_necessario", offset: 2 },
+                    { key: "est_tempo_pit", offset: 3 },
+                    { key: "voltas_em_bad", offset: 4 }
+                ];
+                rowsData.forEach(rd => {
+                    const currentRow = baseRow + rd.offset;
+                    const rowObj: any = {};
+                    for(let j=1; j<=8; j++) {
+                        const colChar = String.fromCharCode(70 + j); 
+                        rowObj[`stint${j}`] = safeVal(hf.getCellValue(getCellAddr(tfSid, colChar, currentRow)));
+                    }
+                    rowObj["total"] = safeVal(hf.getCellValue(getCellAddr(tfSid, 'O', currentRow)));
+                    if (!output[conf.key]) output[conf.key] = {};
+                    output[conf.key][rd.key] = rowObj;
+                });
+            });
+
+            for(let i=1; i<=3; i++) {
+                const r = 19 + i;
+                output.boost_laps_outputs[`boost${i}`] = {
+                    stint: safeVal(hf.getCellValue(getCellAddr(tfSid, 'S', r))),
+                    voltas_list: safeVal(hf.getCellValue(getCellAddr(tfSid, 'T', r))),
+                };
+            }
+
+            for(let i=1; i<=8; i++) {
+                const colChar = String.fromCharCode(82 + i - 1);
+                output.boost_mini_stints_outputs[`stint${i}`] = {
+                    val1: safeVal(hf.getCellValue(getCellAddr(tfSid, colChar, 25))),
+                    val2: safeVal(hf.getCellValue(getCellAddr(tfSid, colChar, 24)))
+                };
+            }
+
+            return NextResponse.json({ sucesso: true, data: output });
+        }
+
+        // --- 5. UPDATE DRIVER CAR ---
         if (pathStr.includes('update_driver_car')) {
             if(body.driver) {
                 const dFields = ["concentracao", "talento", "agressividade", "experiencia", "tecnica", "resistencia", "carisma", "motivacao", "reputacao", "peso", "idade", "energia"];

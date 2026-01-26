@@ -4,7 +4,7 @@ import { useGame } from '@/app/context/GameContext';
 import { 
   Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin, 
   Sparkles, ChevronLeft, ChevronRight, Fuel, Wind, Grip, 
-  Database, Activity, TrendingUp
+  TrendingUp
 } from 'lucide-react'; 
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -36,12 +36,13 @@ export default function StrategyPage() {
   const [isSyncing, setIsSyncing] = useState(true); 
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto');
 
-  // --- 1. AJUSTE DE ROTA: STATE ---
+  // --- 1. LOAD STATE ---
   useEffect(() => {
     async function loadState() {
       try {
         const res = await fetch('/api/python?action=state');
         const json = await res.json();
+        
         if (json.sucesso && json.data) {
           const d = json.data;
           if (d.current_track) updateTrack(d.current_track);
@@ -49,35 +50,49 @@ export default function StrategyPage() {
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           
-          const excelTemp = Number(d.race_options.avg_temp);
+          const excelTemp = d.race_options?.avg_temp; 
           const initialTemp = (excelTemp && excelTemp !== 0) ? excelTemp : raceAvgTemp;
           
           setInputs(prev => ({
             ...prev,
-            race_options: { ...prev.race_options, ...d.race_options, avg_temp: initialTemp || 0 },
-            compound_options: { ...prev.compound_options, ...d.compound_options },
-            boost_laps: { ...prev.boost_laps, ...d.boost_laps },
-            personal_stint_voltas: { ...prev.personal_stint_voltas, ...d.personal_stint_voltas }
+            race_options: { 
+                ...prev.race_options, 
+                desgaste_pneu_percent: d.race_options?.desgaste_pneu_percent ?? prev.race_options.desgaste_pneu_percent,
+                avg_temp: Number(initialTemp) || 0 
+            },
           }));
         }
-      } catch (e) { console.error(e); } finally { setIsSyncing(false); }
+      } catch (e) { 
+          console.error("Erro ao carregar estado:", e); 
+      } finally { 
+          setIsSyncing(false); 
+      }
     }
     loadState();
   }, [raceAvgTemp, updateTrack, updateWeather, updateDriver, updateCar]);
 
-  // --- 2. AJUSTE DE ROTA: CALCULATE ---
+  // --- 2. CALCULATE STRATEGY ---
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
     if (!currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
     setLoading(true);
+    
     try {
       const res = await fetch('/api/python?endpoint=strategy/calculate', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ pista: currentTrack, ...currInputs }) 
+        body: JSON.stringify({ 
+            pista: currentTrack, 
+            ...currInputs 
+        }) 
       });
+      
       const data = await res.json();
       if (data.sucesso) setOutputs(data.data);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e) { 
+        console.error("Erro ao calcular estratégia:", e); 
+    } finally { 
+        setLoading(false); 
+    }
   }, [isSyncing]);
 
   useEffect(() => {
@@ -97,6 +112,7 @@ export default function StrategyPage() {
   };
 
   const fmt = (v: any, d=1, s='') => {
+    if (typeof v === 'object' && v !== null) return "-";
     if (v === null || v === undefined || v === "" || v === "-") return "-";
     const n = Number(typeof v === 'string' ? v.replace(',', '.') : v);
     if (isNaN(n)) return v;
@@ -109,7 +125,7 @@ export default function StrategyPage() {
             <div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full"></div>
             <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Engineering_Sync</span>
+        <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando_Engenharia</span>
     </div>
   );
 
@@ -128,11 +144,11 @@ export default function StrategyPage() {
             <TrendingUp size={30} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-black tracking-tighter uppercase text-white">Strategy_Core_Engine</h1>
+            <h1 className="text-xl font-black tracking-tighter uppercase text-white">Núcleo_Estratégico</h1>
             <div className="flex items-center gap-3 mt-1">
                 <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[9px] font-bold text-emerald-500 uppercase">Live_Calculus</span>
+                    <span className="text-[9px] font-bold text-emerald-500 uppercase">Cálculo_Ativo</span>
                 </div>
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">v6.2.0</span>
             </div>
@@ -141,7 +157,7 @@ export default function StrategyPage() {
 
         <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col gap-2 min-w-[320px]">
           <label className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-2 tracking-widest">
-            <MapPin size={12} className="text-indigo-500" /> Active_Circuit_Selection
+            <MapPin size={12} className="text-indigo-500" /> Seleção_Circuito_Ativo
           </label>
           <div className="relative">
             <select 
@@ -149,11 +165,11 @@ export default function StrategyPage() {
                 onChange={(e) => updateTrack(e.target.value)} 
                 className="w-full h-10 bg-transparent text-white font-black text-xs outline-none appearance-none cursor-pointer"
             >
-              <option value="Selecionar Pista" className="bg-slate-900">-- CHOOSE CIRCUIT --</option>
+              <option value="Selecionar Pista" className="bg-slate-900">-- SELECIONAR PISTA --</option>
               {tracksList.map(t => <option key={t} value={t} className="bg-slate-900">{t.toUpperCase()}</option>)}
             </select>
             <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-                {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} className="w-5" /> : "🏁"}
+                {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} className="w-5" alt="Bandeira" /> : "🏁"}
             </div>
             <div className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-500"><Grip size={14} /></div>
           </div>
@@ -166,35 +182,35 @@ export default function StrategyPage() {
         <div className="xl:col-span-4 space-y-8">
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
             <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
-                <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Settings size={14} className="text-indigo-400"/> Race_Parameters</h3>
+                <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Settings size={14} className="text-indigo-400"/> Parâmetros_Corrida</h3>
                 {loading && <Loader2 className="animate-spin text-indigo-500" size={14} />}
             </div>
             <div className="p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">
                   {["Dry", "Wet"].map(c => (
-                    <button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Dry_Track' : '🌧️ Wet_Track'}</button>
+                    <button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista_Seca' : '🌧️ Pista_Molhada'}</button>
                   ))}
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4">
                     <div className="bg-black/40 p-3 rounded-lg border border-white/5">
-                        <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Avg_Temp</label>
+                        <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp_Média</label>
                         <div className="flex items-center justify-between">
                             <input type="number" value={inputs.race_options.avg_temp} onChange={(e) => handleInput('race_options', 'avg_temp', Number(e.target.value))} className="bg-transparent font-black text-sm text-white outline-none w-12" />
                             <span className="text-[10px] text-indigo-500 font-bold">°C</span>
                         </div>
                     </div>
-                    <ConfigInput label="CT_Risk" value={inputs.race_options.ct_valor} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
-                    <ConfigInput label="Stops" value={inputs.race_options.pitstops_num} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
+                    <ConfigInput label="Risco_CT" value={inputs.race_options.ct_valor} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
+                    <ConfigInput label="Paradas" value={inputs.race_options.pitstops_num} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
                 </div>
 
                 <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Tyre_Supplier</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Fornecedor_Pneus</label>
                     <SupplierCarousel options={tyreSuppliers} value={inputs.race_options.pneus_fornecedor} onChange={(val: string) => handleInput('race_options', 'pneus_fornecedor', val)} />
                 </div>
 
                 <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Base_Compound_Selection</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Seleção_Composto_Base</label>
                     <div className="flex justify-between items-center gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
                         {["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(p => {
                             const isSelected = inputs.race_options.tipo_pneu === p;
@@ -211,7 +227,7 @@ export default function StrategyPage() {
 
                 <div className="bg-black/40 p-4 rounded-xl border border-white/5">
                     <div className="flex justify-between mb-3">
-                        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Safety_Margin (Wear)</label>
+                        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Margem_Segurança (Desgaste)</label>
                         <span className="text-xs font-black text-indigo-400">{inputs.race_options.desgaste_pneu_percent}%</span>
                     </div>
                     <input type="range" min="0" max="100" value={inputs.race_options.desgaste_pneu_percent} onChange={e => handleInput('race_options', 'desgaste_pneu_percent', Number(e.target.value))} className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
@@ -221,16 +237,16 @@ export default function StrategyPage() {
 
           {/* BOOST SECTION */}
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
-            <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Boost_Activation_Logs</h3></div>
+            <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Logs_Ativação_Boost</h3></div>
             <div className="p-6 space-y-4">
                 {[1, 2, 3].map(i => {
                     const bKey = `boost${i}` as keyof BoostLapsInput;
                     return (
                         <div key={i} className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-white/5 group hover:border-amber-500/30 transition-all">
-                            <span className="text-[9px] font-black text-slate-500 uppercase w-12 group-hover:text-amber-500">Lvl_{i}</span>
-                            <input type="number" placeholder="Lap" value={inputs.boost_laps[bKey]?.volta ?? ''} onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} className="w-14 bg-black/60 border border-white/10 rounded p-1.5 text-center font-black text-xs text-white focus:border-amber-500 outline-none" />
+                            <span className="text-[9px] font-black text-slate-500 uppercase w-12 group-hover:text-amber-500">Nível_{i}</span>
+                            <input type="number" placeholder="Volta" value={inputs.boost_laps[bKey]?.volta ?? ''} onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} className="w-14 bg-black/60 border border-white/10 rounded p-1.5 text-center font-black text-xs text-white focus:border-amber-500 outline-none" />
                             <div className="flex flex-col items-end w-28 leading-tight">
-                                <span className="text-[7px] text-slate-600 font-black uppercase">Stint_Sequence</span>
+                                <span className="text-[7px] text-slate-600 font-black uppercase">Sequência_Stints</span>
                                 <span className="text-[10px] text-amber-500 font-black tracking-tighter">{outputs?.boost_laps_outputs?.[bKey]?.stint || '---'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '---'}</span>
                             </div>
                         </div>
@@ -239,7 +255,7 @@ export default function StrategyPage() {
                 <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
                   {[1, 2, 3, 4].map(i => (
                     <div key={i} className="bg-black/40 p-2 rounded border border-white/5 text-center">
-                      <span className="text-[7px] text-slate-600 font-black block uppercase mb-1">S{i}_Fuel</span>
+                      <span className="text-[7px] text-slate-600 font-black block uppercase mb-1">S{i}_Comb</span>
                       <div className="text-white font-black text-[10px] leading-none mb-1">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val1 || '--'}</div>
                       <div className="text-amber-500 font-black text-[8px]">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val2 || '--'} B</div>
                     </div>
@@ -253,11 +269,11 @@ export default function StrategyPage() {
         <div className="xl:col-span-8 space-y-8">
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 {[
-                    { l: "Laps", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
-                    { l: "Fuel_Cons", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
-                    { l: "Wear_Index", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
-                    { l: "Pit_In_Out", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
-                    { l: "TCD_Race", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <Grip size={14}/> },
+                    { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
+                    { l: "Cons_Comb", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
+                    { l: "Índice_Desg", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
+                    { l: "Tempo_Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
+                    { l: "TCD_Corrida", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <Grip size={14}/> },
                 ].map((item, idx) => (
                     <div key={idx} className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm hover:border-indigo-500/40 transition-all group">
                         <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5 group-hover:text-indigo-400">
@@ -270,18 +286,18 @@ export default function StrategyPage() {
 
             {/* PERFORMANCE TABLE */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
-                <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Multi_Compound_Performance_Analysis</h3></div>
+                <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise_Performance_Multi-Compostos</h3></div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                         <thead>
                             <tr className="bg-black/20 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-white/5">
-                                <th className="p-4 text-left">Compound_ID</th>
-                                <th className="p-4 text-center">Req_Stops</th>
-                                <th className="p-4 text-center bg-white/5">Force_Pits</th>
-                                <th className="p-4 text-center bg-white/5">Force_CT</th>
-                                <th className="p-4 text-center">Fuel_Load</th>
-                                <th className="p-4 text-center">Est_Wear</th>
-                                <th className="p-4 text-center">Gap_Index</th>
+                                <th className="p-4 text-left">ID_Composto</th>
+                                <th className="p-4 text-center">Paradas_Req</th>
+                                <th className="p-4 text-center bg-white/5">Forçar_Pits</th>
+                                <th className="p-4 text-center bg-white/5">Forçar_CT</th>
+                                <th className="p-4 text-center">Carga_Comb</th>
+                                <th className="p-4 text-center">Desg_Est</th>
+                                <th className="p-4 text-center">Índice_Gap</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.03]">
@@ -302,7 +318,7 @@ export default function StrategyPage() {
                                         <td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, 'L')}</td>
                                         <td className="p-4 text-center text-slate-500 font-bold">{fmt(d?.tyre_wear, 1, '%')}</td>
                                         <td className="p-4 text-center font-black">
-                                            {isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 text-[9px]">BEST_LAP</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}
+                                            {isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 text-[9px]">MELHOR_VOLTA</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}
                                         </td>
                                     </tr>
                                 )
@@ -315,21 +331,21 @@ export default function StrategyPage() {
             {/* STINT SYSTEM */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-2 flex items-center gap-2 border-b border-white/5 px-4">
-                    <button onClick={() => setActiveTab('auto')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><Sparkles size={14}/> Optimized_Algo</button>
-                    <button onClick={() => setActiveTab('manual')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><HardHat size={14}/> Manual_Override</button>
+                    <button onClick={() => setActiveTab('auto')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><Sparkles size={14}/> Algo_Otimizado</button>
+                    <button onClick={() => setActiveTab('manual')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><HardHat size={14}/> Ajuste_Manual</button>
                 </div>
                 <div className="overflow-x-auto p-4">
                     <table className="w-full text-[10px] border-separate border-spacing-y-1">
                         <thead>
                             <tr className="text-slate-600 uppercase font-black text-[8px] tracking-widest">
-                                <th className="text-left p-3 w-32">Metric_Label</th>
+                                <th className="text-left p-3 w-32">Métrica</th>
                                 {Array.from({length:8}).map((_,i)=><th key={i} className="p-2 text-center">S_{i+1}</th>)}
                                 <th className="p-3 text-right bg-white/5 rounded-t-lg">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr className="bg-white/5">
-                                <td className="p-4 font-black text-indigo-400 uppercase">Lap_Count</td>
+                                <td className="p-4 font-black text-indigo-400 uppercase">Contagem_Voltas</td>
                                 {Array.from({length:8}).map((_,i) => {
                                     const st = `stint${i+1}`;
                                     return (
@@ -345,10 +361,10 @@ export default function StrategyPage() {
                                 <td className="p-4 text-right font-black text-white bg-indigo-500/20">{fmt(currentStintData?.voltas?.total, 0)}</td>
                             </tr>
                             {[
-                                {k: 'desg_final_pneu', l: 'End_Wear', u: '%', c: 'text-slate-400'},
-                                {k: 'comb_necessario', l: 'Fuel_Req', u: 'L', c: 'text-indigo-400'},
-                                {k: 'est_tempo_pit', l: 'Pit_Duration', u: 's', c: 'text-slate-500'},
-                                {k: 'voltas_em_bad', l: 'Bad_Laps', u: '', c: 'text-rose-500'} 
+                                {k: 'desg_final_pneu', l: 'Desgaste_Final', u: '%', c: 'text-slate-400'},
+                                {k: 'comb_necessario', l: 'Comb_Req', u: 'L', c: 'text-indigo-400'},
+                                {k: 'est_tempo_pit', l: 'Duração_Pit', u: 's', c: 'text-slate-500'},
+                                {k: 'voltas_em_bad', l: 'Voltas_Ruins', u: '', c: 'text-rose-500'} 
                             ].map(row => (
                                 <tr key={row.k} className="hover:bg-white/[0.01]">
                                     <td className="p-4 font-bold text-slate-500 uppercase">{row.l}</td>
@@ -376,7 +392,7 @@ export default function StrategyPage() {
                 className="fixed bottom-8 right-8 bg-indigo-600 text-white px-6 py-4 rounded-2xl flex items-center gap-4 font-black shadow-[0_10px_40px_rgba(79,70,229,0.5)] z-50 border border-indigo-400"
             >
                 <Loader2 className="animate-spin" size={20} />
-                <span className="text-[11px] tracking-widest uppercase">Analyzing_Data...</span>
+                <span className="text-[11px] tracking-widest uppercase">Calculando_Estratégia...</span>
             </motion.div>
         )}
       </AnimatePresence>
@@ -395,30 +411,52 @@ function ConfigInput({ label, value, onChange }: any) {
 }
 
 function SupplierCarousel({ value, options, onChange }: { value: string, options: string[], onChange: (v: string) => void }) {
-    const currentIndex = options.indexOf(value) !== -1 ? options.indexOf(value) : 0;
-    const handleNext = () => onChange(options[(currentIndex + 1) % options.length]);
-    const handlePrev = () => onChange(options[(currentIndex - 1 + options.length) % options.length]);
+    // LISTA DE SEGURANÇA
+    const DEFAULT_SUPPLIERS = ["Pipirelli", "Avonn", "Yokomama", "Dunnolop", "Contimental", "Badyear", "Hancock", "Michelini", "Bridgerock"];
+    const activeOptions = (options && options.length > 0) ? options : DEFAULT_SUPPLIERS;
+    const currentIndex = activeOptions.indexOf(value) !== -1 ? activeOptions.indexOf(value) : 0;
+
+    const handleNext = () => onChange(activeOptions[(currentIndex + 1) % activeOptions.length]);
+    const handlePrev = () => onChange(activeOptions[(currentIndex - 1 + activeOptions.length) % activeOptions.length]);
+
     return (
-        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 flex items-center justify-between group hover:border-indigo-500/50 transition-all shadow-inner">
-            <button onClick={handlePrev} className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all"><ChevronLeft size={18} /></button>
+        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 flex items-center justify-between group hover:border-indigo-500/50 transition-all shadow-inner select-none">
+            <button 
+                onClick={(e) => { e.preventDefault(); handlePrev(); }} 
+                className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all active:scale-95"
+            >
+                <ChevronLeft size={18} />
+            </button>
+            
             <div className="flex-1 flex flex-col items-center justify-center h-16 relative overflow-hidden">
                 <AnimatePresence mode="wait">
                     <motion.div 
                         key={value}
-                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                        initial={{ opacity: 0, x: 20 }} 
+                        animate={{ opacity: 1, x: 0 }} 
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.2 }}
                         className="flex flex-col items-center"
                     >
                         <img 
-                            src={`/tyres/${value.toLowerCase().trim() === 'contimental' ? 'continental' : value.toLowerCase().trim()}.gif`} 
+                            src={`/tyres/${value?.toLowerCase().trim() === 'contimental' ? 'continental' : value?.toLowerCase().trim()}.gif`} 
                             alt={value} 
                             className="h-10 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]" 
                             onError={(e) => { e.currentTarget.style.display = 'none'; }} 
                         />
-                        <span className="text-[10px] font-black uppercase text-white tracking-[0.2em] mt-2">{value}</span>
+                        <span className="text-[10px] font-black uppercase text-white tracking-[0.2em] mt-2 text-center">
+                            {value}
+                        </span>
                     </motion.div>
                 </AnimatePresence>
             </div>
-            <button onClick={handleNext} className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all"><ChevronRight size={18} /></button>
+
+            <button 
+                onClick={(e) => { e.preventDefault(); handleNext(); }} 
+                className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all active:scale-95"
+            >
+                <ChevronRight size={18} />
+            </button>
         </div>
     )
 }
