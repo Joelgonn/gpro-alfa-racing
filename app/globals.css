@@ -68,3 +68,15 @@
     @apply text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500;
   }
 }
+
+/* Remove setas de input number (Chrome, Safari, Edge, Opera) */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Remove setas de input number (Firefox) */
+input[type=number] {
+  -moz-appearance: textfield;
+}

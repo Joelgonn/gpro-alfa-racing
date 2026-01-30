@@ -1,27 +1,160 @@
 'use client';
-import { ChangeEvent, useEffect, useState, useCallback } from 'react';
+import { ChangeEvent, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useGame } from '../context/GameContext'; 
 import { 
   Settings, User, Car, Zap, Activity, Trophy, MapPin, 
-  RefreshCw, Loader2, ChevronDown, ShieldCheck, Gauge, Cpu 
+  RefreshCw, Loader2, ChevronDown, ShieldCheck, Gauge, Cpu, Search, X 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- TIPAGEM ---
-type DriverKeys = 'concentracao' | 'talento' | 'agressividade' | 'experiencia' | 'tecnica' | 'resistencia' | 'carisma' | 'motivacao' | 'reputacao' | 'peso' | 'idade' | 'energia' | 'total';
-
+// --- 1. MAPEAMENTO EXPANDIDO DE BANDEIRAS ---
+// Certifique-se de ter os arquivos .png (br.png, gb.png, etc) na pasta /public/flags/
 const TRACK_FLAGS: { [key: string]: string } = {
-  "A1-Ring": "at", "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Estoril": "pt", "Fuji": "jp", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "it", "Interlagos": "br", "Istanbul": "tr", "Monaco": "mc", "Montreal": "ca", "Monza": "it", "Sakhir": "bh", "Silverstone": "gb", "Spa": "be", "Suzuka": "jp", "Yas Marina": "ae", "Zandvoort": "nl", "Jeddah": "sa", "Miami": "us", "Las Vegas": "us"
+  // A
+  "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
+  // B
+  "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
+  // C-D
+  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", 
+  // E-F
+  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
+  // G
+  "Grobnik": "hr",
+  // H
+  "Hockenheim": "de", "Hungaroring": "hu",
+  // I
+  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in",
+  // J-K
+  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
+  // L
+  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
+  // M
+  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
+  // N-O
+  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
+  // P
+  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
+  // R
+  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
+  // S
+  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
+  // T-V
+  "Valencia": "es", "Vallelunga": "it",
+  // Y-Z
+  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
 const MOCK_PERFORMANCE_DATA = {
     power: { part: 0, test: 0, carro: 0, pista: 0 },
     handling: { part: 0, test: 0, carro: 0, pista: 0 },
     accel: { part: 0, test: 0, carro: 0, pista: 0 },
-    // Garanta que zs tem as chaves certas para não quebrar a tela
     zs: { wings: 0, motor: 0, brakes: 0, gear: 0, susp: 0 } 
 };
 
+// --- COMPONENTE DE SELEÇÃO CUSTOMIZADO ---
+function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Fecha ao clicar fora
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef]);
+
+    const filteredTracks = useMemo(() => {
+        return tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase()));
+    }, [tracksList, search]);
+
+    return (
+        <div className="relative z-50" ref={dropdownRef}>
+            {/* Botão Gatilho */}
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-3 text-2xl text-white font-black tracking-tighter hover:text-indigo-400 transition-colors outline-none group"
+            >
+                {currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : "SELECIONAR PISTA"}
+                <ChevronDown className={`transition-transform duration-300 text-slate-500 group-hover:text-indigo-400 ${isOpen ? 'rotate-180' : ''}`} size={20} />
+            </button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        className="absolute top-full left-0 mt-2 w-[300px] bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl"
+                    >
+                        {/* Barra de Busca */}
+                        <div className="p-3 border-b border-white/5 bg-white/[0.02]">
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                                <input 
+                                    autoFocus
+                                    type="text" 
+                                    placeholder="Buscar pista..." 
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                                {search && (
+                                    <button onClick={()=>setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                                        <X size={12} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Lista de Opções */}
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                            {filteredTracks.length > 0 ? (
+                                filteredTracks.map((track) => (
+                                    <button
+                                        key={track}
+                                        onClick={() => {
+                                            onSelect(track);
+                                            setIsOpen(false);
+                                            setSearch("");
+                                        }}
+                                        className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {TRACK_FLAGS[track] ? (
+                                                <img 
+                                                    src={`/flags/${TRACK_FLAGS[track]}.png`} 
+                                                    alt={track} 
+                                                    className="w-5 h-3 object-cover rounded shadow-sm opacity-70 group-hover:opacity-100" 
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none'; // Esconde se der erro
+                                                    }}
+                                                />
+                                            ) : <div className="w-5 h-3 bg-white/10 rounded"></div>}
+                                            {track}
+                                        </div>
+                                        {currentTrack === track && <ShieldCheck size={12} />}
+                                    </button>
+                                ))
+                            ) : (
+                                <div className="p-4 text-center text-[10px] text-slate-600 font-bold uppercase">
+                                    Nenhuma pista encontrada
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+// --- MAIN COMPONENT ---
 export default function DashboardHome() {
   const { driver, car, track, updateDriver, updateCar, updateTrack } = useGame();
   
@@ -32,7 +165,7 @@ export default function DashboardHome() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
 
-  // --- 1. HIDRATAÇÃO (PORTUGUÊS) ---
+  // --- HIDRATAÇÃO ---
   useEffect(() => {
     async function hydrate() {
         try {
@@ -60,7 +193,7 @@ export default function DashboardHome() {
     hydrate();
   }, []);
 
-  // --- 2. PERSISTÊNCIA ---
+  // --- PERSISTÊNCIA ---
   const persistToExcel = useCallback(async () => {
     if (!initialLoaded) return;
     setIsSyncing(true);
@@ -82,22 +215,14 @@ export default function DashboardHome() {
     return () => clearTimeout(timer);
   }, [driver, car, testPoints, persistToExcel, initialLoaded]);
 
-  // --- 3. PERFORMANCE FETCH (ATUALIZADO PARA O NOVO BACKEND) ---
+  // --- PERFORMANCE CALC ---
   const fetchPerformance = useCallback(async () => {
-    // Só calcula se tiver pista selecionada
     if (!track || track === "Selecionar Pista") return;
-    
     setIsPerformanceLoading(true);
     
-    // PREPARA O PAYLOAD ACHATADO (Igual o backend espera)
-    // O backend lê: body.chassi_lvl, body.test_power, body.concentracao, etc.
     const payload = {
         pista: track,
-        
-        // Espalha dados do piloto (concentracao, talento...)
         ...driver, 
-        
-        // Mapeia o Array do Carro para campos individuais
         chassi_lvl: car[0].lvl, chassi_wear: car[0].wear,
         motor_lvl: car[1].lvl, motor_wear: car[1].wear,
         asaDianteira_lvl: car[2].lvl, asaDianteira_wear: car[2].wear,
@@ -109,31 +234,18 @@ export default function DashboardHome() {
         freios_lvl: car[8].lvl, freios_wear: car[8].wear,
         suspensao_lvl: car[9].lvl, suspensao_wear: car[9].wear,
         eletronicos_lvl: car[10].lvl, eletronicos_wear: car[10].wear,
-        
-        // Mapeia os Pontos de Teste
-        test_power: testPoints.power,
-        test_handling: testPoints.handling,
-        test_accel: testPoints.accel
+        test_power: testPoints.power, test_handling: testPoints.handling, test_accel: testPoints.accel
     };
 
     try {
-        // AQUI ESTÁ A MUDANÇA PRINCIPAL DA ROTA:
         const res = await fetch('/api/python?endpoint=performance', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(payload) 
         });
-        
         const data = await res.json();
-        
-        if (data.sucesso && data.data) {
-            setPerformanceData(data.data);
-        }
-    } catch (e) { 
-        console.error("Erro calculando performance:", e); 
-    } finally { 
-        setIsPerformanceLoading(false); 
-    }
+        if (data.sucesso && data.data) setPerformanceData(data.data);
+    } catch (e) { console.error(e); } finally { setIsPerformanceLoading(false); }
   }, [track, driver, car, testPoints]);
 
   useEffect(() => {
@@ -143,23 +255,17 @@ export default function DashboardHome() {
     }
   }, [track, fetchPerformance, initialLoaded]);
 
-  if (!initialLoaded) return (
-    <div className="flex h-screen items-center justify-center bg-[#050507]">
-        <div className="flex flex-col items-center gap-6">
-            <div className="w-20 h-20 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-            <p className="font-mono text-[10px] text-indigo-400 uppercase tracking-[0.4em] animate-pulse">Iniciando_Sistemas...</p>
-        </div>
-    </div>
-  );
+  if (!initialLoaded) return <div className="flex h-screen items-center justify-center bg-[#050507] text-indigo-500 animate-pulse font-mono text-xs">CARREGANDO...</div>;
 
   return (
     <div className="p-6 space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
       
       {/* HEADER BAR: SELEÇÃO DE PISTA */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
             <div className="flex items-center gap-8 w-full md:w-auto">
-                <div className="relative group">
+                {/* Bandeira Grande */}
+                <div className="relative group shrink-0">
                     <div className="absolute -inset-2 bg-indigo-500/20 blur-xl rounded-full group-hover:bg-indigo-500/40 transition-all"></div>
                     <div className="w-20 h-12 bg-zinc-900 border border-white/10 rounded flex items-center justify-center overflow-hidden relative z-10">
                         {track && TRACK_FLAGS[track] ? (
@@ -167,21 +273,17 @@ export default function DashboardHome() {
                         ) : <span className="text-xl">🏁</span>}
                     </div>
                 </div>
+                
+                {/* Seletor Moderno */}
                 <div>
                     <h2 className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
                         <MapPin size={10} className="text-indigo-400"/> Circuito_Sessão_Atual
                     </h2>
-                    <div className="relative flex items-center">
-                        <select 
-                            value={track} 
-                            onChange={(e) => updateTrack(e.target.value)}
-                            className="bg-transparent text-2xl text-white font-black tracking-tighter outline-none cursor-pointer hover:text-indigo-400 transition-colors appearance-none pr-8"
-                        >
-                            <option value="Selecionar Pista" className="bg-slate-900">SELECIONAR_PISTA</option>
-                            {tracksList.map((t, i) => <option key={i} value={t} className="bg-slate-900">{t.toUpperCase()}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-0 pointer-events-none text-slate-600" size={18} />
-                    </div>
+                    <TrackSelector 
+                        currentTrack={track} 
+                        tracksList={tracksList} 
+                        onSelect={updateTrack} 
+                    />
                 </div>
             </div>
             
@@ -197,7 +299,7 @@ export default function DashboardHome() {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 relative z-0">
         
         {/* COLUNA 1: INFO GERENTE */}
         <div className="xl:col-span-3 space-y-6">
@@ -205,7 +307,7 @@ export default function DashboardHome() {
                 <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/5">
                     <div className="flex items-center gap-3">
                         <ShieldCheck size={16} className="text-indigo-400"/>
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Perfil_Gerente</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Perfil do Gerente</h3>
                     </div>
                     <div className="p-1 bg-indigo-500/10 rounded border border-indigo-500/20 text-[8px] font-black text-indigo-400 uppercase">Classe_A</div>
                 </div>
@@ -231,7 +333,7 @@ export default function DashboardHome() {
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-3">
                     <Cpu size={18} className="text-indigo-400"/>
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Telemetria_Piloto</h3>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Habilidades do Piloto</h3>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-[8px] font-black text-slate-500 uppercase">Pontuação_OA</span>
@@ -245,13 +347,13 @@ export default function DashboardHome() {
                     <span className="flex items-center gap-2"><Zap size={12} className="text-amber-500 animate-pulse"/> Energia_Atual</span>
                     <span className="text-white">{driver.energia}%</span>
                 </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden flex relative">
+                <div className="h-4 bg-white/5 rounded-full overflow-hidden flex relative">
                     <motion.div initial={{ width: 0 }} animate={{ width: `${driver.energia}%` }} transition={{ duration: 1 }} className="h-full bg-gradient-to-r from-indigo-600 to-cyan-500 shadow-[0_0_15px_#6366f1]" />
-                    <input type="number" value={driver.energia} onChange={(e)=>updateDriver('energia', Number(e.target.value))} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    <input type="number" min={0} max={100} value={driver.energia} onChange={(e)=>updateDriver('energia', Math.min(100, Math.max(0, Number(e.target.value))))} className="absolute inset-0 opacity-0 cursor-pointer" />
                 </div>
             </div>
 
-            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
                 {['concentracao', 'talento', 'agressividade', 'experiencia', 'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao'].map((skill) => (
                     <TelemetryInput key={skill} label={skill} value={(driver as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e:any)=>updateDriver(skill as any, Number(e.target.value))} />
                 ))}
@@ -274,48 +376,49 @@ export default function DashboardHome() {
 
         {/* COLUNA 3: CARRO & PERFORMANCE */}
         <div className="xl:col-span-4 space-y-6">
-            <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden flex flex-col max-h-[450px]">
+            <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden flex flex-col">
                 <div className="bg-white/5 p-4 border-b border-white/5 flex justify-between items-center">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2"><Car size={14} className="text-indigo-400"/> Status_Componentes</h3>
-                    <span className="text-[8px] font-black text-slate-500">LVL / WEAR</span>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2"><Car size={14} className="text-indigo-400"/> Status do Carro</h3>
+                    <div className="flex gap-4 pr-2">
+                        <span className="text-[8px] font-black text-slate-500 w-12 text-center">NÍVEL</span>
+                        <span className="text-[8px] font-black text-slate-500 w-12 text-center">DESG</span>
+                    </div>
                 </div>
-                <div className="overflow-y-auto custom-scrollbar p-2">
-                    <table className="w-full">
-                        <tbody className="divide-y divide-white/5">
-                            {car.map((part, idx) => (
-                                <CarRow key={idx} part={part} 
-                                    onLvl={(e:any)=>updateCar(idx, 'lvl', Number(e.target.value))}
-                                    onWear={(e:any)=>updateCar(idx, 'wear', Number(e.target.value))}
-                                />
-                            ))}
-                        </tbody>
-                    </table>
+                <div className="overflow-y-auto custom-scrollbar p-4">
+                    <div className="space-y-2">
+                        {car.map((part, idx) => (
+                            <CarRow key={idx} part={part} 
+                                onLvl={(val: number)=>updateCar(idx, 'lvl', val)}
+                                onWear={(val: number)=>updateCar(idx, 'wear', val)}
+                            />
+                        ))}
+                    </div>
                 </div>
             </section>
 
             <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-4">
                     <Activity size={16} className="text-indigo-400"/>
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Análise_Delta_Setup</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Análise Carro x Pista</h3>
                 </div>
                 <div className="space-y-8">
                     <PerformanceMetric 
                         label="Power" 
                         data={performanceData.power} 
                         test={testPoints.power} 
-                        onTest={(v: number) => setTestPoints(p => ({...p, power: v}))} // Adicionado : number
+                        onTest={(v: number) => setTestPoints(p => ({...p, power: v}))}
                     />
                     <PerformanceMetric 
                         label="Handling" 
                         data={performanceData.handling} 
                         test={testPoints.handling} 
-                        onTest={(v: number) => setTestPoints(p => ({...p, handling: v}))} // Adicionado : number
+                        onTest={(v: number) => setTestPoints(p => ({...p, handling: v}))}
                     />
                     <PerformanceMetric 
                         label="Accel" 
                         data={performanceData.accel} 
                         test={testPoints.accel} 
-                        onTest={(v: number) => setTestPoints(p => ({...p, accel: v}))} // Adicionado : number
+                        onTest={(v: number) => setTestPoints(p => ({...p, accel: v}))}
                     />
                 </div>
             </section>
@@ -325,7 +428,7 @@ export default function DashboardHome() {
   );
 }
 
-// --- SUBCOMPONENTES ---
+// --- SUBCOMPONENTES AUXILIARES ---
 
 function DetailRow({ label, value, color = "text-slate-300" }: any) {
     return (
@@ -338,15 +441,48 @@ function DetailRow({ label, value, color = "text-slate-300" }: any) {
 
 function TelemetryInput({ label, value, max, onChange, isSmall }: any) {
     const pct = Math.min(100, (value / max) * 100);
+    
     return (
-        <div className={`space-y-1.5 group ${isSmall ? 'flex-1' : ''}`}>
+        <div className={`space-y-2 group ${isSmall ? 'flex-1' : ''}`}>
             <div className="flex justify-between items-end">
-                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest group-hover:text-indigo-400 transition-colors">{label}</label>
-                <span className="text-[8px] font-mono text-slate-600">{max}</span>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest group-hover:text-indigo-400 transition-colors cursor-pointer" onClick={() => {
+                    // Foca no input ao clicar na label (opcional)
+                    const input = document.getElementById(`input-${label}`);
+                    if(input) input.focus();
+                }}>
+                    {label}
+                </label>
+                <div className="flex items-center gap-1">
+                    {/* INPUT VISÍVEL: Permite digitar o valor exato */}
+                    <input 
+                        id={`input-${label}`}
+                        type="number" 
+                        min="0" 
+                        max={max}
+                        value={value} 
+                        onChange={onChange}
+                        className="w-10 bg-black/30 text-right text-[10px] font-black text-white px-1 py-0.5 rounded border border-white/5 focus:border-indigo-500 focus:bg-white/10 outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-[8px] font-mono text-slate-600">/ {max}</span>
+                </div>
             </div>
-            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden flex relative">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="h-full bg-indigo-500/60" />
-                <input type="number" value={value} onChange={onChange} className="absolute inset-0 bg-transparent text-center text-[10px] font-black text-white outline-none" />
+
+            {/* BARRA DESLIZANTE: Permite arrastar para alterar o valor rapidamente */}
+            <div className="h-3 bg-white/5 rounded-full overflow-hidden flex relative cursor-pointer group-hover:bg-white/10 transition-colors">
+                <motion.div 
+                    initial={{ width: 0 }} 
+                    animate={{ width: `${pct}%` }} 
+                    className="h-full bg-indigo-500/80 group-hover:bg-indigo-500 transition-colors" 
+                />
+                {/* Mudado de type="number" para type="range" para funcionar como slider corretamente */}
+                <input 
+                    type="range" 
+                    min="0" 
+                    max={max} 
+                    value={value} 
+                    onChange={onChange} 
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
+                />
             </div>
         </div>
     )
@@ -354,16 +490,25 @@ function TelemetryInput({ label, value, max, onChange, isSmall }: any) {
 
 function CarRow({ part, onLvl, onWear }: any) {
     const isCritical = part.wear > 85;
+    const handleLvlChange = (e: ChangeEvent<HTMLInputElement>) => {
+        let val = parseInt(e.target.value); if(isNaN(val)) val = 1;
+        onLvl(Math.max(1, Math.min(9, val)));
+    };
+    const handleWearChange = (e: ChangeEvent<HTMLInputElement>) => {
+        let val = parseInt(e.target.value); if(isNaN(val)) val = 0;
+        onWear(Math.max(0, Math.min(100, val)));
+    };
     return (
-        <tr className="hover:bg-white/[0.02] transition-colors">
-            <td className="py-2.5 px-4 text-[9px] font-black text-slate-400 uppercase tracking-tighter">{part.name}</td>
-            <td className="text-center px-1">
-                <input type="number" value={part.lvl} onChange={onLvl} className="w-10 bg-black/40 border border-white/5 rounded text-center text-[10px] font-black text-white outline-none focus:border-indigo-500/50" />
-            </td>
-            <td className="text-center px-1">
-                <input type="number" value={part.wear} onChange={onWear} className={`w-10 bg-black/40 border border-white/5 rounded text-center text-[10px] font-black outline-none ${isCritical ? 'text-rose-500 animate-pulse' : 'text-emerald-400'}`} />
-            </td>
-        </tr>
+        <div className="flex items-center justify-between py-2 hover:bg-white/[0.02] rounded px-2 transition-colors">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter w-24">{part.name}</span>
+            <div className="flex items-center gap-4">
+                <input type="number" value={part.lvl} onChange={handleLvlChange} className="w-12 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-white outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <div className="relative">
+                    <input type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isCritical ? 'text-rose-500 animate-pulse border-rose-500/30' : 'text-emerald-400'}`} />
+                    {isCritical && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>}
+                </div>
+            </div>
+        </div>
     )
 }
 
@@ -384,24 +529,18 @@ function PerformanceMetric({ label, data, test, onTest }: any) {
                     </span>
                 </div>
                 <div className="flex items-center gap-3">
+                    <div className="text-center"><p className="text-[6px] text-slate-600 font-black uppercase">Peça</p><p className="text-[10px] font-black text-slate-400">{data.part}</p></div>
                     <div className="text-center">
-                        <p className="text-[6px] text-slate-600 font-black uppercase">Peça</p>
-                        <p className="text-[10px] font-black text-slate-400">{data.part}</p>
+                        <p className="text-[6px] text-indigo-400/80 font-black uppercase">Teste</p>
+                        <input type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-10 h-6 bg-black/40 border border-white/10 rounded text-center text-[10px] font-black text-indigo-400 outline-none focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                     </div>
-                    <div className="text-center">
-                        <p className="text-[6px] text-slate-600 font-black uppercase">Teste</p>
-                        <input type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-8 bg-black/40 border border-white/10 rounded text-center text-[10px] font-black text-indigo-400" />
-                    </div>
-                    <div className="text-center bg-white/5 px-2 py-1 rounded">
-                        <p className="text-[6px] text-slate-500 font-black uppercase">Req</p>
-                        <p className="text-[10px] font-black text-white">{data.pista}</p>
-                    </div>
+                    <div className="text-center bg-white/5 px-2 py-1 rounded min-w-[30px]"><p className="text-[6px] text-slate-500 font-black uppercase">Req</p><p className="text-[10px] font-black text-white">{data.pista}</p></div>
                 </div>
             </div>
-            <div className="h-1.5 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
+            <div className="h-3 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
                 <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${barPart}%` }} />
                 <div className={`h-full absolute top-0 ${isOk ? 'bg-indigo-500 shadow-[0_0_10px_#6366f1]' : 'bg-amber-500 shadow-[0_0_10px_#f59e0b]'}`} style={{ left: `${barPart}%`, width: `${barTest}%` }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4 bg-white shadow-[0_0_8px_white] z-10" style={{ left: `${reqPos}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full" style={{ left: `${reqPos}%` }} />
             </div>
         </div>
     );
