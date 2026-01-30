@@ -277,7 +277,7 @@ export default function DashboardHome() {
                 {/* Seletor Moderno */}
                 <div>
                     <h2 className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
-                        <MapPin size={10} className="text-indigo-400"/> Circuito_Sessão_Atual
+                        <MapPin size={10} className="text-indigo-400"/> Circuito Pista Atual
                     </h2>
                     <TrackSelector 
                         currentTrack={track} 

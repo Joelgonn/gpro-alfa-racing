@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { useGame } from '@/app/context/GameContext'; 
-import { 
-  Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin, 
-  Sparkles, ChevronLeft, ChevronRight, Fuel, Wind, Grip, 
-  TrendingUp
-} from 'lucide-react'; 
+import { useState, useEffect, useCallback, useRef, useMemo, ChangeEvent } from 'react';
+import { useGame } from '@/app/context/GameContext';
+import {
+  Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin,
+  Sparkles, ChevronLeft, ChevronRight, Fuel, Wind, TrendingUp,
+  ChevronDown, Search, X, ShieldCheck // Novos ícones para o seletor
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- TIPAGEM ---
@@ -18,18 +18,99 @@ type PersonalStintsInput = { [key: string]: string | number | null };
 type InputsState = { race_options: RaceOptions; compound_options: CompoundOptions; boost_laps: BoostLapsInput; personal_stint_voltas: PersonalStintsInput; };
 
 const TRACK_FLAGS: { [key: string]: string } = {
-  "A1-Ring": "at", "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Estoril": "pt", "Fuji": "jp", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "it", "Interlagos": "br", "Istanbul": "tr", "Monaco": "mc", "Montreal": "ca", "Monza": "it", "Sakhir": "bh", "Silverstone": "gb", "Spa": "be", "Suzuka": "jp", "Yas Marina": "ae", "Zandvoort": "nl", "Jeddah": "sa", "Miami": "us", "Las Vegas": "us"
+  // A
+  "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
+  // B
+  "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
+  // C-D
+  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb",
+  // E-F
+  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
+  // G
+  "Grobnik": "hr",
+  // H
+  "Hockenheim": "de", "Hungaroring": "hu",
+  // I
+  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Monaco": "mc",
+  // J-K
+  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
+  // L
+  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
+  // M
+  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
+  // N-O
+  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
+  // P
+  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
+  // R
+  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
+  // S
+  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
+  // T-V
+  "Valencia": "es", "Vallelunga": "it",
+  // Y-Z
+  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
+
+// --- COMPONENTE DE SELEÇÃO CUSTOMIZADO ---
+function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef]);
+
+    const filteredTracks = useMemo(() => tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
+
+    return (
+        <div className="relative z-50" ref={dropdownRef}>
+            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-3 text-2xl text-white font-black tracking-tighter hover:text-indigo-400 transition-colors outline-none group">
+                {currentTrack && currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : "SELECIONAR PISTA"}
+                <ChevronDown className={`transition-transform duration-300 text-slate-500 group-hover:text-indigo-400 ${isOpen ? 'rotate-180' : ''}`} size={20} />
+            </button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 mt-2 w-[300px] bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl">
+                        <div className="p-3 border-b border-white/5 bg-white/[0.02]">
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                                <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase" />
+                                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}
+                            </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                            {filteredTracks.map(track => (
+                                <button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }}
+                                    className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        {TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-5 h-3 object-cover rounded-sm shadow-sm" /> : <div className="w-5 h-3 bg-white/10 rounded-sm"></div>}
+                                        {track}
+                                    </div>
+                                    {currentTrack === track && <ShieldCheck size={12} />}
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
 export default function StrategyPage() {
-  // ADICIONEI 'driver' e 'car' AQUI:
-  const { 
-    track, updateTrack, raceAvgTemp, tracksList, tyreSuppliers, 
-    updateWeather, 
-    driver, updateDriver, // <--- AQUI 
-    car, updateCar        // <--- AQUI
-  } = useGame(); 
-  
+  const {
+    track, updateTrack, raceAvgTemp, tracksList, tyreSuppliers,
+    updateWeather, driver, updateDriver, car, updateCar
+  } = useGame();
 
   const [inputs, setInputs] = useState<InputsState>({
     race_options: { desgaste_pneu_percent: 18, condicao: "Dry", pneus_fornecedor: "Pipirelli", tipo_pneu: "Medium", pitstops_num: 2, ct_valor: 0, avg_temp: 0 },
@@ -40,70 +121,42 @@ export default function StrategyPage() {
 
   const [outputs, setOutputs] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(true); 
+  const [isSyncing, setIsSyncing] = useState(true);
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto');
 
-  // --- 1. LOAD STATE ---
   useEffect(() => {
     async function loadState() {
       try {
         const res = await fetch('/api/python?action=state');
         const json = await res.json();
-        
         if (json.sucesso && json.data) {
           const d = json.data;
           if (d.current_track) updateTrack(d.current_track);
           if (d.weather) updateWeather(d.weather);
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
-          
-          const excelTemp = d.race_options?.avg_temp; 
+
+          const excelTemp = d.race_options?.avg_temp;
           const initialTemp = (excelTemp && excelTemp !== 0) ? excelTemp : raceAvgTemp;
-          
-          setInputs(prev => ({
-            ...prev,
-            race_options: { 
-                ...prev.race_options, 
-                desgaste_pneu_percent: d.race_options?.desgaste_pneu_percent ?? prev.race_options.desgaste_pneu_percent,
-                avg_temp: Number(initialTemp) || 0 
-            },
-          }));
+
+          setInputs(prev => ({ ...prev, race_options: { ...prev.race_options, desgaste_pneu_percent: d.race_options?.desgaste_pneu_percent ?? prev.race_options.desgaste_pneu_percent, avg_temp: Number(initialTemp) || 0 }, }));
         }
-      } catch (e) { 
-          console.error("Erro ao carregar estado:", e); 
-      } finally { 
-          setIsSyncing(false); 
-      }
+      } catch (e) { console.error("Erro ao carregar estado:", e); }
+      finally { setIsSyncing(false); }
     }
     loadState();
-  }, [raceAvgTemp, updateTrack, updateWeather, updateDriver, updateCar]);
+  }, []); // Removido dependências para executar apenas uma vez na montagem
 
-  // --- 2. CALCULATE STRATEGY (Atualizado) ---
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
     if (!currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
     setLoading(true);
-    
     try {
-      const res = await fetch('/api/python?endpoint=strategy/calculate', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ 
-            pista: currentTrack, 
-            // ADICIONADO: Enviar Piloto e Carro para garantir o cálculo do desgaste
-            driver: driver, 
-            car: car,
-            ...currInputs 
-        }) 
-      });
-      
+      const res = await fetch('/api/python?endpoint=strategy/calculate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pista: currentTrack, driver: driver, car: car, ...currInputs }) });
       const data = await res.json();
       if (data.sucesso) setOutputs(data.data);
-    } catch (e) { 
-        console.error("Erro ao calcular estratégia:", e); 
-    } finally { 
-        setLoading(false); 
-    }
-  }, [isSyncing, driver, car]); // Adicione driver e car nas dependências
+    } catch (e) { console.error("Erro ao calcular estratégia:", e); }
+    finally { setLoading(false); }
+  }, [isSyncing, driver, car]);
 
   useEffect(() => {
     if (!isSyncing) {
@@ -114,14 +167,14 @@ export default function StrategyPage() {
 
   const handleInput = (section: keyof InputsState, field: string, value: any, subKey?: string) => {
     setInputs(prev => {
-      const next = { ...prev };
-      if (subKey) (next[section] as any)[subKey] = { ...(next[section] as any)[subKey], [field]: value };
+      const next = JSON.parse(JSON.stringify(prev)); // Deep copy to avoid mutation issues
+      if (subKey) (next[section] as any)[subKey][field] = value;
       else (next[section] as any)[field] = value;
       return next;
     });
   };
 
-  const fmt = (v: any, d=1, s='') => {
+  const fmt = (v: any, d = 1, s = '') => {
     if (typeof v === 'object' && v !== null) return "-";
     if (v === null || v === undefined || v === "" || v === "-") return "-";
     const n = Number(typeof v === 'string' ? v.replace(',', '.') : v);
@@ -131,11 +184,8 @@ export default function StrategyPage() {
 
   if (isSyncing) return (
     <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-indigo-400 gap-4">
-        <div className="relative w-20 h-20">
-            <div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-        <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando_Engenharia</span>
+      <div className="relative w-20 h-20"><div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full"></div><div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
+      <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando_Engenharia</span>
     </div>
   );
 
@@ -143,84 +193,68 @@ export default function StrategyPage() {
 
   return (
     <div className="p-6 space-y-8 text-slate-300 pb-24 font-mono">
-      
-      {/* HUD HEADER */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row justify-between items-center bg-white/[0.02] border border-white/5 p-6 rounded-2xl backdrop-blur-xl gap-8"
-      >
-        <div className="flex items-center gap-6">
-          <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.3)]">
-            <TrendingUp size={30} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tighter uppercase text-white">Núcleo_Estratégico</h1>
-            <div className="flex items-center gap-3 mt-1">
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[9px] font-bold text-emerald-500 uppercase">Cálculo_Ativo</span>
-                </div>
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">v6.2.0</span>
+      {/* HUD HEADER ATUALIZADO */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
+        <div className="bg-black/40 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
+          <div className="flex items-center gap-8 w-full md:w-auto">
+            <div className="relative group shrink-0">
+              <div className="absolute -inset-2 bg-indigo-500/20 blur-xl rounded-full"></div>
+              <div className="w-20 h-12 bg-zinc-900 border border-white/10 rounded-lg flex items-center justify-center overflow-hidden relative z-10 shadow-lg">
+                {track && TRACK_FLAGS[track] ? (
+                  <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" />
+                ) : <span className="text-xl">🏁</span>}
+              </div>
+            </div>
+            <div>
+              <h2 className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
+                <MapPin size={10} className="text-indigo-400" /> Circuito - Pista Atual
+              </h2>
+              <TrackSelector currentTrack={track} tracksList={tracksList} onSelect={updateTrack} />
             </div>
           </div>
-        </div>
-
-        <div className="bg-black/40 p-4 rounded-xl border border-white/5 flex flex-col gap-2 min-w-[320px]">
-          <label className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-2 tracking-widest">
-            <MapPin size={12} className="text-indigo-500" /> Seleção_Circuito_Ativo
-          </label>
-          <div className="relative">
-            <select 
-                value={track} 
-                onChange={(e) => updateTrack(e.target.value)} 
-                className="w-full h-10 bg-transparent text-white font-black text-xs outline-none appearance-none cursor-pointer"
-            >
-              <option value="Selecionar Pista" className="bg-slate-900">-- SELECIONAR PISTA --</option>
-              {tracksList.map(t => <option key={t} value={t} className="bg-slate-900">{t.toUpperCase()}</option>)}
-            </select>
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-                {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} className="w-5" alt="Bandeira" /> : "🏁"}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-2 rounded-lg border border-emerald-500/20">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[9px] font-bold text-emerald-500 uppercase">Cálculo_Ativo</span>
             </div>
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-500"><Grip size={14} /></div>
           </div>
         </div>
       </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        
         {/* CONFIGURATION SIDEBAR */}
         <div className="xl:col-span-4 space-y-8">
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
             <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
-                <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Settings size={14} className="text-indigo-400"/> Parâmetros_Corrida</h3>
+                <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Settings size={14} className="text-indigo-400"/> Dados da Corrida</h3>
                 {loading && <Loader2 className="animate-spin text-indigo-500" size={14} />}
             </div>
             <div className="p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">
                   {["Dry", "Wet"].map(c => (
-                    <button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista_Seca' : '🌧️ Pista_Molhada'}</button>
+                    <button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}</button>
                   ))}
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4">
                     <div className="bg-black/40 p-3 rounded-lg border border-white/5">
-                        <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp_Média</label>
+                        <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp. Média</label>
                         <div className="flex items-center justify-between">
                             <input type="number" value={inputs.race_options.avg_temp} onChange={(e) => handleInput('race_options', 'avg_temp', Number(e.target.value))} className="bg-transparent font-black text-sm text-white outline-none w-12" />
                             <span className="text-[10px] text-indigo-500 font-bold">°C</span>
                         </div>
                     </div>
-                    <ConfigInput label="Risco_CT" value={inputs.race_options.ct_valor} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
+                    <ConfigInput label="Risco CTR" value={inputs.race_options.ct_valor} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
                     <ConfigInput label="Paradas" value={inputs.race_options.pitstops_num} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
                 </div>
 
                 <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Fornecedor_Pneus</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Fornecedor de Pneus</label>
                     <SupplierCarousel options={tyreSuppliers} value={inputs.race_options.pneus_fornecedor} onChange={(val: string) => handleInput('race_options', 'pneus_fornecedor', val)} />
                 </div>
 
                 <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Seleção_Composto_Base</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Seleção de Composto</label>
                     <div className="flex justify-between items-center gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
                         {["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(p => {
                             const isSelected = inputs.race_options.tipo_pneu === p;
@@ -237,7 +271,7 @@ export default function StrategyPage() {
 
                 <div className="bg-black/40 p-4 rounded-xl border border-white/5">
                     <div className="flex justify-between mb-3">
-                        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Margem_Segurança (Desgaste)</label>
+                        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Margem Segurança: (Desgaste)</label>
                         <span className="text-xs font-black text-indigo-400">{inputs.race_options.desgaste_pneu_percent}%</span>
                     </div>
                     <input type="range" min="0" max="100" value={inputs.race_options.desgaste_pneu_percent} onChange={e => handleInput('race_options', 'desgaste_pneu_percent', Number(e.target.value))} className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
@@ -245,18 +279,18 @@ export default function StrategyPage() {
             </div>
           </section>
 
-          {/* BOOST SECTION */}
+          {/* ... O RESTO DO CÓDIGO PERMANECE IGUAL ... */}
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
-            <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Logs_Ativação_Boost</h3></div>
+            <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Ativação Boost - Ajuste Manual</h3></div>
             <div className="p-6 space-y-4">
                 {[1, 2, 3].map(i => {
                     const bKey = `boost${i}` as keyof BoostLapsInput;
                     return (
                         <div key={i} className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-white/5 group hover:border-amber-500/30 transition-all">
-                            <span className="text-[9px] font-black text-slate-500 uppercase w-12 group-hover:text-amber-500">Nível_{i}</span>
+                            <span className="text-[9px] font-black text-slate-500 uppercase w-12 group-hover:text-amber-500">Boost: {i}</span>
                             <input type="number" placeholder="Volta" value={inputs.boost_laps[bKey]?.volta ?? ''} onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} className="w-14 bg-black/60 border border-white/10 rounded p-1.5 text-center font-black text-xs text-white focus:border-amber-500 outline-none" />
                             <div className="flex flex-col items-end w-28 leading-tight">
-                                <span className="text-[7px] text-slate-600 font-black uppercase">Sequência_Stints</span>
+                                <span className="text-[7px] text-slate-600 font-black uppercase">Sequência / Stints</span>
                                 <span className="text-[10px] text-amber-500 font-black tracking-tighter">{outputs?.boost_laps_outputs?.[bKey]?.stint || '---'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '---'}</span>
                             </div>
                         </div>
@@ -283,7 +317,7 @@ export default function StrategyPage() {
                     { l: "Cons_Comb", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
                     { l: "Índice_Desg", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
                     { l: "Tempo_Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
-                    { l: "TCD_Corrida", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <Grip size={14}/> },
+                    { l: "TCD_Corrida", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <TrendingUp size={14}/> },
                 ].map((item, idx) => (
                     <div key={idx} className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm hover:border-indigo-500/40 transition-all group">
                         <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5 group-hover:text-indigo-400">
@@ -294,20 +328,19 @@ export default function StrategyPage() {
                 ))}
             </div>
 
-            {/* PERFORMANCE TABLE */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
-                <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise_Performance_Multi-Compostos</h3></div>
+                <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise da Performance para Compostos</h3></div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                         <thead>
                             <tr className="bg-black/20 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-white/5">
-                                <th className="p-4 text-left">ID_Composto</th>
-                                <th className="p-4 text-center">Paradas_Req</th>
+                                <th className="p-4 text-left">Composto</th>
+                                <th className="p-4 text-center">Nº Paradas</th>
                                 <th className="p-4 text-center bg-white/5">Forçar_Pits</th>
                                 <th className="p-4 text-center bg-white/5">Forçar_CT</th>
-                                <th className="p-4 text-center">Carga_Comb</th>
-                                <th className="p-4 text-center">Desg_Est</th>
-                                <th className="p-4 text-center">Índice_Gap</th>
+                                <th className="p-4 text-center">Comb.</th>
+                                <th className="p-4 text-center">Desg.</th>
+                                <th className="p-4 text-center">Gap</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.03]">
@@ -328,7 +361,7 @@ export default function StrategyPage() {
                                         <td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, 'L')}</td>
                                         <td className="p-4 text-center text-slate-500 font-bold">{fmt(d?.tyre_wear, 1, '%')}</td>
                                         <td className="p-4 text-center font-black">
-                                            {isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 text-[9px]">MELHOR_VOLTA</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}
+                                            {isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 text-[9px]">Ideal</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}
                                         </td>
                                     </tr>
                                 )
@@ -337,25 +370,25 @@ export default function StrategyPage() {
                     </table>
                 </div>
             </section>
-
-            {/* STINT SYSTEM */}
+            
+            {/* ... O RESTO DO CÓDIGO PERMANECE IGUAL ... */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-2 flex items-center gap-2 border-b border-white/5 px-4">
-                    <button onClick={() => setActiveTab('auto')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><Sparkles size={14}/> Algo_Otimizado</button>
-                    <button onClick={() => setActiveTab('manual')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><HardHat size={14}/> Ajuste_Manual</button>
+                    <button onClick={() => setActiveTab('auto')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><Sparkles size={14}/> Ajuste Automatico</button>
+                    <button onClick={() => setActiveTab('manual')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><HardHat size={14}/> Ajuste Manual</button>
                 </div>
                 <div className="overflow-x-auto p-4">
                     <table className="w-full text-[10px] border-separate border-spacing-y-1">
                         <thead>
                             <tr className="text-slate-600 uppercase font-black text-[8px] tracking-widest">
-                                <th className="text-left p-3 w-32">Métrica</th>
-                                {Array.from({length:8}).map((_,i)=><th key={i} className="p-2 text-center">S_{i+1}</th>)}
+                                <th className="text-left p-3 w-32">Stints</th>
+                                {Array.from({length:8}).map((_,i)=><th key={i} className="p-2 text-center">Stint {i+1}</th>)}
                                 <th className="p-3 text-right bg-white/5 rounded-t-lg">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr className="bg-white/5">
-                                <td className="p-4 font-black text-indigo-400 uppercase">Contagem_Voltas</td>
+                                <td className="p-4 font-black text-indigo-400 uppercase">Nº de Voltas</td>
                                 {Array.from({length:8}).map((_,i) => {
                                     const st = `stint${i+1}`;
                                     return (
@@ -371,10 +404,10 @@ export default function StrategyPage() {
                                 <td className="p-4 text-right font-black text-white bg-indigo-500/20">{fmt(currentStintData?.voltas?.total, 0)}</td>
                             </tr>
                             {[
-                                {k: 'desg_final_pneu', l: 'Desgaste_Final', u: '%', c: 'text-slate-400'},
-                                {k: 'comb_necessario', l: 'Comb_Req', u: 'L', c: 'text-indigo-400'},
-                                {k: 'est_tempo_pit', l: 'Duração_Pit', u: 's', c: 'text-slate-500'},
-                                {k: 'voltas_em_bad', l: 'Voltas_Ruins', u: '', c: 'text-rose-500'} 
+                                {k: 'desg_final_pneu', l: 'Desg. Final Pneu', u: '%', c: 'text-slate-400'},
+                                {k: 'comb_necessario', l: 'Combustível', u: 'L', c: 'text-indigo-400'},
+                                {k: 'est_tempo_pit', l: 'Duração Pit', u: 's', c: 'text-slate-500'},
+                                {k: 'voltas_em_bad', l: 'Voltas bad', u: '', c: 'text-rose-500'} 
                             ].map(row => (
                                 <tr key={row.k} className="hover:bg-white/[0.01]">
                                     <td className="p-4 font-bold text-slate-500 uppercase">{row.l}</td>
@@ -421,7 +454,6 @@ function ConfigInput({ label, value, onChange }: any) {
 }
 
 function SupplierCarousel({ value, options, onChange }: { value: string, options: string[], onChange: (v: string) => void }) {
-    // LISTA DE SEGURANÇA
     const DEFAULT_SUPPLIERS = ["Pipirelli", "Avonn", "Yokomama", "Dunnolop", "Contimental", "Badyear", "Hancock", "Michelini", "Bridgerock"];
     const activeOptions = (options && options.length > 0) ? options : DEFAULT_SUPPLIERS;
     const currentIndex = activeOptions.indexOf(value) !== -1 ? activeOptions.indexOf(value) : 0;
@@ -431,42 +463,16 @@ function SupplierCarousel({ value, options, onChange }: { value: string, options
 
     return (
         <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 flex items-center justify-between group hover:border-indigo-500/50 transition-all shadow-inner select-none">
-            <button 
-                onClick={(e) => { e.preventDefault(); handlePrev(); }} 
-                className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all active:scale-95"
-            >
-                <ChevronLeft size={18} />
-            </button>
-            
+            <button onClick={(e) => { e.preventDefault(); handlePrev(); }} className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all active:scale-95"><ChevronLeft size={18} /></button>
             <div className="flex-1 flex flex-col items-center justify-center h-16 relative overflow-hidden">
                 <AnimatePresence mode="wait">
-                    <motion.div 
-                        key={value}
-                        initial={{ opacity: 0, x: 20 }} 
-                        animate={{ opacity: 1, x: 0 }} 
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.2 }}
-                        className="flex flex-col items-center"
-                    >
-                        <img 
-                            src={`/tyres/${value?.toLowerCase().trim() === 'contimental' ? 'contimental' : value?.toLowerCase().trim()}.gif`} 
-                            alt={value} 
-                            className="h-10 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]" 
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }} 
-                        />
-                        <span className="text-[10px] font-black uppercase text-white tracking-[0.2em] mt-2 text-center">
-                            {value}
-                        </span>
+                    <motion.div key={value} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="flex flex-col items-center">
+                        <img src={`/tyres/${value?.toLowerCase().trim()}.gif`} alt={value} className="h-10 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]" onError={(e) => { e.currentTarget.src = `/tyres/default.gif`; }} />
+                        <span className="text-[10px] font-black uppercase text-white tracking-[0.2em] mt-2 text-center">{value}</span>
                     </motion.div>
                 </AnimatePresence>
             </div>
-
-            <button 
-                onClick={(e) => { e.preventDefault(); handleNext(); }} 
-                className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all active:scale-95"
-            >
-                <ChevronRight size={18} />
-            </button>
+            <button onClick={(e) => { e.preventDefault(); handleNext(); }} className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-white/5 transition-all active:scale-95"><ChevronRight size={18} /></button>
         </div>
     )
 }

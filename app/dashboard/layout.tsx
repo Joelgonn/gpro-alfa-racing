@@ -45,10 +45,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="absolute left-10 top-1/2 -translate-y-1/2 w-24 h-24 bg-emerald-500/10 blur-[50px] rounded-full group-hover:bg-emerald-500/20 transition-all duration-700"></div>
             
             <h1 className="relative z-10 flex flex-col">
-              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em] ml-0.5 mb-1">Team Manager</span>
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em] ml-0.5 mb-1">House of Wolves </span>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black tracking-tighter text-white">
-                  ALFA<span className="text-yellow-400">RACING</span>
+                  ALFA <span className="text-yellow-400">RACING</span>
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 text-white/50 border border-white/5">BR</span>
               </div>

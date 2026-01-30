@@ -1,79 +1,159 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent, useCallback } from 'react';
-import { useGame } from '../../context/GameContext'; 
-import { 
-  Loader2, Activity, Flag, Thermometer, CloudSun, ShieldAlert
+import { useState, useEffect, ChangeEvent, useCallback, useRef, useMemo } from 'react';
+import { useGame } from '../../context/GameContext';
+import {
+  Loader2, Activity, Flag, Thermometer, CloudSun, ShieldAlert,
+  MapPin, ChevronDown, Search, X, ShieldCheck, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// --- MAPEAMENTO DE BANDEIRAS ---
+const TRACK_FLAGS: { [key: string]: string } = {
+  // A
+  "A1-Ring": "at", "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", 
+  // B
+  "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
+  // C-D
+  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb",
+  // E-F
+  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
+  // G
+  "Grobnik": "hr",
+  // H
+  "Hockenheim": "de", "Hungaroring": "hu",
+  // I
+  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in",
+  // J-K
+  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
+  // L
+  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
+  // M
+  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
+  // N-O
+  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
+  // P
+  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
+  // R
+  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
+  // S
+  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
+  // T-V
+  "Valencia": "es", "Vallelunga": "it",
+  // Y-Z
+  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
+};
+
 const COMPONENTS = [
-    { id: 'chassi', label: 'Chassi' },
-    { id: 'motor', label: 'Motor' },
-    { id: 'asaDianteira', label: 'Asa Dianteira' },
-    { id: 'asaTraseira', label: 'Asa Traseira' },
-    { id: 'assoalho', label: 'Assoalho' },
-    { id: 'laterais', label: 'Laterais' },
-    { id: 'radiador', label: 'Radiador' },
-    { id: 'cambio', label: 'Câmbio' },
-    { id: 'freios', label: 'Freios' },
-    { id: 'suspensao', label: 'Suspensão' },
+    { id: 'chassi', label: 'Chassi' }, { id: 'motor', label: 'Motor' },
+    { id: 'asaDianteira', label: 'Asa Dianteira' }, { id: 'asaTraseira', label: 'Asa Traseira' },
+    { id: 'assoalho', label: 'Assoalho' }, { id: 'laterais', label: 'Laterais' },
+    { id: 'radiador', label: 'Radiador' }, { id: 'cambio', label: 'Câmbio' },
+    { id: 'freios', label: 'Freios' }, { id: 'suspensao', label: 'Suspensão' },
     { id: 'eletronicos', label: 'Eletrônicos' }
 ];
 
+// --- SELETOR DE PISTA CUSTOMIZADO (DA PÁGINA VISÃO GERAL) ---
+function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef]);
+
+    const filteredTracks = useMemo(() => tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
+
+    return (
+        <div className="relative z-50" ref={dropdownRef}>
+            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-3 text-2xl text-white font-black tracking-tighter hover:text-indigo-400 transition-colors outline-none group">
+                {currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : "SELECIONAR PISTA"}
+                <ChevronDown className={`transition-transform duration-300 text-slate-500 group-hover:text-indigo-400 ${isOpen ? 'rotate-180' : ''}`} size={20} />
+            </button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 mt-2 w-[300px] bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl">
+                        <div className="p-3 border-b border-white/5 bg-white/[0.02]">
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                                <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase" />
+                                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}
+                            </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                            {filteredTracks.map(track => (
+                                <button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }}
+                                    className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        {TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-5 h-3 object-cover rounded-sm shadow-sm" /> : <div className="w-5 h-3 bg-white/10 rounded-sm"></div>}
+                                        {track}
+                                    </div>
+                                    {currentTrack === track && <ShieldCheck size={12} />}
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+
 export default function SetupPage() {
-  const { 
+  const {
     driver, car, track, updateTrack, updateDriver, updateCar,
-    weather, updateWeather, desgasteModifier, updateDesgasteModifier, raceAvgTemp 
+    weather, updateWeather, desgasteModifier, updateDesgasteModifier, raceAvgTemp
   } = useGame();
-  
+
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [tracks, setTracks] = useState<string[]>([]);
   const [initialLoaded, setInitialLoaded] = useState(false);
 
   const handleCalcular = useCallback(async () => {
-    if(!track || track === "Selecionar Pista") return;
+    if (!track || track === "Selecionar Pista") return;
     setLoading(true);
     try {
-      const res = await fetch('/api/python?endpoint=setup/calculate', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ pista: track, ...driver, car, ...weather, avgTemp: raceAvgTemp, desgasteModifier }) 
+      const res = await fetch('/api/python?endpoint=setup/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pista: track, ...driver, car, ...weather, avgTemp: raceAvgTemp, desgasteModifier })
       });
       const data = await res.json();
       if (data.sucesso) setResultado(data.data);
-    } catch (error) { 
-        console.error(error); 
-    } finally { 
-        setLoading(false); 
-    }
+    } catch (error) { console.error(error); }
+    finally { setLoading(false); }
   }, [track, driver, car, weather, desgasteModifier, raceAvgTemp]);
 
   useEffect(() => {
     async function hydrate() {
-        try {
-            const [resT, resS] = await Promise.all([
-                fetch('/api/python?action=tracks'),
-                fetch('/api/python?action=state')
-            ]);
-            const dTracks = await resT.json();
-            const dState = await resS.json();
-            
-            if (dTracks.tracks) setTracks(dTracks.tracks);
-            
-            if (dState.sucesso && dState.data) {
-                const d = dState.data;
-                if (d.current_track) updateTrack(d.current_track);
-                if (d.weather) updateWeather(d.weather);
-                if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
-                if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
-                setInitialLoaded(true);
-            }
-        } catch (e) { 
-            console.error(e); 
-            setInitialLoaded(true); 
+      try {
+        const [resT, resS] = await Promise.all([
+          fetch('/api/python?action=tracks'),
+          fetch('/api/python?action=state')
+        ]);
+        const dTracks = await resT.json();
+        const dState = await resS.json();
+
+        if (dTracks.tracks) setTracks(dTracks.tracks);
+
+        if (dState.sucesso && dState.data) {
+          const d = dState.data;
+          if (d.current_track) updateTrack(d.current_track);
+          if (d.weather) updateWeather(d.weather);
+          if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
+          if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
         }
+      } catch (e) { console.error(e); }
+      finally { setInitialLoaded(true); }
     }
     hydrate();
   }, []);
@@ -86,245 +166,196 @@ export default function SetupPage() {
 
   const handleWeatherChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isText = name.includes('weather'); 
+    const isText = name.includes('weather');
     updateWeather({ [name]: isText ? value : Number(value) });
   };
 
-  // --- Função Auxiliar para evitar crash de Objetos/Erros ---
-  const safeRender = (val: any) => {
-    if (val === null || val === undefined) return '---';
-    // Se for um objeto (erro do Excel), retorna 'Err' em vez de quebrar
-    if (typeof val === 'object') return 'Err';
-    return val;
-  };
-
-  // --- Função Auxiliar para garantir números nas barras de progresso ---
+  const safeRender = (val: any) => (val === null || val === undefined || typeof val === 'object') ? '-' : val;
   const safeNumber = (val: any) => {
-      if (typeof val === 'number') return val;
-      if (typeof val === 'string') {
-          const n = parseFloat(val);
-          return isNaN(n) ? 0 : n;
-      }
-      return 0; // Se for objeto ou null, retorna 0
+    if (typeof val === 'number') return val;
+    const n = parseFloat(val);
+    return isNaN(n) ? 0 : n;
   };
 
   if (!initialLoaded) {
     return (
-        <div className="flex h-screen items-center justify-center bg-[#050507]">
-            <Loader2 className="animate-spin text-indigo-500" size={48} />
-        </div>
+      <div className="flex h-screen items-center justify-center bg-[#050507]">
+        <Loader2 className="animate-spin text-indigo-500" size={48} />
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050507] text-slate-300 font-mono pb-20">
-        <header className="sticky top-0 z-40 bg-black/40 backdrop-blur-xl border-b border-white/5 px-6 py-4">
-            <div className="max-w-[1600px] mx-auto flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center shadow-lg">
-                        <Activity className="text-white" size={20} />
-                    </div>
-                    <h1 className="text-sm font-black text-white uppercase tracking-widest">Setup Optimizer - Calculadora</h1>
-                </div>
-                <div className="flex items-center gap-4 bg-black/40 p-1 rounded-lg border border-white/5">
-                    <div className="px-4 py-1.5 border-r border-white/5 text-center">
-                        <p className="text-[7px] text-slate-500 uppercase font-bold tracking-widest">Temp. Corrida</p>
-                        <p className="text-xs font-black text-indigo-400">{raceAvgTemp.toFixed(1)}°C</p>
-                    </div>
-                    <div className="relative min-w-[250px]">
-                        <select 
-                            value={track} 
-                            onChange={(e) => updateTrack(e.target.value)} 
-                            className="w-full h-9 bg-transparent text-white font-bold text-[10px] outline-none appearance-none px-4"
-                        >
-                            {tracks.map((t, i) => (
-                                <option key={i} value={t} className="bg-slate-900">{t.toUpperCase()}</option>
-                            ))}
-                        </select>
-                        <Flag className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-500" size={14} />
-                    </div>
-                </div>
+    <div className="p-6 space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
+      {/* HEADER BAR: SELEÇÃO DE PISTA */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
+        <div className="bg-black/40 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
+          <div className="flex items-center gap-8 w-full md:w-auto">
+            <div className="relative group shrink-0">
+              <div className="absolute -inset-2 bg-indigo-500/20 blur-xl rounded-full"></div>
+              <div className="w-20 h-12 bg-zinc-900 border border-white/10 rounded-lg flex items-center justify-center overflow-hidden relative z-10 shadow-lg">
+                {track && TRACK_FLAGS[track] ? (
+                  <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" />
+                ) : <span className="text-xl">🏁</span>}
+              </div>
             </div>
-        </header>
+            <div>
+              <h2 className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
+                <MapPin size={10} className="text-indigo-400" /> Circuito Pista Atual
+              </h2>
+              <TrackSelector currentTrack={track} tracksList={tracks} onSelect={updateTrack} />
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[8px] text-slate-500 uppercase font-bold tracking-widest">Temperatura Média Corrida</p>
+            <p className="text-2xl font-black text-indigo-400">{raceAvgTemp.toFixed(1)}°C</p>
+          </div>
+        </div>
+      </motion.div>
 
-        <main className="max-w-[1600px] mx-auto px-6 py-8 grid grid-cols-1 xl:grid-cols-12 gap-8">
-             {/* Left Column: Weather Inputs */}
-             <div className="xl:col-span-7 space-y-6">
-                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-8 backdrop-blur-sm">
-                    <h2 className="text-[10px] font-black text-white uppercase tracking-[0.3em] mb-10 flex items-center gap-3">
-                        <CloudSun className="text-indigo-400" size={16} /> Previsão Metereológica
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                        <div className="space-y-8">
-                            <SessionGroup title="Qualificação - 1">
-                                <WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} />
-                                <HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura (Q1)" />
-                            </SessionGroup>
-                            <SessionGroup title="Qualificação - 2">
-                                <WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} />
-                                <HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura (Q2)" />
-                            </SessionGroup>
-                        </div>
-                        <div className="bg-black/20 rounded-xl p-6 border border-white/5">
-                            <h3 className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-6">Previsão para a Corrida</h3>
-                            <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
-                            <div className="mt-8 space-y-4">
-                                {[1, 2, 3, 4].map(num => (
-                                    <div key={num} className="grid grid-cols-3 items-center bg-black/40 p-2 rounded-lg border border-white/5">
-                                        <span className="text-[9px] font-bold text-slate-500 uppercase pl-1">Quadrante:{num}</span>
-                                        <input 
-                                            name={`r${num}_temp_min`} 
-                                            value={(weather as any)[`r${num}_temp_min`]} 
-                                            onChange={handleWeatherChange} 
-                                            className="bg-transparent text-center text-[11px] font-black text-indigo-300 outline-none" 
-                                        />
-                                        <input 
-                                            name={`r${num}_temp_max`} 
-                                            value={(weather as any)[`r${num}_temp_max`]} 
-                                            onChange={handleWeatherChange} 
-                                            className="bg-transparent text-center text-[11px] font-black text-rose-300 outline-none" 
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+      <main className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        {/* COLUNA ESQUERDA: INPUTS */}
+        <div className="xl:col-span-7 space-y-6">
+          <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-8 backdrop-blur-sm">
+            <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
+              <CloudSun className="text-indigo-400" size={16} /> Previsão Metereológica
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-8">
+                <SessionGroup title="Qualificação - 1">
+                  <WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} />
+                  <HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura (Q1)" />
+                </SessionGroup>
+                <SessionGroup title="Qualificação - 2">
+                  <WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} />
+                  <HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura (Q2)" />
+                </SessionGroup>
+              </div>
+              <div className="bg-black/20 rounded-xl p-6 border border-white/5">
+                <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-6">Previsão para a Corrida</h3>
+                <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
+                <div className="mt-6 space-y-3">
+                  {[1, 2, 3, 4].map(num => (
+                    <div key={num} className="grid grid-cols-5 items-center bg-black/40 p-2 rounded-lg border border-white/5">
+                      <span className="col-span-2 text-[9px] font-bold text-slate-500 uppercase pl-1">Quadrante {num}</span>
+                      <span className='text-slate-600 text-[10px] text-center'>MIN</span>
+                      <input name={`r${num}_temp_min`} value={(weather as any)[`r${num}_temp_min`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-indigo-300 outline-none" />
+                      <input name={`r${num}_temp_max`} value={(weather as any)[`r${num}_temp_max`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-rose-300 outline-none" />
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* COLUNA DIREITA: RESULTADOS */}
+        <div className="xl:col-span-5 space-y-6">
+          <AnimatePresence mode='wait'>
+            {resultado && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                    <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
+                      <Settings size={14} className="text-indigo-400" /> Setup Ideal Calculado
+                    </h2>
+                    {loading && <Loader2 className="animate-spin text-white" size={14} />}
+                  </div>
+                  <div className='space-y-2'>
+                    <div className="grid grid-cols-4 px-4 py-1 text-[8px] font-black text-slate-500 uppercase">
+                      <span>Componente</span><span className="text-center">Q1</span><span className="text-center">Q2</span><span className="text-center">Corrida</span>
+                    </div>
+                     {['asaDianteira', 'asaTraseira', 'motor', 'freios', 'cambio', 'suspensao'].map((part) => (
+                        <div key={part} className="grid grid-cols-4 items-center bg-black/20 hover:bg-white/5 transition-colors py-3 px-4 rounded-lg border border-white/5">
+                            <span className="text-[10px] font-bold text-white uppercase">{part.replace('asa', 'Asa ')}</span>
+                            <span className="text-center text-sm text-slate-400">{safeRender(resultado[part]?.q1)}</span>
+                            <span className="text-center text-sm text-slate-400">{safeRender(resultado[part]?.q2)}</span>
+                            <span className="text-center text-lg font-black text-indigo-400">{safeRender(resultado[part]?.race)}</span>
+                        </div>
+                    ))}
+                  </div>
                 </section>
-             </div>
 
-             {/* Right Column: Results */}
-             <div className="xl:col-span-5 space-y-6">
-                <AnimatePresence mode='wait'>
-                    {resultado && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                            
-                            {/* Setup Values Table */}
-                            <div className="bg-indigo-600 rounded-2xl overflow-hidden shadow-2xl border border-indigo-400/20">
-                                <div className="bg-black/20 p-4 border-b border-white/10 flex justify-between items-center">
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Setup Ideal Calculadora</span>
-                                    {loading && <Loader2 className="animate-spin text-white" size={14} />}
-                                </div>
-                                <div className="p-4 space-y-1">
-                                    <div className="grid grid-cols-4 px-4 py-1 text-[7px] font-black text-indigo-200 uppercase">
-                                        <span>Peça</span><span className="text-center">Q1</span><span className="text-center">Q2</span><span className="text-center">Race</span>
-                                    </div>
-                                    {['asaDianteira', 'asaTraseira', 'motor', 'freios', 'cambio', 'suspensao'].map((part) => (
-                                        <div key={part} className="grid grid-cols-4 items-center bg-black/20 py-2.5 px-4 rounded border border-white/5">
-                                            <span className="text-[9px] font-bold text-white uppercase">{part.replace('asa', 'Asa_')}</span>
-                                            {/* Uso do safeRender aqui para evitar crash */}
-                                            <span className="text-center text-[11px] text-white/50">{safeRender(resultado[part]?.q1)}</span>
-                                            <span className="text-center text-[11px] text-white/50">{safeRender(resultado[part]?.q2)}</span>
-                                            <span className="text-center text-sm font-black text-white">{safeRender(resultado[part]?.race)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                  <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                    <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
+                      <ShieldAlert size={14} className="text-rose-500" /> Desgaste Final Estimado
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[8px] text-slate-500 font-black">Risco Pista Livre</span>
+                      <input type="number" value={desgasteModifier} onChange={(e) => updateDesgasteModifier(Number(e.target.value))}
+                        className="w-10 bg-black/40 border border-white/10 rounded text-white text-center text-xs font-black outline-none focus:border-indigo-500" />
+                    </div>
+                  </div>
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-3 custom-scrollbar">
+                    {COMPONENTS.map((part) => {
+                      const d = resultado[part.id]?.wear;
+                      if (!d) return null;
+                      const startVal = safeNumber(d.start);
+                      const endVal = safeNumber(d.end);
+                      const isCritical = endVal > 85;
 
-                            {/* Wear Bars */}
-                            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
-                                <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
-                                    <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <ShieldAlert size={14} className="text-rose-500" /> Desgaste Final Estimado
-                                    </h2>
-                                    <div className="bg-black/50 px-3 py-1 rounded border border-white/10 flex items-center gap-3">
-                                        <span className="text-[8px] text-slate-500 font-black">Risco Pista Livre</span>
-                                        <input 
-                                            type="number" 
-                                            value={desgasteModifier} 
-                                            onChange={(e) => updateDesgasteModifier(Number(e.target.value))} 
-                                            className="w-8 bg-transparent text-white text-center text-xs font-black outline-none" 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-3 custom-scrollbar">
-                                    {COMPONENTS.map((part) => {
-                                        const d = resultado[part.id]?.wear;
-                                        if (!d) return null;
-                                        
-                                        // Uso do safeNumber para garantir que não passamos objeto para matemática
-                                        const startVal = safeNumber(d.start);
-                                        const endVal = safeNumber(d.end);
-                                        const isCritical = endVal > 85;
-
-                                        return (
-                                            <div key={part.id} className="space-y-1.5">
-                                                <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter">
-                                                    <span className="text-slate-500">{part.label}</span>
-                                                    <span className="text-slate-300">
-                                                        {startVal}% → <span className={isCritical ? 'text-rose-500 font-black animate-pulse' : 'text-white'}>{endVal.toFixed(1)}%</span>
-                                                    </span>
-                                                </div>
-                                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden flex border border-white/5">
-                                                    <div className="h-full bg-slate-700" style={{ width: `${Math.min(100, startVal)}%` }}></div>
-                                                    <div 
-                                                        className={`h-full ${isCritical ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]' : 'bg-indigo-500'}`} 
-                                                        style={{ width: `${Math.min(100, Math.max(0, endVal - startVal))}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-             </div>
-        </main>
+                      return (
+                        <div key={part.id} className="space-y-1.5">
+                          <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter">
+                            <span className="text-slate-500">{part.label}</span>
+                            <span className="text-slate-300">{startVal}% → <span className={isCritical ? 'text-rose-500 font-black animate-pulse' : 'text-white'}>{endVal.toFixed(1)}%</span></span>
+                          </div>
+                          <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden flex border border-white/5">
+                            <div className="h-full bg-slate-600" style={{ width: `${Math.min(100, startVal)}%` }}></div>
+                            <div className={`h-full ${isCritical ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]' : 'bg-indigo-500'}`}
+                                 style={{ width: `${Math.min(100, Math.max(0, endVal - startVal))}%` }}></div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
     </div>
   );
 }
 
-// --- Componentes Auxiliares ---
-
-function SessionGroup({ title, children }: any) {
-    return (
-        <div className="space-y-4">
-            <h3 className="text-[8px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">
-                {title}
-            </h3>
-            <div className="space-y-4">{children}</div>
-        </div>
-    )
+// --- Componentes Auxiliares Reestilizados ---
+function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">{title}</h3>
+      <div className="space-y-4">{children}</div>
+    </div>
+  )
 }
 
 function HUDInput({ value, name, onChange, label }: any) {
-    return (
-        <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all">
-            <label className="block text-[7px] font-black text-slate-600 uppercase mb-1 tracking-widest">
-                {label}
-            </label>
-            <div className="flex items-center justify-between">
-                <Thermometer size={14} className="text-indigo-400/50" />
-                <input 
-                    type="number" 
-                    name={name} 
-                    value={value || ''} 
-                    onChange={onChange} 
-                    className="bg-transparent text-right text-white font-black text-sm outline-none w-full" 
-                />
-                <span className="text-[9px] text-slate-600 font-bold ml-2">°C</span>
-            </div>
-        </div>
-    )
+  return (
+    <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all">
+      <label className="block text-[8px] font-black text-slate-600 uppercase mb-2 tracking-widest">{label}</label>
+      <div className="flex items-center justify-between">
+        <Thermometer size={16} className="text-indigo-400/50" />
+        <input type="number" name={name} value={value || ''} onChange={onChange}
+          className="bg-transparent text-right text-white font-black text-xl outline-none w-full" />
+        <span className="text-sm text-slate-600 font-bold ml-2">°C</span>
+      </div>
+    </div>
+  )
 }
 
 function WeatherSwitch({ name, value, onChange }: any) {
-    const isDry = value === 'Dry';
-    return (
-        <div className="flex bg-black p-1 rounded-lg border border-white/5">
-            <button 
-                onClick={() => onChange({ target: { name, value: 'Dry' } } as any)} 
-                className={`flex-1 py-2 rounded text-[8px] font-black uppercase transition-all ${isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-500'}`}
-            >
-                ☀️ Seco
-            </button>
-            <button 
-                onClick={() => onChange({ target: { name, value: 'Wet' } } as any)} 
-                className={`flex-1 py-2 rounded text-[8px] font-black uppercase transition-all ${!isDry ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-500'}`}
-            >
-                🌧️ Chuva
-            </button>
-        </div>
-    )
+  const isDry = value === 'Dry';
+  return (
+    <div className="flex bg-black p-1 rounded-lg border border-white/5">
+      <button onClick={() => onChange({ target: { name, value: 'Dry' } })}
+        className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>
+        ☀️ Seco
+      </button>
+      <button onClick={() => onChange({ target: { name, value: 'Wet' } })}
+        className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${!isDry ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>
+        🌧️ Chuva
+      </button>
+    </div>
+  )
 }
