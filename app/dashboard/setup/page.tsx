@@ -124,11 +124,11 @@ export default function SetupPage() {
                     <div className="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center shadow-lg">
                         <Activity className="text-white" size={20} />
                     </div>
-                    <h1 className="text-sm font-black text-white uppercase tracking-widest">Setup_Optimizer</h1>
+                    <h1 className="text-sm font-black text-white uppercase tracking-widest">Setup Optimizer - Calculadora</h1>
                 </div>
                 <div className="flex items-center gap-4 bg-black/40 p-1 rounded-lg border border-white/5">
                     <div className="px-4 py-1.5 border-r border-white/5 text-center">
-                        <p className="text-[7px] text-slate-500 uppercase font-bold tracking-widest">Avg_Temp</p>
+                        <p className="text-[7px] text-slate-500 uppercase font-bold tracking-widest">Temp. Corrida</p>
                         <p className="text-xs font-black text-indigo-400">{raceAvgTemp.toFixed(1)}°C</p>
                     </div>
                     <div className="relative min-w-[250px]">
@@ -152,26 +152,26 @@ export default function SetupPage() {
              <div className="xl:col-span-7 space-y-6">
                 <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-8 backdrop-blur-sm">
                     <h2 className="text-[10px] font-black text-white uppercase tracking-[0.3em] mb-10 flex items-center gap-3">
-                        <CloudSun className="text-indigo-400" size={16} /> Meteorologia_Ativa
+                        <CloudSun className="text-indigo-400" size={16} /> Previsão Metereológica
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div className="space-y-8">
-                            <SessionGroup title="Qualificação_1">
+                            <SessionGroup title="Qualificação - 1">
                                 <WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} />
-                                <HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura_Ambiente" />
+                                <HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura (Q1)" />
                             </SessionGroup>
-                            <SessionGroup title="Qualificação_2">
+                            <SessionGroup title="Qualificação - 2">
                                 <WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} />
-                                <HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura_Ambiente" />
+                                <HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura (Q2)" />
                             </SessionGroup>
                         </div>
                         <div className="bg-black/20 rounded-xl p-6 border border-white/5">
-                            <h3 className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-6">Previsão_Corrida</h3>
+                            <h3 className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-6">Previsão para a Corrida</h3>
                             <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
                             <div className="mt-8 space-y-4">
                                 {[1, 2, 3, 4].map(num => (
                                     <div key={num} className="grid grid-cols-3 items-center bg-black/40 p-2 rounded-lg border border-white/5">
-                                        <span className="text-[9px] font-bold text-slate-500 uppercase pl-1">Stint_{num}</span>
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase pl-1">Quadrante:{num}</span>
                                         <input 
                                             name={`r${num}_temp_min`} 
                                             value={(weather as any)[`r${num}_temp_min`]} 
@@ -201,7 +201,7 @@ export default function SetupPage() {
                             {/* Setup Values Table */}
                             <div className="bg-indigo-600 rounded-2xl overflow-hidden shadow-2xl border border-indigo-400/20">
                                 <div className="bg-black/20 p-4 border-b border-white/10 flex justify-between items-center">
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Setup_Ideal_Calculado</span>
+                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Setup Ideal Calculadora</span>
                                     {loading && <Loader2 className="animate-spin text-white" size={14} />}
                                 </div>
                                 <div className="p-4 space-y-1">
@@ -224,10 +224,10 @@ export default function SetupPage() {
                             <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
                                 <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
                                     <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <ShieldAlert size={14} className="text-rose-500" /> Desgaste_Geral_Estimado
+                                        <ShieldAlert size={14} className="text-rose-500" /> Desgaste Final Estimado
                                     </h2>
                                     <div className="bg-black/50 px-3 py-1 rounded border border-white/10 flex items-center gap-3">
-                                        <span className="text-[8px] text-slate-500 font-black">RISCO_CT</span>
+                                        <span className="text-[8px] text-slate-500 font-black">Risco Pista Livre</span>
                                         <input 
                                             type="number" 
                                             value={desgasteModifier} 
