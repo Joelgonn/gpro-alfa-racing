@@ -418,10 +418,21 @@ export async function POST(request: Request, context: any) {
                 voltas_list: safeVal(hf.getCellValue({ sheet: tfSid, col: 19, row: 19 + i })),
             };
         }
-        for(let i=1; i<=8; i++) {
+        for(let i=1; i<=3; i++) {
+            output.boost_laps_outputs[`boost${i}`] = {
+                // A fórmula correta para a linha é 18 + i (Ex: i=1 -> linha 19 do index = Linha 20 do Excel)
+                stint: safeVal(hf.getCellValue({ sheet: tfSid, col: 18, row: 18 + i })),       // Coluna S
+                voltas_list: safeVal(hf.getCellValue({ sheet: tfSid, col: 19, row: 18 + i })), // Coluna T
+            };
+        }
+        // --- 2. CORREÇÃO DOS DADOS DOS MINI-STINTS (LINHAS 24 e 25) ---
+        for(let i=1; i<=4; i++) { // Ajustado para 4 stints conforme a imagem (Colunas R, S, T, U)
             output.boost_mini_stints_outputs[`stint${i}`] = {
-                val1: safeVal(hf.getCellValue({ sheet: tfSid, col: 17 + i - 1, row: 24 })),
-                val2: safeVal(hf.getCellValue({ sheet: tfSid, col: 17 + i - 1, row: 23 }))
+                // Coluna: 16 + i (Ex: i=1 -> 17 que é a coluna R)
+                // val1 = Combustível (Linha 25 do Excel = índice 24)
+                val1: safeVal(hf.getCellValue({ sheet: tfSid, col: 16 + i, row: 24 })), 
+                // val2 = Boosts (Linha 24 do Excel = índice 23)
+                val2: safeVal(hf.getCellValue({ sheet: tfSid, col: 16 + i, row: 23 }))  
             };
         }
         return NextResponse.json({ sucesso: true, data: output });
