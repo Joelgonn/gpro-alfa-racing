@@ -1,244 +1,216 @@
 'use client';
-import { useState, ChangeEvent } from 'react';
 
-// --- TIPOS AUXILIARES ---
-type InputChangeEvent = ChangeEvent<HTMLInputElement>;
-type DriverKeys = keyof typeof initialDriver;
+import Image from 'next/image';
+import { useState, useRef } from 'react';
+import { FaDiscord, FaTwitter, FaEnvelope, FaTrophy, FaUsers, FaChartLine } from 'react-icons/fa'; // Ícones para elementos visuais
 
-// --- DADOS INICIAIS ---
-const initialDriver = {
-  total: 95,
-  concentracao: 91,
-  talento: 207,
-  agressividade: 36,
-  experiencia: 43,
-  tecnica: 94,
-  resistencia: 72,
-  carisma: 34,
-  motivacao: 0,
-  reputacao: 0,
-  peso: 64,
-  idade: 21,
-  energia: 100
-};
+export default function LandingPage() {
+  const [copied, setCopied] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
 
-export default function DashboardHome() {
-  
-  const [driver, setDriver] = useState(initialDriver);
-  
-  const [car, setCar] = useState([
-    { name: "Chassi", lvl: 5, wear: 98 },
-    { name: "Motor", lvl: 5, wear: 63 },
-    { name: "Asa dianteira", lvl: 5, wear: 54 },
-    { name: "Asa traseira", lvl: 5, wear: 55 },
-    { name: "Assoalho", lvl: 4, wear: 93 },
-    { name: "Laterais", lvl: 5, wear: 86 },
-    { name: "Radiador", lvl: 5, wear: 84 },
-    { name: "Câmbio", lvl: 5, wear: 27 },
-    { name: "Freios", lvl: 5, wear: 88 },
-    { name: "Suspensão", lvl: 4, wear: 95 },
-    { name: "Eletrônicos", lvl: 5, wear: 83 },
-  ]);
-
-  const updateDriver = (field: DriverKeys, value: string) => {
-    setDriver(prev => ({ ...prev, [field]: Number(value) }));
-  };
-
-  const updateCar = (index: number, field: 'lvl' | 'wear', value: string) => {
-    const newCar = [...car];
-    newCar[index][field] = Number(value);
-    setCar(newCar);
+  const handleCopyEmail = () => {
+    if (emailRef.current) {
+      emailRef.current.select();
+      document.execCommand('copy');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Resetar mensagem após 2 segundos
+    }
   };
 
   return (
-    // Usa 'animate-in' nativo do Tailwind css se configurado, ou apenas fade-in css padrão
-    <div className="p-6 max-w-7xl mx-auto space-y-6 fade-in text-foreground">
-      
-      {/* ... [Header e Gerente - Mantenha seu código aqui, mas aplique as classes bg-card abaixo] ... */}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-blue-950 text-white font-sans antialiased">
+      {/* Navbar */}
+      <nav className="fixed top-0 left-0 w-full z-50 bg-gray-950/80 backdrop-blur-sm shadow-lg py-4 px-6 md:px-12 flex justify-between items-center animate-fade-in-down">
         
-        {/* COLUNA 1: GERENTE (Placeholder visual com as novas classes) */}
-        <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm overflow-hidden h-full min-h-[200px] p-6">
-            <h3 className="font-semibold text-lg tracking-tight mb-4">Gerente</h3>
-            <p className="text-muted-foreground text-sm">Seu conteúdo do gerente aqui...</p>
+        {/* Links de navegação */}
+        <div className="flex space-x-6">
+          {/* AQUI ESTÁ A MUDANÇA: Aponte para /login */}
+          <a href="/login" className="hover:text-yellow-400 transition-colors duration-300">Login @</a>
+          {/* FIM DA MUDANÇA */}
+          <a href="#sobre" className="hover:text-yellow-400 transition-colors duration-300">Sobre</a>
+          <a href="#conquistas" className="hover:text-yellow-400 transition-colors duration-300">Conquistas</a>
+          <a href="#junte-se" className="hover:text-yellow-400 transition-colors duration-300">Junte-se</a>
+          <a href="#contato" className="hover:text-yellow-400 transition-colors duration-300">Contato</a>
         </div>
+      </nav>
 
-        {/* COLUNA 2: HABILIDADES */}
-        <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm p-5 h-full transition-all hover:shadow-md">
-            <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
-                <h3 className="font-semibold text-lg tracking-tight">Habilidades</h3>
-                <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground bg-secondary px-2 py-1 rounded">Editável</span>
-            </div>
-            
-            {/* Energia - Visual Modernizado */}
-            <div className="flex items-center gap-4 mb-6">
-                <div className="flex flex-col items-center justify-center w-10">
-                    <span className="text-xl">⚡</span>
-                </div>
-                <div className="relative w-full h-8 bg-secondary rounded-lg border border-border overflow-hidden group shadow-inner">
-                    <input 
-                        type="number" 
-                        value={driver.energia} 
-                        onChange={(e) => updateDriver('energia', e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                    />
-                    <div 
-                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-500 via-yellow-500 to-emerald-500 transition-all duration-500 ease-out" 
-                        style={{ width: `${driver.energia}%` }}
-                    ></div>
-                    {/* Efeito de brilho sobre a barra */}
-                    <div className="absolute inset-0 bg-white/10 z-10 pointer-events-none"></div>
-                    
-                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md z-10 pointer-events-none select-none">
-                        {driver.energia}%
-                    </span>
-                </div>
-            </div>
-
-            <div className="space-y-2">
-                <SkillInput label="Total (OA)" value={driver.total} max={250} readonly highlight />
-                
-                <div className="h-px bg-border my-4" /> {/* Divisor sutil */}
-                
-                <SkillInput label="Concentração" value={driver.concentracao} max={150} onChange={(e) => updateDriver('concentracao', e.target.value)} />
-                <SkillInput label="Talento" value={driver.talento} max={250} onChange={(e) => updateDriver('talento', e.target.value)} />
-                <SkillInput label="Agressividade" value={driver.agressividade} max={150} onChange={(e) => updateDriver('agressividade', e.target.value)} />
-                <SkillInput label="Experiência" value={driver.experiencia} max={150} onChange={(e) => updateDriver('experiencia', e.target.value)} />
-                <SkillInput label="Conhec. Técnico" value={driver.tecnica} max={150} onChange={(e) => updateDriver('tecnica', e.target.value)} />
-                <SkillInput label="Resistência" value={driver.resistencia} max={150} onChange={(e) => updateDriver('resistencia', e.target.value)} />
-                <SkillInput label="Carisma" value={driver.carisma} max={150} onChange={(e) => updateDriver('carisma', e.target.value)} />
-                <SkillInput label="Motivação" value={driver.motivacao} max={150} onChange={(e) => updateDriver('motivacao', e.target.value)} />
-                <SkillInput label="Reputação" value={driver.reputacao} max={150} onChange={(e) => updateDriver('reputacao', e.target.value)} />
-                
-                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
-                    <SkillInput label="Peso (kg)" value={driver.peso} max={100} color="bg-emerald-500" onChange={(e) => updateDriver('peso', e.target.value)} compact />
-                    <SkillInput label="Idade" value={driver.idade} max={40} color="bg-emerald-500" onChange={(e) => updateDriver('idade', e.target.value)} compact />
-                </div>
-            </div>
+      {/* Hero Section */}
+      <section id="home" className="relative h-screen flex items-center justify-center text-center overflow-hidden bg-cover bg-center" style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}> {/* Crie hero-bg.jpg em public/images */}
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-8">          
+                   
+          <h1 className="text-5xl md:text-7xl font-extrabold text-white leading-tight animate-fade-in-up">
+            ALFA RACING <span className="text-yellow-500">BRASIL</span>
+          </h1>
+          <p className="mt-4 text-lg md:text-xl max-w-2xl text-gray-300 animate-fade-in-up delay-200">
+            A paixão pela velocidade e a estratégia do GPRO se encontram aqui.
+            Domine as pistas conosco!
+          </p>
+          <a
+            href="#junte-se"
+            className="mt-8 px-8 py-3 bg-yellow-500 text-gray-900 text-lg font-semibold rounded-full shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 animate-bounce-in delay-500"
+          >
+            Faça Parte da Equipe!
+          </a>
         </div>
+      </section>
 
-        {/* COLUNA 3: CARRO */}
-        <div className="bg-card text-card-foreground rounded-xl border border-border shadow-sm overflow-hidden h-full flex flex-col hover:shadow-md transition-all">
-             <div className="bg-muted/30 p-4 border-b border-border flex justify-between items-center">
-                <h3 className="font-semibold text-lg tracking-tight">Carro</h3>
-                <span className="text-xs font-medium text-muted-foreground">Configuração</span>
+      {/* Sobre Nós */}
+      <section id="sobre" className="py-20 px-6 md:px-12 bg-gradient-to-r from-gray-900 to-blue-900">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-left">Sobre a Alfa Racing Brasil</h2>
+          <p className="text-lg text-gray-300 mb-8 animate-fade-in-left delay-100">
+            Nascemos da paixão por automobilismo e pelo desafio estratégico do Grand Prix Racing Online (GPRO).
+            Nossa equipe é formada por gerentes dedicados, apaixonados por táticas, desenvolvimento de pilotos e carros,
+            e que buscam a excelência em cada corrida. Somos mais que um time; somos uma comunidade de pilotos brasileiros!
+          </p>
+          <div className="grid md:grid-cols-3 gap-8 mt-12">
+            <div className="p-6 bg-gray-800 rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up">
+              <FaUsers className="text-5xl text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Comunidade Ativa</h3>
+              <p className="text-gray-400">Troque ideias, estratégias e experiências com outros entusiastas do GPRO.</p>
             </div>
-            <div className="flex-1 overflow-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="text-muted-foreground bg-muted/50 uppercase text-[10px] font-bold tracking-wider sticky top-0 backdrop-blur-sm">
-                        <tr>
-                            <th className="px-4 py-3 font-medium">Peça</th>
-                            <th className="px-2 py-3 text-center font-medium">Nível</th>
-                            <th className="px-2 py-3 text-center font-medium">Desgaste</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {car.map((part, index) => (
-                            <CarPartInput 
-                                key={index} 
-                                name={part.name} 
-                                level={part.lvl} 
-                                wear={part.wear}
-                                onLevelChange={(e) => updateCar(index, 'lvl', e.target.value)}
-                                onWearChange={(e) => updateCar(index, 'wear', e.target.value)}
-                            />
-                        ))}
-                    </tbody>
-                </table>
+            <div className="p-6 bg-gray-800 rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up delay-100">
+              <FaChartLine className="text-5xl text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Foco em Estratégia</h3>
+              <p className="text-gray-400">Aprimore suas habilidades de gerenciamento e tática para dominar as pistas.</p>
             </div>
+            <div className="p-6 bg-gray-800 rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up delay-200">
+              <Image
+                src="/images/bandeira-brasil.png" // <<-- IMAGEM DA BANDEIRA DO BRASIL (se tiver)
+                alt="Bandeira do Brasil"
+                width={100}
+                height={75}
+                className="mx-auto mb-4 rounded-full"
+              />
+              <h3 className="text-xl font-semibold mb-2">Orgulho Brasileiro</h3>
+              <p className="text-gray-400">Representamos o Brasil com garra e talento no cenário global do GPRO.</p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Conquistas Recentes */}
+      <section id="conquistas" className="py-20 px-6 md:px-12 bg-gray-950">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-4xl font-bold text-yellow-500 mb-10 animate-fade-in-right">Nossas Conquistas</h2>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-gray-800 p-8 rounded-lg shadow-xl flex flex-col items-center text-center animate-fade-in-right">
+              <FaTrophy className="text-6xl text-yellow-500 mb-4" />
+              <h3 className="text-2xl font-semibold mb-3">Títulos de Liga</h3>
+              <p className="text-gray-300 text-lg">
+                Celebramos diversos títulos em ligas de diferentes níveis, mostrando nossa consistência e habilidade em evoluir.
+              </p>
+              <ul className="mt-4 text-left w-full text-gray-400 space-y-2">
+                <li><span className="font-bold text-yellow-500">🏆 Liga Elite:</span> 2º lugar na temporada SXX</li>
+                <li><span className="font-bold text-yellow-500">🥇 Liga Pro:</span> Campeões nas temporadas SYY e SZZ</li>
+                <li><span className="font-bold text-yellow-500">🌟 Liga Amador:</span> Inúmeras vitórias e promoções rápidas</li>
+              </ul>
+            </div>
+            <div className="bg-gray-800 p-8 rounded-lg shadow-xl flex flex-col items-center text-center animate-fade-in-right delay-100">
+              <FaChartLine className="text-6xl text-yellow-500 mb-4" />
+              <h3 className="text-2xl font-semibold mb-3">Recordes e Evolução</h3>
+              <p className="text-gray-300 text-lg">
+                Constantemente quebramos nossos próprios recordes e ajudamos nossos membros a atingir seus objetivos no jogo.
+              </p>
+              <ul className="mt-4 text-left w-full text-gray-400 space-y-2">
+                <li><span className="font-bold text-yellow-500">📈 Maior Pontuação:</span> 120 pontos em uma temporada</li>
+                <li><span className="font-bold text-yellow-500">🚀 Promoções:</span> Mais de 50 promoções para ligas superiores por nossos membros</li>
+                <li><span className="font-bold text-yellow-500">⚙️ Carro Otimizado:</span> Média de 90% de eficiência em setups de corrida</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Junte-se à Equipe */}
+      <section id="junte-se" className="py-20 px-6 md:px-12 bg-gradient-to-r from-blue-900 to-gray-900 text-center">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-4xl font-bold text-white mb-6 animate-fade-in-up">Quer Fazer Parte da Alfa Racing Brasil?</h2>
+          <p className="text-lg text-gray-300 mb-10 animate-fade-in-up delay-100">
+            Buscamos gerentes dedicados, com espírito de equipe e vontade de aprender e crescer no GPRO.
+            Se você compartilha essa paixão, nós temos um lugar para você!
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-8 text-left">
+            <div className="bg-gray-800 p-6 rounded-lg shadow-xl animate-fade-in-left">
+              <h3 className="text-2xl font-semibold text-yellow-500 mb-4">O Que Oferecemos:</h3>
+              <ul className="list-disc list-inside space-y-3 text-gray-300">
+                <li>Apoio e orientação de gerentes experientes.</li>
+                <li>Ambiente colaborativo para discutir estratégias.</li>
+                <li>Oportunidades de crescimento e promoções em ligas.</li>
+                <li>Eventos e campeonatos internos (opcional).</li>
+                <li>Uma comunidade divertida e acolhedora.</li>
+              </ul>
+            </div>
+            <div className="bg-gray-800 p-6 rounded-lg shadow-xl animate-fade-in-right">
+              <h3 className="text-2xl font-semibold text-yellow-500 mb-4">Como se Candidatar:</h3>
+              <p className="text-gray-300 mb-4">É simples! Entre em contato conosco através do nosso Discord ou e-mail. Conte-nos um pouco sobre sua experiência no GPRO e seu interesse em fazer parte da Alfa Racing Brasil.</p>
+              <p className="text-gray-300 font-bold">Estamos ansiosos para te conhecer!</p>
+            </div>
+          </div>
+
+          <a
+            href="https://discord.gg/SEULINKDISCORD" // <<-- SUBSTITUA PELO LINK REAL DO SEU DISCORD
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-12 inline-flex items-center px-10 py-4 bg-purple-600 text-white text-xl font-bold rounded-full shadow-lg hover:bg-purple-700 transition-all duration-300 transform hover:scale-105 animate-bounce-in delay-200"
+          >
+            <FaDiscord className="mr-3 text-3xl" />
+            Entrar no Discord
+          </a>
+        </div>
+      </section>
+
+      {/* Contato */}
+      <section id="contato" className="py-20 px-6 md:px-12 bg-gray-950 text-center">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-down">Fale Conosco</h2>
+          <p className="text-lg text-gray-300 mb-10 animate-fade-in-down delay-100">
+            Tem dúvidas, sugestões ou quer apenas bater um papo? Não hesite em nos contatar!
+          </p>
+
+          <div className="flex flex-col md:flex-row justify-center items-center gap-6">
+            <div className="relative w-full md:w-auto">
+              <input
+                ref={emailRef}
+                type="text"
+                value="contato@alfaracingbrasil.com" // <<-- SUBSTITUA PELO SEU EMAIL REAL
+                readOnly
+                className="w-full md:w-80 p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 pr-12"
+              />
+              <button
+                onClick={handleCopyEmail}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+              >
+                {copied ? 'Copiado!' : 'Copiar'}
+              </button>
+            </div>
+
+            <a
+              href="https://twitter.com/alfaracingbr" // <<-- SUBSTITUA PELO LINK REAL DO SEU TWITTER/X
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-all duration-300 transform hover:scale-105"
+            >
+              <FaTwitter className="mr-3 text-xl" />
+              Twitter/X
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 py-8 px-6 md:px-12 text-center text-gray-400 text-sm">
+        <div className="max-w-4xl mx-auto">
+          <p>&copy; {new Date().getFullYear()} Alfa Racing Brasil. Todos os direitos reservados.</p>
+          <p className="mt-2">Feito com paixão por GPRO.</p>
+          <div className="flex justify-center space-x-4 mt-4">
+            <a href="https://gpro.net/gb/gpro.asp" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">GPRO Official</a>
+            <span className="text-gray-600">|</span>
+            <a href="#" className="hover:text-yellow-500 transition-colors">Política de Privacidade</a> {/* Crie esta página se necessário */}
+          </div>
+        </div>
+      </footer>
     </div>
   );
-}
-
-// --- COMPONENTES AUXILIARES (REESTILIZADOS) ---
-
-interface SkillInputProps {
-    label: string;
-    value: number;
-    max: number;
-    color?: string;
-    onChange?: (e: InputChangeEvent) => void;
-    readonly?: boolean;
-    highlight?: boolean;
-    compact?: boolean;
-}
-
-function SkillInput({ label, value, max, color, onChange, readonly, highlight, compact }: SkillInputProps) {
-    const width = Math.min(100, (value / max) * 100);
-    
-    return (
-        <div className={`flex items-center gap-3 group ${compact ? 'flex-col items-stretch gap-1' : ''}`}>
-            <span className={`text-sm font-medium transition-colors ${compact ? 'text-left' : 'w-28 text-right'} ${highlight ? 'text-primary font-bold' : 'text-muted-foreground group-hover:text-foreground'}`}>
-                {label}
-            </span>
-            
-            <div className={`flex items-center gap-2 flex-1 ${compact ? 'flex-row-reverse justify-end' : ''}`}>
-                <input 
-                    type="number" 
-                    value={value} 
-                    onChange={onChange}
-                    readOnly={readonly}
-                    className={`
-                        w-10 bg-transparent text-center text-sm font-mono outline-none rounded-md py-0.5
-                        transition-all duration-200
-                        ${readonly 
-                            ? 'font-bold text-foreground cursor-default' 
-                            : 'border border-transparent hover:border-border focus:border-primary focus:bg-secondary focus:ring-1 focus:ring-primary/20'}
-                    `}
-                />
-
-                <div className={`flex-1 h-2.5 bg-secondary rounded-full relative overflow-hidden ${compact ? 'w-full' : ''}`}>
-                    <div 
-                        className={`h-full rounded-full transition-all duration-700 ease-out ${color ? color : 'bg-gradient-to-r from-red-500 via-orange-400 to-emerald-500'}`} 
-                        style={{ width: `${width}%` }}
-                    ></div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-interface CarPartInputProps {
-    name: string;
-    level: number;
-    wear: number;
-    onLevelChange: (e: InputChangeEvent) => void;
-    onWearChange: (e: InputChangeEvent) => void;
-}
-
-function CarPartInput({ name, level, wear, onLevelChange, onWearChange }: CarPartInputProps) {
-    // Lógica de cores mais sofisticada
-    let wearColor = "text-emerald-600 dark:text-emerald-400";
-    if (wear > 50) wearColor = "text-amber-600 dark:text-amber-400";
-    if (wear > 90) wearColor = "text-destructive font-bold";
-
-    return (
-        <tr className="hover:bg-accent/50 transition-colors group">
-            <td className="px-4 py-2.5 font-medium text-foreground text-sm border-r border-transparent">{name}</td>
-            
-            <td className="px-2 py-1 text-center">
-                <input 
-                    type="number" 
-                    value={level} 
-                    onChange={onLevelChange}
-                    className="w-12 bg-transparent text-foreground text-center text-sm font-mono outline-none rounded hover:bg-muted focus:bg-background focus:ring-1 focus:ring-primary/20 transition-all p-1 border border-transparent focus:border-border"
-                />
-            </td>
-            
-            <td className="px-2 py-1 text-center">
-                <div className="flex items-center justify-center gap-0.5">
-                    <input 
-                        type="number" 
-                        value={wear} 
-                        onChange={onWearChange}
-                        className={`w-10 bg-transparent text-center font-mono outline-none rounded hover:bg-muted focus:bg-background focus:ring-1 focus:ring-primary/20 transition-all p-1 border border-transparent focus:border-border text-sm ${wearColor}`}
-                    />
-                    <span className="text-muted-foreground text-xs select-none">%</span>
-                </div>
-            </td>
-        </tr>
-    )
 }
