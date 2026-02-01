@@ -1,10 +1,15 @@
+// --- START OF FILE app/dashboard/strategy/page.tsx ---
 'use client';
-import { useState, useEffect, useCallback, useRef, useMemo, ChangeEvent } from 'react';
-import { useGame } from '@/app/context/GameContext';
+
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation'; // Importa o useRouter
+import { supabase } from '../../lib/supabase'; // Importa o cliente Supabase
+import { useGame } from '../../context/GameContext'; // Seu GameContext
+
 import {
   Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin,
   Sparkles, ChevronLeft, ChevronRight, Fuel, Wind, TrendingUp,
-  ChevronDown, Search, X, ShieldCheck // Novos ícones para o seletor
+  ChevronDown, Search, X, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,42 +23,25 @@ type PersonalStintsInput = { [key: string]: string | number | null };
 type InputsState = { race_options: RaceOptions; compound_options: CompoundOptions; boost_laps: BoostLapsInput; personal_stint_voltas: PersonalStintsInput; };
 
 const TRACK_FLAGS: { [key: string]: string } = {
-  // A
   "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
-  // B
   "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
-  // C-D
   "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb",
-  // E-F
   "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
-  // G
   "Grobnik": "hr",
-  // H
   "Hockenheim": "de", "Hungaroring": "hu",
-  // I
   "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Monaco": "mc",
-  // J-K
   "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
-  // L
   "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
-  // M
   "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
-  // N-O
   "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
-  // P
   "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
-  // R
   "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
-  // S
   "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
-  // T-V
   "Valencia": "es", "Vallelunga": "it",
-  // Y-Z
   "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
-
-// --- COMPONENTE DE SELEÇÃO CUSTOMIZADO ---
+// --- COMPONENTE DE SELEÇÃO CUSTOMIZADO (MANTIDO IGUAL) ---
 function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -107,11 +95,13 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 }
 
 export default function StrategyPage() {
+  const router = useRouter(); 
   const {
     track, updateTrack, raceAvgTemp, tracksList, tyreSuppliers,
     updateWeather, driver, updateDriver, car, updateCar
   } = useGame();
 
+  // Estados locais para inputs da Estratégia
   const [inputs, setInputs] = useState<InputsState>({
     race_options: { desgaste_pneu_percent: 18, condicao: "Dry", pneus_fornecedor: "Pipirelli", tipo_pneu: "Medium", pitstops_num: 2, ct_valor: 0, avg_temp: 0 },
     compound_options: { "Extra Soft": { forcar_pits: "", forcar_ct: "" }, "Soft": { forcar_pits: "", forcar_ct: "" }, "Medium": { forcar_pits: "", forcar_ct: "" }, "Hard": { forcar_pits: "", forcar_ct: "" } },
@@ -123,51 +113,132 @@ export default function StrategyPage() {
   const [loading, setLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(true);
   const [activeTab, setActiveTab] = useState<'auto' | 'manual'>('auto');
+  
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('Gerente'); 
 
+  // --- 1. VERIFICAÇÃO DE LOGIN (SUPABASE) ---
+  useEffect(() => {
+    async function checkSession() {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.push('/login');
+                return;
+            }
+            setUserId(session.user.id);
+            if(session.user.email) setUserEmail(session.user.email);
+        } catch (error) {
+            console.error("Erro na autenticação:", error);
+            router.push('/login');
+        }
+    }
+    checkSession();
+  }, [router]);
+
+  // --- 2. HIDRATAÇÃO DO ESTADO ---
   useEffect(() => {
     async function loadState() {
+      // ---> CORREÇÃO APLICADA AQUI <---
+      // A verificação foi movida para dentro da função loadState.
+      // Agora o TypeScript sabe que userId é uma string nas linhas abaixo.
+      if (!userId) return;
+
       try {
-        const res = await fetch('/api/python?action=state');
+        const res = await fetch('/api/python?action=get_state', {
+            headers: { 'user-id': userId } // Agora é seguro usar userId
+        });
         const json = await res.json();
         if (json.sucesso && json.data) {
           const d = json.data;
+          
           if (d.current_track) updateTrack(d.current_track);
           if (d.weather) updateWeather(d.weather);
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
 
-          const excelTemp = d.race_options?.avg_temp;
-          const initialTemp = (excelTemp && excelTemp !== 0) ? excelTemp : raceAvgTemp;
-
-          setInputs(prev => ({ ...prev, race_options: { ...prev.race_options, desgaste_pneu_percent: d.race_options?.desgaste_pneu_percent ?? prev.race_options.desgaste_pneu_percent, avg_temp: Number(initialTemp) || 0 }, }));
+          setInputs(prev => ({ 
+              ...prev, 
+              race_options: { 
+                  ...prev.race_options, 
+                  desgaste_pneu_percent: d.race_options?.desgaste_pneu_percent ?? prev.race_options.desgaste_pneu_percent,
+                  pneus_fornecedor: d.race_options?.pneus_fornecedor ?? prev.race_options.pneus_fornecedor,
+                  tipo_pneu: d.race_options?.tipo_pneu ?? prev.race_options.tipo_pneu,
+                  condicao: d.race_options?.condicao ?? prev.race_options.condicao,
+                  pitstops_num: d.race_options?.pitstops_num ?? prev.race_options.pitstops_num,
+                  ct_valor: d.race_options?.ct_valor ?? prev.race_options.ct_valor,
+                  avg_temp: Number(d.race_options?.avg_temp ?? raceAvgTemp) || 0 
+              }, 
+          }));
         }
-      } catch (e) { console.error("Erro ao carregar estado:", e); }
+      } catch (e) { console.error("Erro ao carregar estado da Estratégia:", e); }
       finally { setIsSyncing(false); }
     }
     loadState();
-  }, []); // Removido dependências para executar apenas uma vez na montagem
+  }, [userId, updateTrack, updateWeather, updateDriver, updateCar, raceAvgTemp]);
 
+  // --- 3. CÁLCULO DE ESTRATÉGIA ---
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
-    if (!currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
+    if (!userId || !currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
+    
     setLoading(true);
     try {
-      const res = await fetch('/api/python?endpoint=strategy/calculate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pista: currentTrack, driver: driver, car: car, ...currInputs }) });
+      const res = await fetch('/api/python?action=strategy_calculate', { 
+          method: 'POST', 
+          headers: { 
+              'Content-Type': 'application/json',
+              'user-id': userId 
+          }, 
+          body: JSON.stringify({ 
+              pista: currentTrack, 
+              driver: driver, 
+              car: car, 
+              race_options: currInputs.race_options, 
+              compound_options: currInputs.compound_options, 
+              boost_laps: currInputs.boost_laps, 
+              personal_stint_voltas: currInputs.personal_stint_voltas 
+          }) 
+      });
       const data = await res.json();
       if (data.sucesso) setOutputs(data.data);
-    } catch (e) { console.error("Erro ao calcular estratégia:", e); }
+      else console.error("Erro ao calcular estratégia:", data.error);
+    } catch (e) { console.error("Erro de rede ao calcular estratégia:", e); }
     finally { setLoading(false); }
-  }, [isSyncing, driver, car]);
+  }, [userId, isSyncing, driver, car]);
 
+  // Debounce para recalcular estratégia
   useEffect(() => {
-    if (!isSyncing) {
+    if (!isSyncing && userId && track && track !== "Selecionar Pista") {
       const timer = setTimeout(() => fetchStrategy(inputs, track), 700);
       return () => clearTimeout(timer);
     }
-  }, [inputs, track, fetchStrategy, isSyncing]);
+  }, [inputs, track, fetchStrategy, isSyncing, userId]);
+
+  // --- 4. PERSISTÊNCIA AUTOMÁTICA DOS INPUTS DA ESTRATÉGIA ---
+  const persistStrategyState = useCallback(async () => {
+      if (!userId || isSyncing) return;
+      try {
+          await fetch('/api/python?action=update_state', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'user-id': userId },
+              body: JSON.stringify({
+                  track: track, 
+                  race_options: inputs.race_options,
+              })
+          });
+      } catch(e) { console.error("Erro ao salvar opções da Estratégia:", e); }
+  }, [userId, isSyncing, track, inputs.race_options]); 
+
+  useEffect(() => {
+      if (!isSyncing && userId) {
+          const timer = setTimeout(() => persistStrategyState(), 2000);
+          return () => clearTimeout(timer);
+      }
+  }, [inputs.race_options, track, persistStrategyState, isSyncing, userId]);
 
   const handleInput = (section: keyof InputsState, field: string, value: any, subKey?: string) => {
     setInputs(prev => {
-      const next = JSON.parse(JSON.stringify(prev)); // Deep copy to avoid mutation issues
+      const next = JSON.parse(JSON.stringify(prev)); 
       if (subKey) (next[section] as any)[subKey][field] = value;
       else (next[section] as any)[field] = value;
       return next;
@@ -182,7 +253,7 @@ export default function StrategyPage() {
     return n.toFixed(d).replace('.', ',') + s;
   };
 
-  if (isSyncing) return (
+  if (isSyncing || !userId) return (
     <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-indigo-400 gap-4">
       <div className="relative w-20 h-20"><div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full"></div><div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
       <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando_Engenharia</span>
@@ -193,7 +264,7 @@ export default function StrategyPage() {
 
   return (
     <div className="p-6 space-y-8 text-slate-300 pb-24 font-mono">
-      {/* HUD HEADER ATUALIZADO */}
+      {/* HUD HEADER */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
           <div className="flex items-center gap-8 w-full md:w-auto">
@@ -213,6 +284,12 @@ export default function StrategyPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+             {/* Indicador de Usuário */}
+             <div className="text-right border-r border-white/10 pr-4 mr-2 hidden md:block">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Logado como</span>
+                <span className="text-[10px] font-bold text-indigo-300">{userEmail}</span>
+             </div>
+
             <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-2 rounded-lg border border-emerald-500/20">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
               <span className="text-[9px] font-bold text-emerald-500 uppercase">Cálculo_Ativo</span>
@@ -279,7 +356,6 @@ export default function StrategyPage() {
             </div>
           </section>
 
-          {/* ... O RESTO DO CÓDIGO PERMANECE IGUAL ... */}
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
             <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Ativação Boost - Ajuste Manual</h3></div>
             <div className="p-6 space-y-4">
@@ -371,7 +447,6 @@ export default function StrategyPage() {
                 </div>
             </section>
             
-            {/* ... O RESTO DO CÓDIGO PERMANECE IGUAL ... */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-2 flex items-center gap-2 border-b border-white/5 px-4">
                     <button onClick={() => setActiveTab('auto')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}><Sparkles size={14}/> Ajuste Automatico</button>

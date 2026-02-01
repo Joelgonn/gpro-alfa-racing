@@ -1,9 +1,12 @@
 'use client';
+
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation'; // Import necessário para redirecionamento
+import { supabase } from '../../lib/supabase'; // Seu cliente Supabase
 import { 
   Briefcase, Save, Search, Users, Target, TrendingUp, 
   MessageSquare, History, Trash2, ChevronRight, BarChart3, 
-  Handshake, Gauge
+  Handshake, Gauge, Loader2
 } from 'lucide-react';
 
 // --- TIPOS ---
@@ -16,7 +19,7 @@ interface SavedSponsor {
     date: string;
 }
 
-// --- CONSTANTES (VERSÃO CURTA / DIRETA) ---
+// --- CONSTANTES ---
 const QUESTIONS_LABELS = [
     "Onde colocar a propaganda?",
     "Objetivo na próxima temporada?",
@@ -37,8 +40,11 @@ function translate(text: string) {
   return TRANSLATION_MAP[text] || text;
 }
 
+const BASE_STORAGE_KEY = 'gpro_sponsors_db';
+
 export default function SponsorsPage() {
-  
+  const router = useRouter(); // Hook de roteamento
+
   // --- ESTADOS ---
   const [attributes, setAttributes] = useState({
     finances: 2,
@@ -60,49 +66,98 @@ export default function SponsorsPage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true); // Estado de carregamento da auth
   const [savedSponsors, setSavedSponsors] = useState<SavedSponsor[]>([]);
+  
+  // --- ESTADO DE AUTENTICAÇÃO ---
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('Gerente'); // Para exibir no header
 
-  // --- LÓGICA ---
+  // --- 1. VERIFICAÇÃO DE LOGIN (SUPABASE) ---
+  useEffect(() => {
+    async function checkSession() {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.push('/login');
+                return;
+            }
+            setUserId(session.user.id);
+            if (session.user.email) setUserEmail(session.user.email);
+        } catch (error) {
+            console.error("Erro na autenticação:", error);
+            router.push('/login');
+        } finally {
+            setIsAuthLoading(false);
+        }
+    }
+    checkSession();
+  }, [router]);
+
+  // --- 2. CARREGAR DADOS SALVOS DO USUÁRIO (LOCALSTORAGE BASEADO NO ID DO SUPABASE) ---
+  useEffect(() => {
+    if (userId) {
+        const userKey = `${BASE_STORAGE_KEY}_${userId}`;
+        const saved = localStorage.getItem(userKey);
+        if (saved) {
+            try { setSavedSponsors(JSON.parse(saved)); } catch (e) { console.error(e); }
+        }
+    }
+  }, [userId]);
+
+  // --- 3. SALVAR DADOS AUTOMATICAMENTE (LOCALSTORAGE) ---
+  useEffect(() => {
+    if (userId) { // Removemos a checagem de length > 0 para permitir salvar array vazio se deletar tudo
+        const userKey = `${BASE_STORAGE_KEY}_${userId}`;
+        // Só salva se já tivermos carregado ou se o usuário interagir, para não sobrescrever com vazio no load inicial
+        // Mas como o load inicial setta o state, e este effect roda na mudança do state, precisamos de cuidado.
+        // Simplificação segura: Salva o estado atual no localStorage sempre que mudar.
+        localStorage.setItem(userKey, JSON.stringify(savedSponsors));
+    }
+  }, [savedSponsors, userId]);
+
   const filteredSponsors = savedSponsors.filter(sponsor => 
       sponsor.name.toLowerCase().includes(sponsorName.toLowerCase())
   );
-
-  useEffect(() => {
-      const saved = localStorage.getItem('gpro_sponsors_db');
-      if (saved) {
-          try { setSavedSponsors(JSON.parse(saved)); } catch (e) { console.error(e); }
-      }
-  }, []);
-
-  useEffect(() => {
-      if (savedSponsors.length > 0) {
-        localStorage.setItem('gpro_sponsors_db', JSON.stringify(savedSponsors));
-      }
-  }, [savedSponsors]);
 
   const handleAttributeChange = (field: SponsorAttribute, value: number) => {
     setAttributes(prev => ({ ...prev, [field]: value }));
   };
 
   const fetchSponsorData = useCallback(async () => {
+      if (!userId) return;
+
       setLoading(true);
       try {
-        const res = await fetch('/api/sponsors', {
+        const res = await fetch('/api/python?action=sponsors', { // Ajuste para sua rota padrão se necessário, ou mantenha /api/sponsors se você tiver uma rota dedicada
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'user-id': userId // HEADER OBRIGATÓRIO VINCULADO AO SUPABASE
+            },
             body: JSON.stringify(attributes)
         });
+        
+        // Fallback robusto se a API não estiver configurada para sponsors ainda
+        if (res.status === 404) {
+            // console.warn("API de patrocinadores não encontrada. Verifique route.ts");
+            setLoading(false);
+            return;
+        }
+
         const data = await res.json();
         if (data.sucesso) {
             setResults(data.data);
         }
       } catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [attributes]);
+  }, [attributes, userId]);
 
+  // Debounce para chamar a API
   useEffect(() => {
+      if (!userId) return;
       const timer = setTimeout(() => { fetchSponsorData(); }, 500);
       return () => clearTimeout(timer);
-  }, [attributes, fetchSponsorData]);
+  }, [attributes, fetchSponsorData, userId]);
 
   const saveToDb = () => {
       if (!sponsorName.trim()) return alert("Digite o nome.");
@@ -122,7 +177,6 @@ export default function SponsorsPage() {
           newList = [newItem, ...savedSponsors];
       }
       setSavedSponsors(newList);
-      localStorage.setItem('gpro_sponsors_db', JSON.stringify(newList));
   };
 
   const loadFromDb = (item: SavedSponsor) => {
@@ -135,9 +189,19 @@ export default function SponsorsPage() {
       if (confirm("Remover?")) {
           const newList = savedSponsors.filter(s => s.id !== id);
           setSavedSponsors(newList);
-          localStorage.setItem('gpro_sponsors_db', JSON.stringify(newList));
       }
   };
+
+  // Loader enquanto verifica sessão
+  if (isAuthLoading) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-slate-950">
+          <Loader2 className="animate-spin text-amber-500" size={48} />
+        </div>
+      );
+  }
+
+  if (!userId) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 font-sans pb-20 selection:bg-amber-500/30">
@@ -153,7 +217,9 @@ export default function SponsorsPage() {
                         <h1 className="text-lg font-bold text-white tracking-tight uppercase leading-none">
                             Negociação <span className="text-amber-500">Comercial</span>
                         </h1>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Gestão de Patrocínios</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                            Gestão de Patrocínios • <span className="text-amber-400/80">{userEmail}</span>
+                        </p>
                     </div>
                 </div>
 

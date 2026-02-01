@@ -7,42 +7,26 @@ import { createContext, useContext, useState, useEffect, ReactNode, useMemo, use
 // ============================================================================
 
 export type Driver = {
-  concentracao: number;
-  talento: number;
-  agressividade: number;
-  experiencia: number;
-  tecnica: number;
-  resistencia: number;
-  carisma: number;
-  motivacao: number;
-  reputacao: number;
-  peso: number;
-  idade: number;
-  energia: number;
-  total: number;
+  concentracao: number; talento: number; agressividade: number; experiencia: number;
+  tecnica: number; resistencia: number; carisma: number; motivacao: number;
+  reputacao: number; peso: number; idade: number; energia: number; total: number;
 };
 
 export type CarPart = {
-  name: string;
-  lvl: number;
-  wear: number;
+  name: string; lvl: number; wear: number;
 };
 
 export type WeatherData = {
-  // Classificação
-  tempQ1: number; weatherQ1: string;
-  tempQ2: number; weatherQ2: string;
-  // Corrida
-  weatherRace: string;
-  r1_temp_min: number; r1_temp_max: number;
-  r2_temp_min: number; r2_temp_max: number;
-  r3_temp_min: number; r3_temp_max: number;
+  tempQ1: number; weatherQ1: string; tempQ2: number; weatherQ2: string;
+  weatherRace: string; r1_temp_min: number; r1_temp_max: number;
+  r2_temp_min: number; r2_temp_max: number; r3_temp_min: number; r3_temp_max: number;
   r4_temp_min: number; r4_temp_max: number;
 };
 
 // Interface do Contexto (O que fica visível para os componentes)
 interface GameContextType {
   // Estados
+  role: 'admin' | 'user'; // <<< ADICIONADO: Cargo do usuário
   track: string;
   tracksList: string[];
   tyreSuppliers: string[];
@@ -50,14 +34,15 @@ interface GameContextType {
   car: CarPart[];
   weather: WeatherData;
   raceAvgTemp: number; 
-  desgasteModifier: number; // ADICIONADO PARA O BUILD
+  desgasteModifier: number;
 
   // Ações / Setters
+  updateRole: (newRole: 'admin' | 'user') => void; // <<< ADICIONADO: Função para atualizar o cargo
   updateTrack: (t: string) => void;
   updateDriver: (field: keyof Driver, value: number) => void;
   updateCar: (index: number, field: 'lvl' | 'wear', value: number) => void;
   updateWeather: (data: Partial<WeatherData>) => void;
-  updateDesgasteModifier: (val: number) => void; // ADICIONADO PARA O BUILD
+  updateDesgasteModifier: (val: number) => void;
 }
 
 // ============================================================================
@@ -93,6 +78,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   // --- States ---
+  const [role, setRole] = useState<'admin' | 'user'>('user'); // <<< ADICIONADO: Estado para o cargo, default 'user'
   const [track, setTrack] = useState<string>('Selecionar Pista');
   const [tracksList, setTracksList] = useState<string[]>([]);
   const [tyreSuppliers, setTyreSuppliers] = useState<string[]>([]);
@@ -129,35 +115,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [weather]);
 
   // --- Callbacks (Actions) ---
-  const updateTrack = useCallback((t: string) => {
-    setTrack(t);
+  const updateRole = useCallback((newRole: 'admin' | 'user') => { // <<< ADICIONADO: Função para setar o cargo
+    setRole(newRole);
   }, []);
 
-  const updateDriver = useCallback((field: keyof Driver, value: number) => {
-    setDriver(prev => ({ ...prev, [field]: value }));
-  }, []);
-
+  const updateTrack = useCallback((t: string) => { setTrack(t); }, []);
+  const updateDriver = useCallback((field: keyof Driver, value: number) => { setDriver(prev => ({ ...prev, [field]: value })); }, []);
   const updateCar = useCallback((index: number, field: 'lvl' | 'wear', value: number) => {
     setCar(prev => {
       const next = [...prev];
-      if (next[index]) {
-        next[index] = { ...next[index], [field]: value };
-      }
+      if (next[index]) next[index] = { ...next[index], [field]: value };
       return next;
     });
   }, []);
-
-  const updateWeather = useCallback((data: Partial<WeatherData>) => {
-    setWeather(prev => ({ ...prev, ...data }));
-  }, []);
-
-  const updateDesgasteModifier = useCallback((val: number) => {
-    setDesgasteModifier(val);
-  }, []);
+  const updateWeather = useCallback((data: Partial<WeatherData>) => { setWeather(prev => ({ ...prev, ...data })); }, []);
+  const updateDesgasteModifier = useCallback((val: number) => { setDesgasteModifier(val); }, []);
 
   // --- Render ---
   return (
     <GameContext.Provider value={{ 
+      role, // <<< ADICIONADO: Expõe o cargo
       track, 
       tracksList, 
       tyreSuppliers, 
@@ -166,6 +143,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       weather, 
       raceAvgTemp,
       desgasteModifier,
+      updateRole, // <<< ADICIONADO: Expõe a função de update
       updateTrack, 
       updateDriver, 
       updateCar, 

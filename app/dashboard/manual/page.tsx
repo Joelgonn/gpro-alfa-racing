@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // Adicionado para redirecionamento
+import { supabase } from '../../lib/supabase'; // Cliente Supabase
 import { 
   RefreshCw, History, ArrowRight, 
   Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown
@@ -8,7 +10,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PARTS = ["Asa Dianteira", "Asa Traseira", "Motor", "Freios", "Câmbio", "Suspensão"];
-const STORAGE_KEY = 'gpro_manual_setup_session';
+const BASE_STORAGE_KEY = 'gpro_manual_setup_session';
 
 const ALL_FEEDBACK_OPTIONS: Record<string, string[]> = {
     "Asa Dianteira": ["Falta ao carro muita velocidade nas retas", "O carro está perdendo alguma velocidade nas retas", "O carro poderia ter um pouco mais de velocidade nas retas", "OK", "Estou perdendo um pouco de aderência nas curvas", "O carro é muito instável em muitas curvas", "Não posso dirigir o carro, ele não tem aderência"],
@@ -37,6 +39,9 @@ const getFeedbackColor = (msg: string) => {
 };
 
 export default function ManualSetupPage() {
+    const router = useRouter();
+    
+    // --- STATE DO SETUP ---
     const [xp, setXp] = useState<string>("0");
     const [ct, setCt] = useState<string>("0");
     const [zs, setZs] = useState({ total: 0, half: 0 });
@@ -49,27 +54,89 @@ export default function ManualSetupPage() {
     const [feedbacks, setFeedbacks] = useState<Record<string, string>>({});
     const [analysis, setAnalysis] = useState<Record<string, { final: any, margin: any }>>({});
     const [availableOptions, setAvailableOptions] = useState<Record<string, string[]>>(ALL_FEEDBACK_OPTIONS);
+    
+    // --- STATE DE AUTENTICAÇÃO ---
+    const [userId, setUserId] = useState<string | null>(null);
+    const [userEmail, setUserEmail] = useState<string>('');
 
+    // --- 1. VERIFICAÇÃO DE LOGIN E LOAD DE SESSÃO (SUPABASE) ---
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            const data = JSON.parse(saved);
-            setXp(data.xp || "0"); setCt(data.ct || "0"); setZs(data.zs || { total: 0, half: 0 });
-            setHistory(data.history || []); setInputs(data.inputs || inputs);
-            setAnalysis(data.analysis || {}); setAvailableOptions(data.availableOptions || ALL_FEEDBACK_OPTIONS);
+        async function initSession() {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                // Se não logado, tchau
+                router.push('/login');
+                return;
+            }
+
+            const uid = session.user.id;
+            setUserId(uid);
+            setUserEmail(session.user.email || 'Gerente');
+            
+            // Carrega sessão específica deste usuário (Local Storage atrelado ao UID)
+            // Isso permite salvar o progresso do setup sem precisar de banco de dados para dados temporários
+            const userKey = `${BASE_STORAGE_KEY}_${uid}`;
+            const saved = localStorage.getItem(userKey);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    setXp(data.xp || "0"); 
+                    setCt(data.ct || "0"); 
+                    setZs(data.zs || { total: 0, half: 0 });
+                    setHistory(data.history || []); 
+                    setInputs(data.inputs || inputs);
+                    setAnalysis(data.analysis || {}); 
+                    setAvailableOptions(data.availableOptions || ALL_FEEDBACK_OPTIONS);
+                } catch(e) { console.error("Erro ao ler storage", e); }
+            }
         }
-    }, []);
+        initSession();
+    }, [router]); // Executa uma vez na montagem
 
+    // --- 2. PERSISTÊNCIA LOCAL (AUTO-SAVE NO NAVEGADOR) ---
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ xp, ct, zs, history, inputs, analysis, availableOptions }));
-    }, [xp, ct, zs, history, inputs, analysis, availableOptions]);
+        if (userId) {
+            const userKey = `${BASE_STORAGE_KEY}_${userId}`;
+            localStorage.setItem(userKey, JSON.stringify({ xp, ct, zs, history, inputs, analysis, availableOptions }));
+        }
+    }, [xp, ct, zs, history, inputs, analysis, availableOptions, userId]);
 
+    // --- 3. REINICIAR SESSÃO ---
+    const handleReset = () => {
+        if (confirm("Reiniciar sessão? Isso apagará seu histórico de voltas atual.")) {
+            if (userId) {
+                const userKey = `${BASE_STORAGE_KEY}_${userId}`;
+                localStorage.removeItem(userKey);
+            }
+            window.location.reload();
+        }
+    };
+
+    // --- 4. CÁLCULO VIA API ---
     const handleCalculate = async () => {
+        if (!userId) return;
         if (!xp || !ct || xp === "0") return alert("Insira XP e CT.");
+        
         setLoading(true);
-        const payload = { driver: { xp, ct }, history, currentLapData: PARTS.reduce((acc: any, part) => { acc[part] = { acerto: inputs[part], msg: feedbacks[part] || "OK" }; return acc; }, {}) };
+        const payload = { 
+            driver: { xp, ct }, 
+            history, 
+            currentLapData: PARTS.reduce((acc: any, part) => { 
+                acc[part] = { acerto: inputs[part], msg: feedbacks[part] || "OK" }; 
+                return acc; 
+            }, {}) 
+        };
+        
         try {
-            const res = await fetch('/api/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const res = await fetch('/api/manual', { // Verifique se sua rota é /api/manual ou /api/python
+                method: 'POST', 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'user-id': userId // Envia o UUID do Supabase
+                }, 
+                body: JSON.stringify(payload) 
+            });
             const json = await res.json();
             if (json.sucesso) {
                 setZs(json.data.zs);
@@ -79,19 +146,22 @@ export default function ManualSetupPage() {
                 if (json.data.allowedOptions) setAvailableOptions(json.data.allowedOptions);
                 setFeedbacks({});
             }
-        } catch (e) { alert("Erro de rede."); } finally { setLoading(false); }
+        } catch (e) { alert("Erro de rede ao calcular."); } finally { setLoading(false); }
     };
 
     const isFinished = history.length >= 8;
+
+    // Loading State simples enquanto checa auth
+    if (!userId) return <div className="h-screen bg-[#050506] flex items-center justify-center text-slate-500 text-xs font-mono">CARREGANDO TELEMETRIA...</div>;
 
     return (
         <div className="min-h-screen bg-[#050506] text-slate-400 font-mono text-xs">
             <header className="border-b border-white/5 bg-[#08080a] px-6 py-3 flex justify-between items-center sticky top-0 z-50">
                 <div className="flex items-center gap-4 text-white uppercase font-black tracking-tighter">
                     <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8px_#6366f1]" />
-                    <span>TELEMETRIA GPRO</span>
+                    <span>TELEMETRIA GPRO <span className="text-slate-600 ml-2 text-[10px]">USER: {userEmail}</span></span>
                 </div>
-                <button onClick={() => {if(confirm("Reiniciar?")) {localStorage.removeItem(STORAGE_KEY); window.location.reload();}}} className="text-[10px] hover:text-rose-500 transition-colors uppercase font-bold">[ REINICIAR_SESSÃO ]</button>
+                <button onClick={handleReset} className="text-[10px] hover:text-rose-500 transition-colors uppercase font-bold">[ REINICIAR_SESSÃO ]</button>
             </header>
 
             <main className="max-w-[1440px] mx-auto p-6 grid grid-cols-12 gap-6">

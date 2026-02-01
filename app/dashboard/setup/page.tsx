@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, ChangeEvent, useCallback, useRef, useMemo } from 'react';
-import { useGame } from '../../context/GameContext';
+import { useRouter } from 'next/navigation'; // Importa o useRouter
+import { supabase } from '../../lib/supabase'; // Importa o cliente Supabase
+import { useGame } from '../../context/GameContext'; // Seu GameContext
+
 import {
   Loader2, Activity, Flag, Thermometer, CloudSun, ShieldAlert,
   MapPin, ChevronDown, Search, X, ShieldCheck, Settings
@@ -53,7 +56,7 @@ const COMPONENTS = [
     { id: 'eletronicos', label: 'Eletrônicos' }
 ];
 
-// --- SELETOR DE PISTA CUSTOMIZADO (DA PÁGINA VISÃO GERAL) ---
+// --- SELETOR DE PISTA CUSTOMIZADO ---
 function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -108,6 +111,7 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 
 
 export default function SetupPage() {
+  const router = useRouter(); 
   const {
     driver, car, track, updateTrack, updateDriver, updateCar,
     weather, updateWeather, desgasteModifier, updateDesgasteModifier, raceAvgTemp
@@ -116,29 +120,88 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [tracks, setTracks] = useState<string[]>([]);
-  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('Gerente'); 
 
+  // --- 1. VERIFICAÇÃO DE LOGIN (SUPABASE) ---
+  useEffect(() => {
+    async function checkSession() {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.push('/login');
+                return;
+            }
+            setUserId(session.user.id);
+            if(session.user.email) setUserEmail(session.user.email);
+        } catch (error) {
+            console.error("Erro na autenticação:", error);
+            router.push('/login');
+        } finally {
+            setIsAuthLoading(false);
+        }
+    }
+    checkSession();
+  }, [router]);
+
+  // --- Lógica para persistir o estado ---
+  const persistState = useCallback(async () => {
+    if (!userId || isAuthLoading) return;
+    try {
+      await fetch('/api/python?action=update_state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'user-id': userId },
+          body: JSON.stringify({ track, driver, car, weather, desgasteModifier })
+      });
+    } catch(e) { console.error("Erro ao salvar estado:", e); }
+  }, [userId, isAuthLoading, track, driver, car, weather, desgasteModifier]);
+
+  // Auto-save
+  useEffect(() => {
+    if (!isAuthLoading && userId) {
+      const timer = setTimeout(() => persistState(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [track, driver, car, weather, desgasteModifier, persistState, isAuthLoading, userId]);
+
+  // --- Lógica de cálculo ---
   const handleCalcular = useCallback(async () => {
-    if (!track || track === "Selecionar Pista") return;
+    if (!userId || !track || track === "Selecionar Pista" || isAuthLoading) return;
+
     setLoading(true);
     try {
-      const res = await fetch('/api/python?endpoint=setup/calculate', {
+      const res = await fetch('/api/python?action=setup_calculate', { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pista: track, ...driver, car, ...weather, avgTemp: raceAvgTemp, desgasteModifier })
+        headers: { 'Content-Type': 'application/json', 'user-id': userId },
+        body: JSON.stringify({ 
+            pista: track, driver, car, tempQ1: weather.tempQ1, tempQ2: weather.tempQ2,
+            weatherQ1: weather.weatherQ1, weatherQ2: weather.weatherQ2,
+            weatherRace: weather.weatherRace, raceAvgTemp, desgasteModifier 
+        })
       });
       const data = await res.json();
       if (data.sucesso) setResultado(data.data);
-    } catch (error) { console.error(error); }
+      else console.error("Erro no cálculo do setup:", data.error);
+    } catch (error) { console.error("Erro de rede ao calcular setup:", error); }
     finally { setLoading(false); }
-  }, [track, driver, car, weather, desgasteModifier, raceAvgTemp]);
+  }, [userId, track, driver, car, weather, raceAvgTemp, desgasteModifier, isAuthLoading]);
 
+  // --- HIDRATAÇÃO INICIAL DOS DADOS ---
   useEffect(() => {
     async function hydrate() {
+      // ---> CORREÇÃO APLICADA AQUI <---
+      // A verificação foi movida para DENTRO da função `hydrate`.
+      // Agora, o TypeScript sabe que, se o código continuar, `userId` é uma string.
+      if (!userId || isAuthLoading) return;
+
       try {
         const [resT, resS] = await Promise.all([
           fetch('/api/python?action=tracks'),
-          fetch('/api/python?action=state')
+          fetch('/api/python?action=get_state', { 
+            headers: { 'user-id': userId } // Agora esta linha é segura
+          })
         ]);
         const dTracks = await resT.json();
         const dState = await resS.json();
@@ -151,18 +214,20 @@ export default function SetupPage() {
           if (d.weather) updateWeather(d.weather);
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
+          if (d.desgasteModifier !== undefined) updateDesgasteModifier(Number(d.desgasteModifier));
         }
-      } catch (e) { console.error(e); }
-      finally { setInitialLoaded(true); }
+      } catch (e) { console.error("Erro na hidratação inicial:", e); }
     }
     hydrate();
-  }, []);
+  }, [userId, isAuthLoading, updateTrack, updateWeather, updateDriver, updateCar, updateDesgasteModifier]); 
 
+  // Trigger para o cálculo automático de setup
   useEffect(() => {
-    if (!initialLoaded) return;
-    const timer = setTimeout(() => { handleCalcular(); }, 1000);
-    return () => clearTimeout(timer);
-  }, [weather, track, initialLoaded, handleCalcular]);
+    if (!isAuthLoading && userId && track && track !== "Selecionar Pista") {
+      const timer = setTimeout(() => { handleCalcular(); }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [weather, track, desgasteModifier, handleCalcular, userId, isAuthLoading]);
 
   const handleWeatherChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -177,7 +242,7 @@ export default function SetupPage() {
     return isNaN(n) ? 0 : n;
   };
 
-  if (!initialLoaded) {
+  if (isAuthLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#050507]">
         <Loader2 className="animate-spin text-indigo-500" size={48} />
@@ -185,9 +250,11 @@ export default function SetupPage() {
     );
   }
 
+  if (!userId) return null;
+
   return (
     <div className="p-6 space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
-      {/* HEADER BAR: SELEÇÃO DE PISTA */}
+      {/* HEADER BAR */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-xl">
           <div className="flex items-center gap-8 w-full md:w-auto">
@@ -206,9 +273,15 @@ export default function SetupPage() {
               <TrackSelector currentTrack={track} tracksList={tracks} onSelect={updateTrack} />
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-[8px] text-slate-500 uppercase font-bold tracking-widest">Temperatura Média Corrida</p>
-            <p className="text-2xl font-black text-indigo-400">{raceAvgTemp.toFixed(1)}°C</p>
+          <div className="flex items-center gap-4">
+             <div className="text-right border-r border-white/10 pr-4 mr-2 hidden md:block">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Logado como</span>
+                <span className="text-[10px] font-bold text-indigo-300">{userEmail}</span>
+             </div>
+            <div className="text-right">
+              <p className="text-[8px] text-slate-500 uppercase font-bold tracking-widest">Temperatura Média Corrida</p>
+              <p className="text-2xl font-black text-indigo-400">{raceAvgTemp.toFixed(1)}°C</p>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -239,8 +312,8 @@ export default function SetupPage() {
                     <div key={num} className="grid grid-cols-5 items-center bg-black/40 p-2 rounded-lg border border-white/5">
                       <span className="col-span-2 text-[9px] font-bold text-slate-500 uppercase pl-1">Quadrante {num}</span>
                       <span className='text-slate-600 text-[10px] text-center'>MIN</span>
-                      <input name={`r${num}_temp_min`} value={(weather as any)[`r${num}_temp_min`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-indigo-300 outline-none" />
-                      <input name={`r${num}_temp_max`} value={(weather as any)[`r${num}_temp_max`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-rose-300 outline-none" />
+                      <input type="number" name={`r${num}_temp_min`} value={(weather as any)[`r${num}_temp_min`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-indigo-300 outline-none" />
+                      <input type="number" name={`r${num}_temp_max`} value={(weather as any)[`r${num}_temp_max`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-rose-300 outline-none" />
                     </div>
                   ))}
                 </div>
@@ -320,7 +393,7 @@ export default function SetupPage() {
   );
 }
 
-// --- Componentes Auxiliares Reestilizados ---
+// --- Componentes Auxiliares ---
 function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="space-y-4">

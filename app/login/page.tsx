@@ -1,94 +1,224 @@
 'use client';
-import { useRouter } from 'next/navigation';
+
 import { useState } from 'react';
-import Link from 'next/link'; // Importe Link para navegar de volta à landing page
+import { useRouter } from 'next/navigation';
+import { FaUserAstronaut, FaLock, FaTicketAlt, FaSignInAlt, FaArrowLeft } from 'react-icons/fa';
+
+// --- CORREÇÃO DAS IMPORTAÇÕES ---
+// Como 'lib' está dentro de 'app', usamos '../' para voltar de 'login' para 'app'
+import { supabase } from '../lib/supabase'; 
+
+// Importa a Server Action para criar conta (Certifique-se que o arquivo existe em app/actions/signup.ts)
+import { signUpWithInviteCode } from '../actions/signup'; 
 
 export default function LoginPage() {
   const router = useRouter();
+  const [isLoginMode, setIsLoginMode] = useState(true); // Alterna entre Login e Cadastro
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Estados dos inputs
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+
+  // --- LÓGICA DE LOGIN (CLIENT-SIDE) ---
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulação de login - aqui entraria a validação real no futuro
-    setTimeout(() => {
-      // Idealmente, após um login bem-sucedido, você redirecionaria para o dashboard
-      router.push('/dashboard');
-      setLoading(false); // Resetar loading em caso de falha ou após redirecionamento
-    }, 1500); // Aumentei um pouco para simular melhor
+    setMessage('');
+
+    // Tenta fazer login direto com o Supabase
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setMessage('Erro: ' + error.message);
+      setLoading(false);
+    } else {
+      // Login com sucesso
+      router.push('/dashboard'); 
+      router.refresh();
+    }
+  };
+
+  // --- LÓGICA DE CADASTRO (SERVER-SIDE ACTION) ---
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    if (!inviteCode) {
+      setMessage('O código de convite é obrigatório.');
+      setLoading(false);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('password', password);
+    formData.append('inviteCode', inviteCode);
+
+    try {
+      // Chama a Server Action (Backend)
+      const result = await signUpWithInviteCode(formData);
+
+      if (result.success) {
+        // Se criou a conta, tenta logar automaticamente
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (!loginError) {
+          router.push('/dashboard');
+        } else {
+          setMessage('Conta criada! Faça login manualmente.');
+          setIsLoginMode(true);
+        }
+      } else {
+        setMessage(result.message || 'Erro ao criar conta.');
+      }
+    } catch (error) {
+      setMessage('Erro de conexão ao tentar cadastrar.');
+    }
+    
+    setLoading(false);
   };
 
   return (
-    // Fundo com o mesmo gradiente da LandingPage
-    <main className="min-h-screen bg-gradient-to-br from-gray-950 to-blue-950 flex items-center justify-center p-4 font-sans antialiased">
-      <div className="bg-gray-900/80 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full max-w-md border border-gray-700 animate-fade-in-up">
-        {/* Adiciona um botão de "Voltar" ou link para a LandingPage */}
-        <div className="absolute top-4 left-4">
-          <Link href="/" className="text-gray-400 hover:text-yellow-400 transition-colors duration-300 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            Voltar
-          </Link>
-        </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-blue-950 flex items-center justify-center p-4 font-sans text-white">
+      <div className="bg-gray-900/80 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 animate-fade-in-down">
+        
+        {/* Cabeçalho */}
         <div className="text-center mb-8">
-          {/* Logo/Título estilizado como na LandingPage */}
-          <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-tight mb-2">
+          <h1 className="text-3xl font-extrabold text-white">
             ALFA RACING <span className="text-yellow-500">BRASIL</span>
           </h1>
-          <p className="text-gray-300 text-lg">Área do Gerente</p>
+          <p className="text-gray-400 text-sm mt-2 font-mono">
+            {isLoginMode ? 'Acesso ao Paddock' : 'Credenciamento VIP'}
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="text-sm text-gray-300 block mb-2 font-medium">Email</label>
-            <input
-              type="email"
-              id="email"
-              placeholder="seuemail@gpro.com" // Exemplo mais realista para um usuário
-              className="w-full p-3 bg-gray-700 rounded-md border border-gray-600 text-white focus:ring-2 focus:ring-yellow-500 outline-none transition-colors"
-              required
-            />
+        {/* Abas de Navegação (Login vs Cadastro) */}
+        <div className="flex mb-6 bg-black/40 rounded-lg p-1 border border-white/5">
+          <button
+            onClick={() => { setIsLoginMode(true); setMessage(''); }}
+            className={`flex-1 py-2 rounded-md text-xs font-black uppercase tracking-wider transition-all ${
+              isLoginMode 
+                ? 'bg-indigo-600 text-white shadow-lg' 
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Login
+          </button>
+          <button
+            onClick={() => { setIsLoginMode(false); setMessage(''); }}
+            className={`flex-1 py-2 rounded-md text-xs font-black uppercase tracking-wider transition-all ${
+              !isLoginMode 
+                ? 'bg-yellow-500 text-black shadow-lg' 
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Cadastro VIP
+          </button>
+        </div>
+
+        {/* Mensagens de Erro/Sucesso */}
+        {message && (
+          <div className={`mb-4 p-3 rounded text-xs font-bold text-center border ${
+            message.toLowerCase().includes('sucesso') || message.includes('criada')
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+          }`}>
+            {message}
           </div>
-          <div>
-            <label htmlFor="password" className="text-sm text-gray-300 block mb-2 font-medium">Senha</label>
-            <input
-              type="password"
-              id="password"
-              placeholder="••••••••"
-              className="w-full p-3 bg-gray-700 rounded-md border border-gray-600 text-white focus:ring-2 focus:ring-yellow-500 outline-none transition-colors"
-              required
-            />
+        )}
+
+        {/* Formulário */}
+        <form onSubmit={isLoginMode ? handleLogin : handleSignUp} className="space-y-5">
+          
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">E-mail</label>
+            <div className="relative group">
+              <FaUserAstronaut className="absolute left-3 top-3 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
+              <input
+                type="email"
+                required
+                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:bg-white/5 outline-none transition-all placeholder-gray-600"
+                placeholder="piloto@alfaracing.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
           </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Senha</label>
+            <div className="relative group">
+              <FaLock className="absolute left-3 top-3 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
+              <input
+                type="password"
+                required
+                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:bg-white/5 outline-none transition-all placeholder-gray-600"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {!isLoginMode && (
+            <div className="space-y-1 animate-fade-in-up">
+              <label className="text-[10px] font-black text-yellow-500 uppercase tracking-widest ml-1 flex items-center gap-1">
+                <FaTicketAlt /> Código de Convite
+              </label>
+              <input
+                type="text"
+                required={!isLoginMode}
+                className="w-full bg-yellow-500/5 border border-yellow-500/30 rounded-lg py-2.5 px-4 text-sm text-yellow-200 focus:border-yellow-500 focus:bg-yellow-500/10 outline-none transition-all uppercase placeholder-yellow-700/50 font-mono tracking-wider"
+                placeholder="EX: ALFA-VIP-2024"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              />
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 text-lg font-semibold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className={`w-full py-3 rounded-lg font-black text-xs uppercase tracking-[0.15em] shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-95 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mt-4 ${
+              isLoginMode 
+                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white' 
+                : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black'
+            }`}
           >
             {loading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Entrando...
-              </>
+              <span className="flex items-center gap-2">
+                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                Processando...
+              </span>
             ) : (
-              'ACESSAR SISTEMA'
+              <>
+                {isLoginMode ? 'Entrar no Sistema' : 'Validar & Cadastrar'} 
+                <FaSignInAlt />
+              </>
             )}
           </button>
         </form>
 
-        <div className="mt-8 text-center text-gray-400">
-          <a href="#" className="hover:text-yellow-400 transition-colors duration-300 text-sm">Esqueceu sua senha?</a>
-          {/* Opcional: link para registro, se houver */}
-          {/* <p className="mt-2 text-sm">
-            Não tem uma conta?{' '}
-            <a href="#" className="text-yellow-500 hover:text-yellow-400 font-medium">Registre-se</a>
-          </p> */}
+        <div className="mt-8 pt-6 border-t border-white/5 text-center">
+          <button 
+            onClick={() => router.push('/')}
+            className="text-xs font-bold text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto group"
+          >
+            <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" />
+            Voltar para Página Inicial
+          </button>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

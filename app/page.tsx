@@ -49,7 +49,7 @@ export default function LandingPage() {
             href="#junte-se"
             className="mt-8 px-8 py-3 bg-yellow-500 text-gray-900 text-lg font-semibold rounded-full shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 animate-bounce-in delay-500"
           >
-            Faça Parte da Equipe!
+            Seja um Lobo Alfa!
           </a>
         </div>
       </section>
