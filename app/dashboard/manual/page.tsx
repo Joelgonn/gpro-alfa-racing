@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { 
   RefreshCw, History, ArrowRight, ArrowDown,
   Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown,
-  ChevronRight, AlertCircle, CheckCircle2
+  ChevronRight, AlertCircle, CheckCircle2, Flag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -116,7 +116,6 @@ export default function ManualSetupPage() {
         if (!userId) return;
         if (!xp || !ct || xp === "0") return alert("Insira XP e CT do piloto para iniciar.");
         
-        // Validação básica: todos os feedbacks preenchidos?
         const missingFeedbacks = PARTS.filter(p => !feedbacks[p]);
         if (missingFeedbacks.length > 0) return alert(`Selecione o feedback para: ${missingFeedbacks.join(', ')}`);
 
@@ -143,12 +142,17 @@ export default function ManualSetupPage() {
             if (json.sucesso) {
                 setZs(json.data.zs);
                 setHistory([...history, json.data.processedLap]);
-                setInputs(json.data.nextSuggestions);
+                
+                // Se NÃO for a última volta (menos de 8), atualiza os inputs com as SUGESTÕES
+                if (history.length < 7) {
+                    setInputs(json.data.nextSuggestions);
+                } 
+                // Se FOR a última volta, os inputs já não importam tanto, mas guardamos a análise
+                
                 setAnalysis(json.data.finalAnalysis);
                 if (json.data.allowedOptions) setAvailableOptions(json.data.allowedOptions);
-                setFeedbacks({}); // Limpa os feedbacks para a próxima volta
+                setFeedbacks({}); 
                 
-                // Scroll suave para o topo do histórico (opcional, mas bom feedback visual)
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
                 alert("Erro no cálculo: " + (json.error || "Desconhecido"));
@@ -223,20 +227,20 @@ export default function ManualSetupPage() {
                         <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Target size={14} className="text-emerald-400" />
-                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Setup Provisório</h3>
+                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Análise de Margem</h3>
                             </div>
                             {history.length > 0 && <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">V{history.length}</span>}
                         </div>
                         <div className="p-6 space-y-6">
                             {PARTS.map(part => {
                                 const data = analysis[part];
+                                // Só mostra barra de progresso, o valor final é destaque no card principal
                                 return (
                                     <div key={part} className="space-y-1.5">
                                         <div className="flex justify-between items-end">
                                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">{part}</span>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-slate-600 font-bold">±{data?.margin || "?"}</span>
-                                                <span className="text-sm font-black text-white leading-none">{data?.final || "---"}</span>
+                                                <span className="text-[10px] text-slate-600 font-bold">Margem: ±{data?.margin || "?"}</span>
                                             </div>
                                         </div>
                                         <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
@@ -257,65 +261,80 @@ export default function ManualSetupPage() {
                 {/* Área Principal */}
                 <div className="xl:col-span-9 space-y-8">
                     
-                    {/* Card de Input Atual */}
-                    <section className={`border rounded-2xl overflow-hidden transition-all duration-500 ${isFinished ? 'border-emerald-500/30 bg-emerald-900/[0.05]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
+                    {/* Card de Input Atual ou RESULTADO FINAL */}
+                    <section className={`border rounded-2xl overflow-hidden transition-all duration-500 ${isFinished ? 'border-emerald-500 bg-emerald-950/[0.1] shadow-[0_0_30px_rgba(16,185,129,0.1)]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
                         <div className={`p-4 border-b flex justify-between items-center ${isFinished ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-indigo-500/30 bg-indigo-500/10'}`}>
                             <div className="flex items-center gap-3">
                                 <div className={`p-1.5 rounded-lg ${isFinished ? 'bg-emerald-500 text-black' : 'bg-indigo-500 text-white'}`}>
-                                    {isFinished ? <CheckCircle2 size={16} /> : <Timer size={16} />}
+                                    {isFinished ? <Trophy size={16} /> : <Timer size={16} />}
                                 </div>
                                 <div>
                                     <h2 className={`text-sm font-black uppercase tracking-widest ${isFinished ? 'text-emerald-400' : 'text-white'}`}>
-                                        {isFinished ? "Sessão Finalizada" : `Ajuste da Volta ${history.length + 1}`}
+                                        {isFinished ? "Setup Ideal Calculado" : `Ajuste da Volta ${history.length + 1}`}
                                     </h2>
-                                    <p className="text-[9px] opacity-70 font-bold uppercase">{isFinished ? "Configuração Ideal Encontrada" : "Insira os valores e feedbacks da volta atual"}</p>
+                                    <p className="text-[9px] opacity-70 font-bold uppercase">{isFinished ? "Valores finais recomendados para Qualificação/Corrida" : "Insira os valores e feedbacks da volta atual"}</p>
                                 </div>
                             </div>
+                            {isFinished && (
+                                <div className="px-3 py-1 bg-emerald-500 text-black text-[10px] font-black uppercase rounded shadow-lg animate-pulse">
+                                    Sessão Concluída
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mb-8">
-                                {PARTS.map(part => (
-                                    <div key={part} className="space-y-2 group">
-                                        <div className="flex justify-between items-center px-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-400 transition-colors">{part}</label>
-                                            {isFinished && <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Final</span>}
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative flex-1">
-                                                <input 
-                                                    type="number" 
-                                                    value={inputs[part]} 
-                                                    onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} 
-                                                    disabled={isFinished}
-                                                    className={`w-full bg-black/40 border text-center text-lg font-black py-3 rounded-xl outline-none transition-all ${isFinished ? 'border-emerald-500/30 text-emerald-400' : 'border-white/10 text-white focus:border-indigo-500 focus:bg-black/60'}`} 
-                                                />
+                                {PARTS.map(part => {
+                                    // Se finalizado, mostramos o valor ANALISADO FINAL, não o input da última volta
+                                    const displayValue = isFinished ? analysis[part]?.final : inputs[part];
+                                    
+                                    return (
+                                        <div key={part} className="space-y-2 group">
+                                            <div className="flex justify-between items-center px-1">
+                                                <label className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isFinished ? 'text-emerald-500/70' : 'text-slate-400 group-hover:text-indigo-400'}`}>{part}</label>
+                                                {isFinished && <Flag size={10} className="text-emerald-500" />}
                                             </div>
-                                            {!isFinished && (
-                                                <div className="flex-[2] relative">
-                                                    <select 
-                                                        value={feedbacks[part] || ""} 
-                                                        onChange={e=>setFeedbacks({...feedbacks,[part]:e.target.value})}
-                                                        className={`w-full bg-black/40 border border-white/10 text-[10px] font-bold py-4 px-4 rounded-xl outline-none appearance-none cursor-pointer hover:border-white/30 transition-all ${feedbacks[part] ? (feedbacks[part] === "OK" ? "text-emerald-400 border-emerald-500/30" : "text-white") : "text-slate-500"}`}
-                                                    >
-                                                        <option value="">Selecione o feedback...</option>
-                                                        {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => (
-                                                            <option key={i} value={opt} className="bg-slate-900 text-white py-2">
-                                                                {opt === "OK" ? "✅ Satisfeito (OK)" : opt}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                                                        <ChevronRight size={14} className="rotate-90" />
-                                                    </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative flex-1">
+                                                    {isFinished ? (
+                                                        <div className="w-full bg-emerald-500/10 border border-emerald-500/50 text-center text-2xl font-black py-3 rounded-xl text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                                                            {displayValue}
+                                                        </div>
+                                                    ) : (
+                                                        <input 
+                                                            type="number" 
+                                                            value={displayValue} 
+                                                            onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} 
+                                                            className="w-full bg-black/40 border border-white/10 text-center text-lg font-black py-3 rounded-xl outline-none text-white focus:border-indigo-500 focus:bg-black/60 transition-all" 
+                                                        />
+                                                    )}
                                                 </div>
-                                            )}
+                                                {!isFinished && (
+                                                    <div className="flex-[2] relative">
+                                                        <select 
+                                                            value={feedbacks[part] || ""} 
+                                                            onChange={e=>setFeedbacks({...feedbacks,[part]:e.target.value})}
+                                                            className={`w-full bg-black/40 border border-white/10 text-[10px] font-bold py-4 px-4 rounded-xl outline-none appearance-none cursor-pointer hover:border-white/30 transition-all ${feedbacks[part] ? (feedbacks[part] === "OK" ? "text-emerald-400 border-emerald-500/30" : "text-white") : "text-slate-500"}`}
+                                                        >
+                                                            <option value="">Selecione o feedback...</option>
+                                                            {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => (
+                                                                <option key={i} value={opt} className="bg-slate-900 text-white py-2">
+                                                                    {opt === "OK" ? "✅ Satisfeito (OK)" : opt}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                            <ChevronRight size={14} className="rotate-90" />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
 
-                            {/* Botão de Ação - Agora no final do formulário */}
+                            {/* Botão de Ação */}
                             {!isFinished && (
                                 <motion.button 
                                     whileHover={{ scale: 1.01 }}
@@ -397,7 +416,7 @@ export default function ManualSetupPage() {
                                                             </div>
                                                         </div>
 
-                                                        {/* Tooltip moderna */}
+                                                        {/* Tooltip */}
                                                         <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-48 p-3 bg-[#0f0f12] border border-indigo-500/20 rounded-lg shadow-2xl pointer-events-none">
                                                             <div className="flex items-start gap-2">
                                                                 <AlertCircle size={12} className="text-indigo-500 shrink-0 mt-0.5" />
