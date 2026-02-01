@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Adicionado para redirecionamento
-import { supabase } from '../../lib/supabase'; // Cliente Supabase
+import { useRouter } from 'next/navigation'; 
+import { supabase } from '../../lib/supabase'; 
 import { 
-  RefreshCw, History, ArrowRight, 
-  Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown
+  RefreshCw, History, ArrowRight, ArrowDown,
+  Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown,
+  ChevronRight, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -59,13 +60,12 @@ export default function ManualSetupPage() {
     const [userId, setUserId] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string>('');
 
-    // --- 1. VERIFICAÇÃO DE LOGIN E LOAD DE SESSÃO (SUPABASE) ---
+    // --- 1. VERIFICAÇÃO DE LOGIN E LOAD DE SESSÃO ---
     useEffect(() => {
         async function initSession() {
             const { data: { session } } = await supabase.auth.getSession();
 
             if (!session) {
-                // Se não logado, tchau
                 router.push('/login');
                 return;
             }
@@ -74,8 +74,6 @@ export default function ManualSetupPage() {
             setUserId(uid);
             setUserEmail(session.user.email || 'Gerente');
             
-            // Carrega sessão específica deste usuário (Local Storage atrelado ao UID)
-            // Isso permite salvar o progresso do setup sem precisar de banco de dados para dados temporários
             const userKey = `${BASE_STORAGE_KEY}_${uid}`;
             const saved = localStorage.getItem(userKey);
             if (saved) {
@@ -92,9 +90,9 @@ export default function ManualSetupPage() {
             }
         }
         initSession();
-    }, [router]); // Executa uma vez na montagem
+    }, [router]);
 
-    // --- 2. PERSISTÊNCIA LOCAL (AUTO-SAVE NO NAVEGADOR) ---
+    // --- 2. PERSISTÊNCIA LOCAL ---
     useEffect(() => {
         if (userId) {
             const userKey = `${BASE_STORAGE_KEY}_${userId}`;
@@ -116,24 +114,28 @@ export default function ManualSetupPage() {
     // --- 4. CÁLCULO VIA API ---
     const handleCalculate = async () => {
         if (!userId) return;
-        if (!xp || !ct || xp === "0") return alert("Insira XP e CT.");
+        if (!xp || !ct || xp === "0") return alert("Insira XP e CT do piloto para iniciar.");
         
+        // Validação básica: todos os feedbacks preenchidos?
+        const missingFeedbacks = PARTS.filter(p => !feedbacks[p]);
+        if (missingFeedbacks.length > 0) return alert(`Selecione o feedback para: ${missingFeedbacks.join(', ')}`);
+
         setLoading(true);
         const payload = { 
             driver: { xp, ct }, 
             history, 
             currentLapData: PARTS.reduce((acc: any, part) => { 
-                acc[part] = { acerto: inputs[part], msg: feedbacks[part] || "OK" }; 
+                acc[part] = { acerto: inputs[part], msg: feedbacks[part] }; 
                 return acc; 
             }, {}) 
         };
         
         try {
-            const res = await fetch('/api/manual', { // Verifique se sua rota é /api/manual ou /api/python
+            const res = await fetch('/api/manual', { 
                 method: 'POST', 
                 headers: { 
                     'Content-Type': 'application/json',
-                    'user-id': userId // Envia o UUID do Supabase
+                    'user-id': userId 
                 }, 
                 body: JSON.stringify(payload) 
             });
@@ -144,136 +146,227 @@ export default function ManualSetupPage() {
                 setInputs(json.data.nextSuggestions);
                 setAnalysis(json.data.finalAnalysis);
                 if (json.data.allowedOptions) setAvailableOptions(json.data.allowedOptions);
-                setFeedbacks({});
+                setFeedbacks({}); // Limpa os feedbacks para a próxima volta
+                
+                // Scroll suave para o topo do histórico (opcional, mas bom feedback visual)
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                alert("Erro no cálculo: " + (json.error || "Desconhecido"));
             }
         } catch (e) { alert("Erro de rede ao calcular."); } finally { setLoading(false); }
     };
 
     const isFinished = history.length >= 8;
 
-    // Loading State simples enquanto checa auth
-    if (!userId) return <div className="h-screen bg-[#050506] flex items-center justify-center text-slate-500 text-xs font-mono">CARREGANDO TELEMETRIA...</div>;
+    if (!userId) return (
+        <div className="flex h-screen items-center justify-center bg-[#050507] text-indigo-500 gap-4">
+             <div className="relative w-12 h-12"><div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full"></div><div className="absolute inset-0 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
+             <span className="font-mono text-xs animate-pulse">CARREGANDO SESSÃO...</span>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-[#050506] text-slate-400 font-mono text-xs">
-            <header className="border-b border-white/5 bg-[#08080a] px-6 py-3 flex justify-between items-center sticky top-0 z-50">
-                <div className="flex items-center gap-4 text-white uppercase font-black tracking-tighter">
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8px_#6366f1]" />
-                    <span>TELEMETRIA GPRO <span className="text-slate-600 ml-2 text-[10px]">USER: {userEmail}</span></span>
+        <div className="p-6 space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
+            {/* Header / Barra Superior */}
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 shadow-2xl flex justify-between items-center backdrop-blur-xl relative z-40">
+                <div className="flex items-center gap-4">
+                     <div className="bg-indigo-600/20 p-2 rounded-lg border border-indigo-500/30">
+                        <Calculator size={20} className="text-indigo-400" />
+                     </div>
+                     <div>
+                        <h1 className="text-sm font-black text-white uppercase tracking-widest leading-none mb-1">Telemetria de Setup</h1>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase">Sessão Manual • {userEmail}</p>
+                     </div>
                 </div>
-                <button onClick={handleReset} className="text-[10px] hover:text-rose-500 transition-colors uppercase font-bold">[ REINICIAR_SESSÃO ]</button>
-            </header>
+                <button onClick={handleReset} className="flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 px-4 py-2 rounded-lg border border-rose-500/20 transition-all text-[10px] font-black uppercase tracking-widest group">
+                    <RefreshCw size={12} className="group-hover:rotate-180 transition-transform duration-500" />
+                    Reiniciar Sessão
+                </button>
+            </motion.div>
 
-            <main className="max-w-[1440px] mx-auto p-6 grid grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                 
-                {/* Coluna Lateral: Resultados Estimados */}
-                <div className="col-span-12 lg:col-span-3 space-y-6">
-                    <section className="bg-[#0a0a0c] border border-white/5 p-5 rounded-lg">
-                        <div className="text-[10px] text-slate-500 mb-4 flex items-center gap-2 border-b border-white/5 pb-2 uppercase font-bold tracking-widest">
-                            <Cpu size={12} /> Habilidades do Piloto
+                {/* Coluna Lateral: Dados e Status */}
+                <div className="xl:col-span-3 space-y-6">
+                    {/* Card de Habilidades */}
+                    <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
+                        <div className="bg-white/5 p-4 border-b border-white/5 flex items-center gap-2">
+                            <Cpu size={14} className="text-indigo-400" />
+                            <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Parâmetros do Piloto</h3>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="block text-[8px] mb-1 text-slate-600">XP</label><input type="number" value={xp} onChange={e=>setXp(e.target.value)} disabled={history.length > 0} className="w-full bg-black border border-white/10 p-2 text-white outline-none" /></div>
-                            <div><label className="block text-[8px] mb-1 text-slate-600">CT</label><input type="number" value={ct} onChange={e=>setCt(e.target.value)} disabled={history.length > 0} className="w-full bg-black border border-white/10 p-2 text-white outline-none" /></div>
+                        <div className="p-6 grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-slate-500 uppercase block">Experiência (XP)</label>
+                                <input 
+                                    type="number" 
+                                    value={xp} 
+                                    onChange={e=>setXp(e.target.value)} 
+                                    disabled={history.length > 0} 
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50" 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-slate-500 uppercase block">Conhec. Técnico (CT)</label>
+                                <input 
+                                    type="number" 
+                                    value={ct} 
+                                    onChange={e=>setCt(e.target.value)} 
+                                    disabled={history.length > 0} 
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50" 
+                                />
+                            </div>
                         </div>
                     </section>
 
-                    <section className="bg-[#0a0a0c] border border-white/5 p-5 rounded-lg">
-                        <div className="text-[10px] text-slate-500 mb-6 flex items-center gap-2 border-b border-white/5 pb-2 uppercase font-bold tracking-widest">
-                            <Target size={12} /> Ajuste_Ideal_Estimado
+                    {/* Card de Previsão */}
+                    <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden min-h-[400px]">
+                        <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Target size={14} className="text-emerald-400" />
+                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Setup Provisório</h3>
+                            </div>
+                            {history.length > 0 && <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">V{history.length}</span>}
                         </div>
-                        <div className="space-y-6">
+                        <div className="p-6 space-y-6">
                             {PARTS.map(part => {
                                 const data = analysis[part];
                                 return (
-                                    <div key={part}>
-                                        <div className="flex justify-between items-end mb-1">
-                                            <span className="text-slate-500 text-[9px]">{part.toUpperCase()}</span>
-                                            <span className="text-indigo-400 font-bold text-sm leading-none">{data?.final || "---"}</span>
+                                    <div key={part} className="space-y-1.5">
+                                        <div className="flex justify-between items-end">
+                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">{part}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-slate-600 font-bold">±{data?.margin || "?"}</span>
+                                                <span className="text-sm font-black text-white leading-none">{data?.final || "---"}</span>
+                                            </div>
                                         </div>
-                                        <div className="h-1 bg-white/5 w-full mb-1">
-                                            <motion.div animate={{width: data ? `${(Number(data.final)/1000)*100}%` : 0}} className="h-full bg-indigo-500 shadow-[0_0_5px_rgba(99,102,241,0.5)]" />
-                                        </div>
-                                        <div className="flex justify-between text-[8px] uppercase tracking-tighter">
-                                            <span className="text-slate-700 font-bold">Margem Estimada</span>
-                                            <span className="text-slate-500">± {data?.margin || "0"}</span>
+                                        <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                                            <motion.div 
+                                                initial={{ width: 0 }}
+                                                animate={{ width: data ? `${(Number(data.final)/1000)*100}%` : 0 }} 
+                                                transition={{ duration: 1, ease: "easeOut" }}
+                                                className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]" 
+                                            />
                                         </div>
                                     </div>
                                 )
                             })}
                         </div>
-                        {history.length > 0 && (
-                            <div className="mt-8 pt-4 border-t border-white/5 text-[8px] text-slate-600 leading-relaxed uppercase">
-                                * Valores baseados na telemetria processada até a volta {history.length}. Podem ser usados para Qualificação 1 se o treino for encerrado.
-                            </div>
-                        )}
                     </section>
                 </div>
 
                 {/* Área Principal */}
-                <div className="col-span-12 lg:col-span-9 space-y-6">
-                    <section className={`border p-8 rounded-xl ${isFinished ? 'border-emerald-500/20 bg-emerald-500/[0.02]' : 'border-white/5 bg-[#0a0a0c]'}`}>
-                        <div className="flex justify-between items-center mb-10">
-                            <h2 className="text-white text-xl font-black uppercase tracking-tighter">{isFinished ? "CONFIGURAÇÃO FINAL" : `AJUSTE DA VOLTA ${history.length + 1}`}</h2>
-                            {!isFinished && (
-                                <button onClick={handleCalculate} disabled={loading} className="bg-white text-black px-6 py-3 font-black uppercase text-[10px] hover:bg-indigo-500 hover:text-white transition-all flex items-center gap-3 shadow-2xl shadow-indigo-500/10">
-                                    {loading ? "PROCESSANDO..." : "CALCULAR PRÓXIMA VOLTA"} <ArrowRight size={14} />
-                                </button>
-                            )}
+                <div className="xl:col-span-9 space-y-8">
+                    
+                    {/* Card de Input Atual */}
+                    <section className={`border rounded-2xl overflow-hidden transition-all duration-500 ${isFinished ? 'border-emerald-500/30 bg-emerald-900/[0.05]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
+                        <div className={`p-4 border-b flex justify-between items-center ${isFinished ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-indigo-500/30 bg-indigo-500/10'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className={`p-1.5 rounded-lg ${isFinished ? 'bg-emerald-500 text-black' : 'bg-indigo-500 text-white'}`}>
+                                    {isFinished ? <CheckCircle2 size={16} /> : <Timer size={16} />}
+                                </div>
+                                <div>
+                                    <h2 className={`text-sm font-black uppercase tracking-widest ${isFinished ? 'text-emerald-400' : 'text-white'}`}>
+                                        {isFinished ? "Sessão Finalizada" : `Ajuste da Volta ${history.length + 1}`}
+                                    </h2>
+                                    <p className="text-[9px] opacity-70 font-bold uppercase">{isFinished ? "Configuração Ideal Encontrada" : "Insira os valores e feedbacks da volta atual"}</p>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                            {PARTS.map(part => (
-                                <div key={part} className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 p-3 rounded">
-                                        <span className="text-slate-500 font-bold text-[10px]">{part.toUpperCase()}</span>
-                                        {isFinished ? (
-                                            <span className="text-emerald-400 font-black text-lg">{analysis[part]?.final}</span>
-                                        ) : (
-                                            <input type="number" value={inputs[part]} onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} className="bg-transparent text-right text-white font-black text-lg w-20 outline-none focus:text-indigo-400" />
-                                        )}
+                        <div className="p-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mb-8">
+                                {PARTS.map(part => (
+                                    <div key={part} className="space-y-2 group">
+                                        <div className="flex justify-between items-center px-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-400 transition-colors">{part}</label>
+                                            {isFinished && <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Final</span>}
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative flex-1">
+                                                <input 
+                                                    type="number" 
+                                                    value={inputs[part]} 
+                                                    onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} 
+                                                    disabled={isFinished}
+                                                    className={`w-full bg-black/40 border text-center text-lg font-black py-3 rounded-xl outline-none transition-all ${isFinished ? 'border-emerald-500/30 text-emerald-400' : 'border-white/10 text-white focus:border-indigo-500 focus:bg-black/60'}`} 
+                                                />
+                                            </div>
+                                            {!isFinished && (
+                                                <div className="flex-[2] relative">
+                                                    <select 
+                                                        value={feedbacks[part] || ""} 
+                                                        onChange={e=>setFeedbacks({...feedbacks,[part]:e.target.value})}
+                                                        className={`w-full bg-black/40 border border-white/10 text-[10px] font-bold py-4 px-4 rounded-xl outline-none appearance-none cursor-pointer hover:border-white/30 transition-all ${feedbacks[part] ? (feedbacks[part] === "OK" ? "text-emerald-400 border-emerald-500/30" : "text-white") : "text-slate-500"}`}
+                                                    >
+                                                        <option value="">Selecione o feedback...</option>
+                                                        {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => (
+                                                            <option key={i} value={opt} className="bg-slate-900 text-white py-2">
+                                                                {opt === "OK" ? "✅ Satisfeito (OK)" : opt}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                        <ChevronRight size={14} className="rotate-90" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    {!isFinished && (
-                                        <select 
-                                            value={feedbacks[part] || ""} 
-                                            onChange={e=>setFeedbacks({...feedbacks,[part]:e.target.value})}
-                                            className="bg-black border border-white/10 p-2 text-[10px] text-slate-400 outline-none focus:border-indigo-500/50 appearance-none"
-                                        >
-                                            <option value="">SELECIONE O FEEDBACK...</option>
-                                            {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => (
-                                                <option 
-                                                    key={i} 
-                                                    value={opt}
-                                                    className={opt === "OK" ? "text-emerald-500 font-bold bg-slate-900" : "text-white bg-slate-900"}
-                                                >
-                                                    {opt === "OK" ? "✅ OK (SATISFATÓRIO)" : opt.toUpperCase()}
-                                                </option>
-                                            ))}
-                                        </select>
+                                ))}
+                            </div>
+
+                            {/* Botão de Ação - Agora no final do formulário */}
+                            {!isFinished && (
+                                <motion.button 
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.99 }}
+                                    onClick={handleCalculate} 
+                                    disabled={loading} 
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <RefreshCw size={16} className="animate-spin" />
+                                            Processando Telemetria...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Calcular Próxima Volta 
+                                            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                        </>
                                     )}
-                                </div>
-                            ))}
+                                </motion.button>
+                            )}
                         </div>
                     </section>
 
-                    {/* Timeline com Deltas e Tooltips */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4 text-slate-600">
-                            <History size={14} />
-                            <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Log_Histórico_Telemetria</span>
+                    {/* Timeline de Histórico */}
+                    <div className="space-y-6">
+                         <div className="flex items-center gap-3 px-2">
+                            <History size={16} className="text-slate-500" />
+                            <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Histórico da Sessão</h3>
                             <div className="h-px flex-1 bg-white/5" />
-                        </div>
+                         </div>
 
-                        <div className="grid grid-cols-1 gap-4">
+                         <div className="space-y-4">
                             {[...history].reverse().map((lap, idx) => {
                                 const lapNumber = history.length - idx;
                                 return (
-                                    <motion.div key={idx} initial={{opacity:0}} animate={{opacity:1}} className="bg-[#0a0a0c] border border-white/5 rounded overflow-hidden group/lap">
-                                        <div className="bg-white/5 px-4 py-2 flex justify-between items-center border-b border-white/5">
-                                            <span className="text-indigo-400 font-bold text-[10px]">VOLTA_{lapNumber}</span>
-                                            <Timer size={12} className="text-slate-600" />
+                                    <motion.div 
+                                        key={idx} 
+                                        initial={{ opacity: 0, y: 10 }} 
+                                        animate={{ opacity: 1, y: 0 }} 
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden hover:border-white/10 transition-colors group"
+                                    >
+                                        <div className="bg-white/5 px-6 py-3 flex justify-between items-center border-b border-white/5">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-indigo-400 font-black text-xs tracking-wider">VOLTA {lapNumber}</span>
+                                                {lapNumber === 1 && <span className="bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Início</span>}
+                                            </div>
+                                            <ArrowDown size={14} className="text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
-                                        <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-8 gap-y-4">
+                                        <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                                             {PARTS.map(part => {
                                                 const lapData = lap[part];
                                                 const shortMsg = getShortFeedback(lapData.msg);
@@ -281,30 +374,38 @@ export default function ManualSetupPage() {
                                                 // Lógica do Delta
                                                 const prevLap = history[lapNumber - 2];
                                                 const delta = prevLap ? lapData.acerto - prevLap[part].acerto : 0;
+                                                const isOk = lapData.msg === "OK";
 
                                                 return (
-                                                    <div key={part} className="space-y-1 relative group/item">
-                                                        <div className="text-[9px] text-slate-600 uppercase font-bold">{part}</div>
-                                                        <div className="flex items-center gap-2 cursor-help">
-                                                            {/* Delta Indicator */}
-                                                            {delta !== 0 && (
-                                                                <div className={`flex items-center text-[9px] font-bold ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                    {delta > 0 ? <TrendingUp size={10} className="mr-0.5" /> : <TrendingDown size={10} className="mr-0.5" />}
-                                                                    {Math.abs(delta)}
-                                                                </div>
-                                                            )}
-                                                            <span className="text-white font-black text-sm">{lapData.acerto}</span>
-                                                            <span className={`text-[8px] font-bold uppercase truncate max-w-[60px] ${getFeedbackColor(lapData.msg)}`}>
-                                                                {shortMsg}
+                                                    <div key={part} className="space-y-1 relative group/tooltip">
+                                                        <div className="text-[8px] text-slate-600 uppercase font-black tracking-wider">{part}</div>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className={`text-base font-black ${isOk ? 'text-emerald-400' : 'text-white'}`}>
+                                                                {lapData.acerto}
                                                             </span>
+                                                            
+                                                            <div className="flex flex-col">
+                                                                {delta !== 0 && (
+                                                                    <div className={`flex items-center text-[9px] font-bold leading-none ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                        {delta > 0 ? <TrendingUp size={10} className="mr-1" /> : <TrendingDown size={10} className="mr-1" />}
+                                                                        {Math.abs(delta)}
+                                                                    </div>
+                                                                )}
+                                                                <span className={`text-[8px] font-bold uppercase truncate max-w-[80px] mt-0.5 ${getFeedbackColor(lapData.msg)}`}>
+                                                                    {shortMsg}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        
-                                                        {/* Tooltip Popup */}
-                                                        <div className="absolute z-50 bottom-full left-0 mb-2 hidden group-hover/item:block w-48 p-3 bg-slate-900 border border-indigo-500/20 rounded shadow-2xl">
-                                                            <p className="text-[9px] leading-tight text-white font-sans normal-case italic">
-                                                                "{lapData.msg}"
-                                                            </p>
-                                                            <div className="absolute top-full left-4 w-2 h-2 bg-slate-900 border-r border-b border-indigo-500/20 rotate-45 -translate-y-1"></div>
+
+                                                        {/* Tooltip moderna */}
+                                                        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-48 p-3 bg-[#0f0f12] border border-indigo-500/20 rounded-lg shadow-2xl pointer-events-none">
+                                                            <div className="flex items-start gap-2">
+                                                                <AlertCircle size={12} className="text-indigo-500 shrink-0 mt-0.5" />
+                                                                <p className="text-[10px] leading-tight text-slate-300 italic font-medium">
+                                                                    "{lapData.msg}"
+                                                                </p>
+                                                            </div>
+                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0f0f12] border-r border-b border-indigo-500/20 rotate-45 -translate-y-1"></div>
                                                         </div>
                                                     </div>
                                                 )
@@ -313,10 +414,10 @@ export default function ManualSetupPage() {
                                     </motion.div>
                                 )
                             })}
-                        </div>
+                         </div>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 }
