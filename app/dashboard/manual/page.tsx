@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { 
   RefreshCw, History, ArrowRight, ArrowDown,
   Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown,
-  ChevronRight, AlertCircle, CheckCircle2, Flag
+  ChevronRight, AlertCircle, CheckCircle2, Flag, StopCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -55,6 +55,7 @@ export default function ManualSetupPage() {
     const [feedbacks, setFeedbacks] = useState<Record<string, string>>({});
     const [analysis, setAnalysis] = useState<Record<string, { final: any, margin: any }>>({});
     const [availableOptions, setAvailableOptions] = useState<Record<string, string[]>>(ALL_FEEDBACK_OPTIONS);
+    const [isManuallyFinished, setIsManuallyFinished] = useState(false); // Novo estado
     
     // --- STATE DE AUTENTICAÇÃO ---
     const [userId, setUserId] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export default function ManualSetupPage() {
                     setInputs(data.inputs || inputs);
                     setAnalysis(data.analysis || {}); 
                     setAvailableOptions(data.availableOptions || ALL_FEEDBACK_OPTIONS);
+                    setIsManuallyFinished(data.isManuallyFinished || false);
                 } catch(e) { console.error("Erro ao ler storage", e); }
             }
         }
@@ -96,9 +98,9 @@ export default function ManualSetupPage() {
     useEffect(() => {
         if (userId) {
             const userKey = `${BASE_STORAGE_KEY}_${userId}`;
-            localStorage.setItem(userKey, JSON.stringify({ xp, ct, zs, history, inputs, analysis, availableOptions }));
+            localStorage.setItem(userKey, JSON.stringify({ xp, ct, zs, history, inputs, analysis, availableOptions, isManuallyFinished }));
         }
-    }, [xp, ct, zs, history, inputs, analysis, availableOptions, userId]);
+    }, [xp, ct, zs, history, inputs, analysis, availableOptions, userId, isManuallyFinished]);
 
     // --- 3. REINICIAR SESSÃO ---
     const handleReset = () => {
@@ -111,7 +113,16 @@ export default function ManualSetupPage() {
         }
     };
 
-    // --- 4. CÁLCULO VIA API ---
+    // --- 4. ENCERRAR MANUALMENTE ---
+    const handleManualFinish = () => {
+        if (history.length === 0) return alert("Processe pelo menos uma volta antes de finalizar.");
+        if (confirm("Deseja encerrar a sessão agora e ver os valores calculados até o momento?")) {
+            setIsManuallyFinished(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    // --- 5. CÁLCULO VIA API ---
     const handleCalculate = async () => {
         if (!userId) return;
         if (!xp || !ct || xp === "0") return alert("Insira XP e CT do piloto para iniciar.");
@@ -143,24 +154,24 @@ export default function ManualSetupPage() {
                 setZs(json.data.zs);
                 setHistory([...history, json.data.processedLap]);
                 
-                // Se NÃO for a última volta (menos de 8), atualiza os inputs com as SUGESTÕES
+                // Atualiza inputs com sugestões
                 if (history.length < 7) {
                     setInputs(json.data.nextSuggestions);
-                } 
-                // Se FOR a última volta, os inputs já não importam tanto, mas guardamos a análise
+                }
                 
                 setAnalysis(json.data.finalAnalysis);
                 if (json.data.allowedOptions) setAvailableOptions(json.data.allowedOptions);
                 setFeedbacks({}); 
                 
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                // Auto scroll suave para focar nos inputs novos
+                // window.scrollTo({ top: 0, behavior: 'smooth' }); 
             } else {
                 alert("Erro no cálculo: " + (json.error || "Desconhecido"));
             }
         } catch (e) { alert("Erro de rede ao calcular."); } finally { setLoading(false); }
     };
 
-    const isFinished = history.length >= 8;
+    const isFinished = history.length >= 8 || isManuallyFinished;
 
     if (!userId) return (
         <div className="flex h-screen items-center justify-center bg-[#050507] text-indigo-500 gap-4">
@@ -234,7 +245,6 @@ export default function ManualSetupPage() {
                         <div className="p-6 space-y-6">
                             {PARTS.map(part => {
                                 const data = analysis[part];
-                                // Só mostra barra de progresso, o valor final é destaque no card principal
                                 return (
                                     <div key={part} className="space-y-1.5">
                                         <div className="flex justify-between items-end">
@@ -272,7 +282,7 @@ export default function ManualSetupPage() {
                                     <h2 className={`text-sm font-black uppercase tracking-widest ${isFinished ? 'text-emerald-400' : 'text-white'}`}>
                                         {isFinished ? "Setup Ideal Calculado" : `Ajuste da Volta ${history.length + 1}`}
                                     </h2>
-                                    <p className="text-[9px] opacity-70 font-bold uppercase">{isFinished ? "Valores finais recomendados para Qualificação/Corrida" : "Insira os valores e feedbacks da volta atual"}</p>
+                                    <p className="text-[9px] opacity-70 font-bold uppercase">{isFinished ? "Estes são os valores ideais estimados baseados na sessão" : "Insira os valores e feedbacks da volta atual"}</p>
                                 </div>
                             </div>
                             {isFinished && (
@@ -285,7 +295,9 @@ export default function ManualSetupPage() {
                         <div className="p-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mb-8">
                                 {PARTS.map(part => {
-                                    // Se finalizado, mostramos o valor ANALISADO FINAL, não o input da última volta
+                                    // *** LÓGICA CRUCIAL ***
+                                    // Se finalizado (por 8 voltas OU manual), exibe analysis.final (o melhor cálculo)
+                                    // Se não, exibe inputs[part] (a sugestão para a próxima volta)
                                     const displayValue = isFinished ? analysis[part]?.final : inputs[part];
                                     
                                     return (
@@ -334,27 +346,39 @@ export default function ManualSetupPage() {
                                 })}
                             </div>
 
-                            {/* Botão de Ação */}
+                            {/* Botoes de Ação */}
                             {!isFinished && (
-                                <motion.button 
-                                    whileHover={{ scale: 1.01 }}
-                                    whileTap={{ scale: 0.99 }}
-                                    onClick={handleCalculate} 
-                                    disabled={loading} 
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-                                >
-                                    {loading ? (
-                                        <>
-                                            <RefreshCw size={16} className="animate-spin" />
-                                            Processando Telemetria...
-                                        </>
-                                    ) : (
-                                        <>
-                                            Calcular Próxima Volta 
-                                            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                                        </>
-                                    )}
-                                </motion.button>
+                                <div className="flex gap-4">
+                                    <motion.button 
+                                        whileHover={{ scale: 1.01 }}
+                                        whileTap={{ scale: 0.99 }}
+                                        onClick={handleManualFinish}
+                                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-5 rounded-xl font-black uppercase tracking-[0.2em] text-xs border border-white/5 flex items-center justify-center gap-3 transition-all"
+                                    >
+                                        <StopCircle size={16} />
+                                        Encerrar e Ver Resultado
+                                    </motion.button>
+
+                                    <motion.button 
+                                        whileHover={{ scale: 1.01 }}
+                                        whileTap={{ scale: 0.99 }}
+                                        onClick={handleCalculate} 
+                                        disabled={loading} 
+                                        className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <RefreshCw size={16} className="animate-spin" />
+                                                Processando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Calcular Próxima Volta 
+                                                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                            </>
+                                        )}
+                                    </motion.button>
+                                </div>
                             )}
                         </div>
                     </section>
@@ -390,7 +414,6 @@ export default function ManualSetupPage() {
                                                 const lapData = lap[part];
                                                 const shortMsg = getShortFeedback(lapData.msg);
                                                 
-                                                // Lógica do Delta
                                                 const prevLap = history[lapNumber - 2];
                                                 const delta = prevLap ? lapData.acerto - prevLap[part].acerto : 0;
                                                 const isOk = lapData.msg === "OK";
@@ -416,7 +439,6 @@ export default function ManualSetupPage() {
                                                             </div>
                                                         </div>
 
-                                                        {/* Tooltip */}
                                                         <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-48 p-3 bg-[#0f0f12] border border-indigo-500/20 rounded-lg shadow-2xl pointer-events-none">
                                                             <div className="flex items-start gap-2">
                                                                 <AlertCircle size={12} className="text-indigo-500 shrink-0 mt-0.5" />
