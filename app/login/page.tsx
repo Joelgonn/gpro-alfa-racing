@@ -4,16 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaUserAstronaut, FaLock, FaTicketAlt, FaSignInAlt, FaArrowLeft } from 'react-icons/fa';
 
-// --- CORREÇÃO DAS IMPORTAÇÕES ---
-// Como 'lib' está dentro de 'app', usamos '../' para voltar de 'login' para 'app'
+// Mantendo suas importações originais
 import { supabase } from '../lib/supabase'; 
-
-// Importa a Server Action para criar conta (Certifique-se que o arquivo existe em app/actions/signup.ts)
 import { signUpWithInviteCode } from '../actions/signup'; 
 
 export default function LoginPage() {
   const router = useRouter();
-  const [isLoginMode, setIsLoginMode] = useState(true); // Alterna entre Login e Cadastro
+  const [isLoginMode, setIsLoginMode] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -22,13 +19,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
 
-  // --- LÓGICA DE LOGIN (CLIENT-SIDE) ---
+  // --- LÓGICA DE LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
-    // Tenta fazer login direto com o Supabase
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -38,13 +34,12 @@ export default function LoginPage() {
       setMessage('Erro: ' + error.message);
       setLoading(false);
     } else {
-      // Login com sucesso
       router.push('/dashboard'); 
       router.refresh();
     }
   };
 
-  // --- LÓGICA DE CADASTRO (SERVER-SIDE ACTION) ---
+  // --- LÓGICA DE CADASTRO ---
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -62,11 +57,9 @@ export default function LoginPage() {
     formData.append('inviteCode', inviteCode);
 
     try {
-      // Chama a Server Action (Backend)
       const result = await signUpWithInviteCode(formData);
 
       if (result.success) {
-        // Se criou a conta, tenta logar automaticamente
         const { error: loginError } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -89,135 +82,152 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-blue-950 flex items-center justify-center p-4 font-sans text-white">
-      <div className="bg-gray-900/80 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 animate-fade-in-down">
+    // Usa 100dvh para respeitar a barra de navegação móvel (Safari/Chrome Mobile)
+    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-950 via-gray-900 to-blue-950 flex flex-col items-center justify-center p-4 sm:p-6 font-sans text-white overflow-y-auto">
+      
+      <div className="w-full max-w-md animate-fade-in-down">
         
-        {/* Cabeçalho */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-white">
-            ALFA RACING <span className="text-yellow-500">BRASIL</span>
-          </h1>
-          <p className="text-gray-400 text-sm mt-2 font-mono">
-            {isLoginMode ? 'Acesso ao Paddock' : 'Credenciamento VIP'}
-          </p>
-        </div>
-
-        {/* Abas de Navegação (Login vs Cadastro) */}
-        <div className="flex mb-6 bg-black/40 rounded-lg p-1 border border-white/5">
-          <button
-            onClick={() => { setIsLoginMode(true); setMessage(''); }}
-            className={`flex-1 py-2 rounded-md text-xs font-black uppercase tracking-wider transition-all ${
-              isLoginMode 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            Login
-          </button>
-          <button
-            onClick={() => { setIsLoginMode(false); setMessage(''); }}
-            className={`flex-1 py-2 rounded-md text-xs font-black uppercase tracking-wider transition-all ${
-              !isLoginMode 
-                ? 'bg-yellow-500 text-black shadow-lg' 
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            Cadastro VIP
-          </button>
-        </div>
-
-        {/* Mensagens de Erro/Sucesso */}
-        {message && (
-          <div className={`mb-4 p-3 rounded text-xs font-bold text-center border ${
-            message.toLowerCase().includes('sucesso') || message.includes('criada')
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-          }`}>
-            {message}
-          </div>
-        )}
-
-        {/* Formulário */}
-        <form onSubmit={isLoginMode ? handleLogin : handleSignUp} className="space-y-5">
+        {/* Card Principal */}
+        <div className="bg-gray-900/60 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-2xl border border-white/10 relative overflow-hidden">
           
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">E-mail</label>
-            <div className="relative group">
-              <FaUserAstronaut className="absolute left-3 top-3 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
-              <input
-                type="email"
-                required
-                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:bg-white/5 outline-none transition-all placeholder-gray-600"
-                placeholder="piloto@alfaracing.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+          {/* Efeito de brilho no fundo */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500/50 to-transparent"></div>
+
+          {/* Cabeçalho */}
+          <div className="text-center mb-8">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              ALFA RACING <span className="text-yellow-500">BRASIL</span>
+            </h1>
+            <p className="text-gray-400 text-xs sm:text-sm mt-2 font-mono uppercase tracking-widest">
+              {isLoginMode ? 'Terminal de Acesso' : 'Credenciamento VIP'}
+            </p>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Senha</label>
-            <div className="relative group">
-              <FaLock className="absolute left-3 top-3 text-gray-500 group-focus-within:text-indigo-400 transition-colors" />
-              <input
-                type="password"
-                required
-                className="w-full bg-black/40 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:bg-white/5 outline-none transition-all placeholder-gray-600"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+          {/* Abas de Navegação */}
+          <div className="flex mb-8 bg-black/30 rounded-lg p-1 border border-white/5">
+            <button
+              type="button"
+              onClick={() => { setIsLoginMode(true); setMessage(''); }}
+              className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                isLoginMode 
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsLoginMode(false); setMessage(''); }}
+              className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                !isLoginMode 
+                  ? 'bg-yellow-500 text-gray-900 shadow-lg shadow-yellow-500/20' 
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Cadastro
+            </button>
           </div>
 
-          {!isLoginMode && (
-            <div className="space-y-1 animate-fade-in-up">
-              <label className="text-[10px] font-black text-yellow-500 uppercase tracking-widest ml-1 flex items-center gap-1">
-                <FaTicketAlt /> Código de Convite
-              </label>
-              <input
-                type="text"
-                required={!isLoginMode}
-                className="w-full bg-yellow-500/5 border border-yellow-500/30 rounded-lg py-2.5 px-4 text-sm text-yellow-200 focus:border-yellow-500 focus:bg-yellow-500/10 outline-none transition-all uppercase placeholder-yellow-700/50 font-mono tracking-wider"
-                placeholder="EX: ALFA-VIP-2024"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              />
+          {/* Mensagens de Feedback */}
+          {message && (
+            <div className={`mb-6 p-3 rounded-lg text-xs sm:text-sm font-medium text-center border animate-pulse ${
+              message.toLowerCase().includes('sucesso') || message.includes('criada')
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+            }`}>
+              {message}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 rounded-lg font-black text-xs uppercase tracking-[0.15em] shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-95 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed mt-4 ${
-              isLoginMode 
-                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white' 
-                : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-black'
-            }`}
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                Processando...
-              </span>
-            ) : (
-              <>
-                {isLoginMode ? 'Entrar no Sistema' : 'Validar & Cadastrar'} 
-                <FaSignInAlt />
-              </>
-            )}
-          </button>
-        </form>
+          {/* Formulário */}
+          <form onSubmit={isLoginMode ? handleLogin : handleSignUp} className="space-y-5">
+            
+            {/* Campo E-mail */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">E-mail</label>
+              <div className="relative group">
+                <FaUserAstronaut className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors text-lg" />
+                <input
+                  type="email"
+                  required
+                  className="w-full bg-black/40 border border-white/10 rounded-xl h-12 pl-12 pr-4 text-base text-white focus:border-indigo-500 focus:bg-white/5 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder-gray-600"
+                  placeholder="piloto@alfaracing.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
 
-        <div className="mt-8 pt-6 border-t border-white/5 text-center">
+            {/* Campo Senha */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Senha</label>
+              <div className="relative group">
+                <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors text-lg" />
+                <input
+                  type="password"
+                  required
+                  className="w-full bg-black/40 border border-white/10 rounded-xl h-12 pl-12 pr-4 text-base text-white focus:border-indigo-500 focus:bg-white/5 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder-gray-600"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Campo Código de Convite (Condicional) */}
+            {!isLoginMode && (
+              <div className="space-y-1.5 animate-fade-in-up">
+                <label className="text-xs font-bold text-yellow-500 uppercase tracking-wider ml-1 flex items-center gap-1.5">
+                  <FaTicketAlt /> Código VIP
+                </label>
+                <input
+                  type="text"
+                  required={!isLoginMode}
+                  className="w-full bg-yellow-900/10 border border-yellow-500/30 rounded-xl h-12 px-4 text-base text-yellow-100 focus:border-yellow-500 focus:bg-yellow-900/20 focus:ring-1 focus:ring-yellow-500 outline-none transition-all uppercase placeholder-yellow-700/40 font-mono tracking-wider text-center"
+                  placeholder="ALFA-VIP-XXXX"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                />
+              </div>
+            )}
+
+            {/* Botão de Ação */}
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full h-12 mt-6 rounded-xl font-bold text-sm uppercase tracking-widest shadow-lg flex items-center justify-center gap-3 transition-all transform active:scale-[0.98] hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
+                isLoginMode 
+                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white' 
+                  : 'bg-yellow-500 hover:bg-yellow-400 text-gray-900'
+              }`}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  Processando
+                </span>
+              ) : (
+                <>
+                  {isLoginMode ? 'Acessar Paddock' : 'Validar Credencial'} 
+                  <FaSignInAlt className="text-lg" />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Botão Voltar */}
+        <div className="mt-8 text-center">
           <button 
             onClick={() => router.push('/')}
-            className="text-xs font-bold text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto group"
+            className="text-xs font-bold text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto group py-2 px-4"
           >
             <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" />
             Voltar para Página Inicial
           </button>
         </div>
+
       </div>
     </div>
   );

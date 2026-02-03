@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   },
   // Melhora a experiência ao salvar na tela inicial do iOS
   appleWebApp: {
-    title: "Alfa Racing",
+    title: "Lair of Wolves",
     statusBarStyle: "black-translucent",
     capable: true,
   },

@@ -126,8 +126,8 @@ export default function LandingPage() {
                   <Image
                     src="/images/bandeira-brasil.png"
                     alt="Bandeira do Brasil"
-                    width={100}
-                    height={100}
+                    width={80}
+                    height={80}
                     className="object-cover w-full h-full"
                     // Adicione um placeholder se quiser evitar layout shift
                   />
@@ -155,8 +155,8 @@ export default function LandingPage() {
                 Celebramos diversos títulos em ligas de diferentes níveis, mostrando nossa consistência.
               </p>
               <ul className="text-left w-full text-gray-400 text-sm space-y-3 bg-gray-800/50 p-4 rounded-lg">
-                <li><span className="font-bold text-yellow-500">🏆 Liga Elite:</span> 2º lugar (SXX)</li>
-                <li><span className="font-bold text-yellow-500">🥇 Liga Pro:</span> Campeões (SYY, SZZ)</li>
+                <li><span className="font-bold text-yellow-500">🏆 Liga Elite:</span> Quem será o primeiro? ()</li>
+                <li><span className="font-bold text-yellow-500">🥇 Liga Pro:</span> Campeões ()</li>
                 <li><span className="font-bold text-yellow-500">🌟 Liga Amador:</span> Múltiplas vitórias</li>
               </ul>
             </div>
@@ -171,7 +171,7 @@ export default function LandingPage() {
                 Constantemente quebramos nossos próprios recordes e ajudamos nossos membros.
               </p>
               <ul className="text-left w-full text-gray-400 text-sm space-y-3 bg-gray-800/50 p-4 rounded-lg">
-                <li><span className="font-bold text-yellow-500">📈 Recorde:</span> 120 pts na temporada</li>
+                <li><span className="font-bold text-yellow-500">📈 Recorde:</span> 461.2001 pts na temporada 82</li>
                 <li><span className="font-bold text-yellow-500">🚀 Promoções:</span> +50 subidas de liga</li>
                 <li><span className="font-bold text-yellow-500">⚙️ Setup:</span> 90% eficiência média</li>
               </ul>
