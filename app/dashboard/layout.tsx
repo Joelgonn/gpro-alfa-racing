@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { GameProvider, useGame } from '../context/GameContext'; // Importe o hook useGame
-import { supabase } from '../lib/supabase'; // Seu cliente Supabase
-import AdminInviteButton from '../components/AdminInviteButton'; // O botão que criaremos
+import { useEffect, useState, useRef } from 'react';
+import { GameProvider, useGame } from '../context/GameContext';
+import { supabase } from '../lib/supabase';
+import AdminInviteButton from '../components/AdminInviteButton';
 
-// --- ÍCONES (Mantido igual) ---
+// --- ÍCONES (Mantidos iguais, pois já são ótimos) ---
 const Icons = {
   Chart: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>,
   Car: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.126-.504 1.126-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-6 0h1.125a1.125 1.125 0 011.125 1.125v1.5a3.375 3.375 0 01-3.375 3.375H9.75" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>,
@@ -18,19 +18,19 @@ const Icons = {
   Logout: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>,
 };
 
-// --- COMPONENTE INTERNO DA SIDEBAR ---
-function SidebarContent() {
+// --- COMPONENTE DA SIDEBAR ADAPTÁVEL ---
+// Recebe props para controlar sua visibilidade e fechar no mobile
+function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) {
   const pathname = usePathname();
-  const { role, updateRole } = useGame(); // Pega o role e a função de update do contexto
+  const { role, updateRole } = useGame();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
 
-  // Busca o role e email do usuário UMA VEZ ao montar a sidebar
   useEffect(() => {
     async function fetchUserData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserEmail(user.email || null);
-        // Busca o role na tabela user_state
         const { data: userState } = await supabase
           .from('user_state')
           .select('role')
@@ -45,6 +45,20 @@ function SidebarContent() {
     fetchUserData();
   }, [updateRole]);
 
+  // Efeito para fechar o menu se clicar fora dele no mobile
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isOpen && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
+
   const menuItems = [
     { name: 'Visão Geral', path: '/dashboard', icon: <Icons.Chart /> },
     { name: 'Setup Calculadora', path: '/dashboard/setup', icon: <Icons.Car /> },
@@ -54,13 +68,22 @@ function SidebarContent() {
     { name: 'Mercado de Pilotos', path: '/dashboard/market', icon: <Icons.Users /> },
   ];
 
+  // Lógica para adaptar a sidebar para mobile e desktop com classes condicionais
+  const sidebarClasses = `
+    fixed inset-y-0 left-0 z-50 flex flex-col w-72 
+    border-r border-white/5 bg-slate-900/80 backdrop-blur-xl
+    transition-transform duration-300 ease-in-out
+    ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+    md:sticky md:translate-x-0 md:bg-slate-900/40
+  `;
+
   return (
-    <aside className="w-72 hidden md:flex flex-col z-30 sticky top-0 h-screen border-r border-white/5 bg-slate-900/40 backdrop-blur-xl">
+    <aside ref={sidebarRef} className={sidebarClasses}>
       {/* Logo / Título */}
-      <div className="h-24 flex items-center px-8 border-b border-white/5 relative overflow-hidden group">
+      <div className="h-24 flex items-center px-8 border-b border-white/5 relative overflow-hidden group shrink-0">
         <div className="absolute left-10 top-1/2 -translate-y-1/2 w-24 h-24 bg-emerald-500/10 blur-[50px] rounded-full group-hover:bg-emerald-500/20 transition-all duration-700"></div>
         <h1 className="relative z-10 flex flex-col">
-          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em] ml-0.5 mb-1">Lair of Wolves </span>
+          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em] ml-0.5 mb-1">Lair of Wolves</span>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-black tracking-tighter text-white">ALFA <span className="text-yellow-400">RACING</span></span>
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 text-white/50 border border-white/5">BR</span>
@@ -74,7 +97,8 @@ function SidebarContent() {
         {menuItems.map((item) => {
           const isActive = pathname === item.path;
           return (
-            <Link key={item.path} href={item.path} className={`relative flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 group overflow-hidden ${isActive ? 'text-white shadow-[0_0_20px_-5px_rgba(234,179,8,0.15)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'}`}>
+            // Adicionado onClick={onClose} para fechar o menu ao navegar
+            <Link key={item.path} href={item.path} onClick={onClose} className={`relative flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 group overflow-hidden ${isActive ? 'text-white shadow-[0_0_20px_-5px_rgba(234,179,8,0.15)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'}`}>
               {isActive && <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 to-transparent border border-white/5 rounded-xl pointer-events-none" />}
               {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(250,204,21,0.5)]" />}
               <span className={`relative z-10 transition-transform duration-300 ${isActive ? 'text-yellow-400 scale-110' : 'text-slate-500 group-hover:text-emerald-400'}`}>{item.icon}</span>
@@ -86,12 +110,10 @@ function SidebarContent() {
       </nav>
 
       {/* Rodapé do Menu (User Profile) */}
-      <div className="p-4 border-t border-white/5 bg-black/20 backdrop-blur-sm">
-        {/* <<< BOTÃO DE ADMIN INSERIDO AQUI >>> */}
+      <div className="p-4 border-t border-white/5 bg-black/20 backdrop-blur-sm shrink-0">
         <div className="mb-2">
             <AdminInviteButton userRole={role} />
         </div>
-
         <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -114,22 +136,73 @@ function SidebarContent() {
 
 // --- LAYOUT PRINCIPAL ---
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // ESTADO PARA CONTROLAR O MENU MOBILE
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // EFEITO COLATERAL: Fechar o menu ao navegar para uma nova página
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // EFEITO COLATERAL: Bloquear scroll do body quando o menu estiver aberto
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    // Cleanup function para garantir que o scroll volte ao normal se o componente for desmontado
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isMobileMenuOpen]);
+
   return (
     <GameProvider>
       <div className="flex min-h-screen bg-[#020617] text-slate-200 font-sans antialiased selection:bg-yellow-500/30 selection:text-yellow-200">
-        <SidebarContent /> {/* <<< SIDEBAR AGORA É UM COMPONENTE INTERNO */}
         
-        {/* === ÁREA DE CONTEÚDO PRINCIPAL (Mantido igual) === */}
-        <div className="flex-1 flex flex-col min-h-screen relative">
+        {/* Overlay que aparece atrás da sidebar no mobile */}
+        {isMobileMenuOpen && (
+          <div 
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 z-40 md:hidden"
+            aria-hidden="true"
+          />
+        )}
+        
+        <SidebarContent 
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
+        
+        <div className="flex-1 flex flex-col min-h-screen">
+          {/* Backgrounds decorativos (mantidos) */}
           <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
              <div className="absolute top-[-20%] left-[10%] w-[800px] h-[800px] bg-emerald-900/10 blur-[120px] rounded-full mix-blend-screen"></div>
              <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-yellow-900/5 blur-[100px] rounded-full mix-blend-screen"></div>
              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] brightness-100 contrast-150"></div>
           </div>
-          <header className="md:hidden bg-slate-950/80 backdrop-blur-md p-4 border-b border-white/5 flex justify-between items-center sticky top-0 z-50">
-              <span className="font-bold text-white tracking-tight flex gap-1">ALFA <span className="text-yellow-400">RACING</span></span>
-              <Link href="/dashboard" className="text-[10px] font-bold bg-white/5 text-white px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/10 transition-colors">MENU</Link>
+          
+          {/* Header Mobile com botão de menu interativo */}
+          <header className="md:hidden bg-slate-950/80 backdrop-blur-md px-4 h-16 border-b border-white/5 flex justify-between items-center sticky top-0 z-30">
+              <Link href="/dashboard" className="font-bold text-white tracking-tight flex gap-1 items-center">
+                ALFA <span className="text-yellow-400">RACING</span>
+              </Link>
+              
+              <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                className="relative z-50 h-10 w-10 flex items-center justify-center text-slate-300"
+                aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+              >
+                <div className="space-y-1.5">
+                  <span className={`block w-6 h-0.5 bg-current transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
+                  <span className={`block w-6 h-0.5 bg-current transition-opacity duration-300 ease-in-out ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
+                  <span className={`block w-6 h-0.5 bg-current transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
+                </div>
+              </button>
           </header>
+
           <main className="flex-1 overflow-auto p-6 md:p-10 relative z-10 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
              <div className="mx-auto max-w-7xl w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {children}
