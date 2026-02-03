@@ -231,7 +231,7 @@ export default function DashboardHome() {
   if (!initialLoaded) return (
     <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#050507] text-indigo-500 font-mono text-xs gap-4">
         <Loader2 className="animate-spin w-8 h-8" />
-        <span className="animate-pulse tracking-widest">INICIALIZANDO SISTEMA...</span>
+        <span className="animate-pulse tracking-widest">BRIEFING... REUNIÃO TÉCNICA</span>
     </div>
   );
 
