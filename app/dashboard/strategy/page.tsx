@@ -94,6 +94,40 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
     );
 }
 
+// --- SUBCOMPONENTE DE BOOST (PARA REUTILIZAÇÃO CONDICIONAL) ---
+function BoostSection({ inputs, handleInput, outputs, className }: { inputs: InputsState, handleInput: any, outputs: any, className?: string }) {
+    return (
+        <section className={`bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden ${className}`}>
+            <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Boost - Ajuste Manual</h3></div>
+            <div className="p-4 md:p-6 space-y-4">
+                {[1, 2, 3].map(i => {
+                    const bKey = `boost${i}` as keyof BoostLapsInput;
+                    return (
+                        <div key={i} className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-white/5 group hover:border-amber-500/30 transition-all">
+                            <span className="text-[9px] font-black text-slate-500 uppercase group-hover:text-amber-500">B{i}</span>
+                            <input type="number" placeholder="Volta" value={inputs.boost_laps[bKey]?.volta ?? ''} onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} className="w-16 bg-black/60 border border-white/10 rounded p-2 text-center font-black text-xs text-white focus:border-amber-500 outline-none" />
+                            <div className="flex flex-col items-end leading-tight">
+                                <span className="text-[7px] text-slate-600 font-black uppercase">Seq / Stints</span>
+                                <span className="text-[10px] text-amber-500 font-black tracking-tighter">{outputs?.boost_laps_outputs?.[bKey]?.stint || '-'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '-'}</span>
+                            </div>
+                        </div>
+                    )
+                })}
+                <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="bg-black/40 p-2 rounded border border-white/5 text-center">
+                      <span className="text-[7px] text-slate-600 font-black block uppercase mb-1">S{i}</span>
+                      <div className="text-white font-black text-[9px] leading-none mb-1">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val1 || '--'}</div>
+                      <div className="text-amber-500 font-black text-[7px]">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val2 || '-'} B</div>
+                    </div>
+                  ))}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+
 export default function StrategyPage() {
   const router = useRouter(); 
   const {
@@ -255,10 +289,11 @@ export default function StrategyPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono">
-      {/* HUD HEADER */}
+      {/* 1. SELEÇÃO DE PISTA (HEADER) */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 backdrop-blur-xl">
           <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 w-full md:w-auto">
+            {/* 2. DADOS DA PISTA (Visualmente integrado ao Header) */}
             <div className="flex items-center gap-4 w-full md:w-auto">
                 <div className="relative group shrink-0">
                     <div className="absolute -inset-2 bg-indigo-500/20 blur-xl rounded-full"></div>
@@ -292,8 +327,11 @@ export default function StrategyPage() {
       </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-8">
-        {/* CONFIGURATION SIDEBAR */}
+        
+        {/* COLUNA ESQUERDA (DESKTOP) / PRIMEIROS ITENS (MOBILE) */}
         <div className="xl:col-span-4 space-y-4 md:space-y-8">
+          
+          {/* 3. DADOS DA CORRIDA (INPUTS) */}
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
             <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
                 <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Settings size={14} className="text-indigo-400"/> Dados da Corrida</h3>
@@ -349,37 +387,14 @@ export default function StrategyPage() {
             </div>
           </section>
 
-          <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
-            <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Boost - Ajuste Manual</h3></div>
-            <div className="p-4 md:p-6 space-y-4">
-                {[1, 2, 3].map(i => {
-                    const bKey = `boost${i}` as keyof BoostLapsInput;
-                    return (
-                        <div key={i} className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-white/5 group hover:border-amber-500/30 transition-all">
-                            <span className="text-[9px] font-black text-slate-500 uppercase group-hover:text-amber-500">B{i}</span>
-                            <input type="number" placeholder="Volta" value={inputs.boost_laps[bKey]?.volta ?? ''} onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} className="w-16 bg-black/60 border border-white/10 rounded p-2 text-center font-black text-xs text-white focus:border-amber-500 outline-none" />
-                            <div className="flex flex-col items-end leading-tight">
-                                <span className="text-[7px] text-slate-600 font-black uppercase">Seq / Stints</span>
-                                <span className="text-[10px] text-amber-500 font-black tracking-tighter">{outputs?.boost_laps_outputs?.[bKey]?.stint || '-'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '-'}</span>
-                            </div>
-                        </div>
-                    )
-                })}
-                <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="bg-black/40 p-2 rounded border border-white/5 text-center">
-                      <span className="text-[7px] text-slate-600 font-black block uppercase mb-1">S{i}</span>
-                      <div className="text-white font-black text-[9px] leading-none mb-1">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val1 || '--'}</div>
-                      <div className="text-amber-500 font-black text-[7px]">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val2 || '-'} B</div>
-                    </div>
-                  ))}
-                </div>
-            </div>
-          </section>
+          {/* 6. BOOST (SOMENTE VISÍVEL NO DESKTOP AQUI) */}
+          <BoostSection className="hidden xl:block" inputs={inputs} handleInput={handleInput} outputs={outputs} />
         </div>
 
-        {/* MAIN ANALYSIS AREA */}
+        {/* COLUNA DIREITA (DESKTOP) / ULTIMOS ITENS (MOBILE) */}
         <div className="xl:col-span-8 space-y-4 md:space-y-8">
+            
+            {/* 4. ANÁLISE DE PERFORMANCE (CHARTS + TABLE) */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
                 {[
                     { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
@@ -440,6 +455,7 @@ export default function StrategyPage() {
                 </div>
             </section>
             
+            {/* 5. AUTOMÁTICO / MANUAL (STINTS) */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-3 flex flex-col md:flex-row items-stretch md:items-center gap-2 border-b border-white/5 px-4">
                     <button onClick={() => setActiveTab('auto')} className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}><Sparkles size={14}/> Automático</button>
@@ -493,6 +509,9 @@ export default function StrategyPage() {
                     </table>
                 </div>
             </section>
+
+             {/* 6. BOOST (SOMENTE VISÍVEL NO MOBILE AQUI) */}
+            <BoostSection className="block xl:hidden" inputs={inputs} handleInput={handleInput} outputs={outputs} />
         </div>
       </div>
 
@@ -511,7 +530,7 @@ export default function StrategyPage() {
   );
 }
 
-// --- SUBCOMPONENTES ---
+// --- SUBCOMPONENTES AUXILIARES ---
 function ConfigInput({ label, value, onChange }: any) {
     return (
         <div className="bg-black/40 p-3 rounded-lg border border-white/5">
