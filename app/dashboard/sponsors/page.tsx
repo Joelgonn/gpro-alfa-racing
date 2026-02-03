@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation'; // Import necessário para redirecionamento
-import { supabase } from '../../lib/supabase'; // Seu cliente Supabase
+import { useRouter } from 'next/navigation';
+import { supabase } from '../../lib/supabase';
 import { 
   Briefcase, Save, Search, Users, Target, TrendingUp, 
   MessageSquare, History, Trash2, ChevronRight, BarChart3, 
-  Handshake, Gauge, Loader2
+  Handshake, Gauge, Loader2, X, AlertTriangle, AlertCircle, Info, TrendingDown,
+  ChevronDown, HelpCircle
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- TIPOS ---
 type SponsorAttribute = 'finances' | 'expectations' | 'patience' | 'reputation' | 'image' | 'negotiation' | 'currentProgress' | 'averageProgress' | 'managers';
@@ -43,9 +45,9 @@ function translate(text: string) {
 const BASE_STORAGE_KEY = 'gpro_sponsors_db';
 
 export default function SponsorsPage() {
-  const router = useRouter(); // Hook de roteamento
+  const router = useRouter();
 
-  // --- ESTADOS ---
+  // --- ESTADOS DO NEGÓCIO ---
   const [attributes, setAttributes] = useState({
     finances: 2,
     expectations: 6,
@@ -58,62 +60,59 @@ export default function SponsorsPage() {
     managers: 1,
   });
 
-  const [sponsorName, setSponsorName] = useState("VISA");
-  
+  const [sponsorName, setSponsorName] = useState("");
   const [results, setResults] = useState({
       answers: ["...", "...", "...", "...", "..."],
       stats: { diff: 0, opponentProgress: 0 }
   });
 
   const [loading, setLoading] = useState(false);
-  const [isAuthLoading, setIsAuthLoading] = useState(true); // Estado de carregamento da auth
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [savedSponsors, setSavedSponsors] = useState<SavedSponsor[]>([]);
   
+  // --- UI STATES (MODAL) ---
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'alert' | 'confirm' | 'info';
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ isOpen: false, type: 'alert', title: '', message: '' });
+
   // --- ESTADO DE AUTENTICAÇÃO ---
   const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string>('Gerente'); // Para exibir no header
+  const [userEmail, setUserEmail] = useState<string>('Gerente');
 
-  // --- 1. VERIFICAÇÃO DE LOGIN (SUPABASE) ---
+  // --- MODAL HELPERS ---
+  const showAlert = (title: string, message: string) => setModal({ isOpen: true, type: 'alert', title, message });
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => setModal({ isOpen: true, type: 'confirm', title, message, onConfirm });
+  const closeModal = () => setModal(prev => ({ ...prev, isOpen: false }));
+
+  // --- 1. AUTH CHECK ---
   useEffect(() => {
     async function checkSession() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.push('/login');
-                return;
-            }
+            if (!session) { router.push('/login'); return; }
             setUserId(session.user.id);
             if (session.user.email) setUserEmail(session.user.email);
-        } catch (error) {
-            console.error("Erro na autenticação:", error);
-            router.push('/login');
-        } finally {
-            setIsAuthLoading(false);
-        }
+        } catch (error) { router.push('/login'); } finally { setIsAuthLoading(false); }
     }
     checkSession();
   }, [router]);
 
-  // --- 2. CARREGAR DADOS SALVOS DO USUÁRIO (LOCALSTORAGE BASEADO NO ID DO SUPABASE) ---
+  // --- 2. LOAD DATA ---
   useEffect(() => {
     if (userId) {
         const userKey = `${BASE_STORAGE_KEY}_${userId}`;
         const saved = localStorage.getItem(userKey);
-        if (saved) {
-            try { setSavedSponsors(JSON.parse(saved)); } catch (e) { console.error(e); }
-        }
+        if (saved) { try { setSavedSponsors(JSON.parse(saved)); } catch (e) { } }
     }
   }, [userId]);
 
-  // --- 3. SALVAR DADOS AUTOMATICAMENTE (LOCALSTORAGE) ---
+  // --- 3. AUTO SAVE ---
   useEffect(() => {
-    if (userId) { // Removemos a checagem de length > 0 para permitir salvar array vazio se deletar tudo
-        const userKey = `${BASE_STORAGE_KEY}_${userId}`;
-        // Só salva se já tivermos carregado ou se o usuário interagir, para não sobrescrever com vazio no load inicial
-        // Mas como o load inicial setta o state, e este effect roda na mudança do state, precisamos de cuidado.
-        // Simplificação segura: Salva o estado atual no localStorage sempre que mudar.
-        localStorage.setItem(userKey, JSON.stringify(savedSponsors));
-    }
+    if (userId) { localStorage.setItem(`${BASE_STORAGE_KEY}_${userId}`, JSON.stringify(savedSponsors)); }
   }, [savedSponsors, userId]);
 
   const filteredSponsors = savedSponsors.filter(sponsor => 
@@ -126,33 +125,18 @@ export default function SponsorsPage() {
 
   const fetchSponsorData = useCallback(async () => {
       if (!userId) return;
-
       setLoading(true);
       try {
-        const res = await fetch('/api/python?action=sponsors', { // Ajuste para sua rota padrão se necessário, ou mantenha /api/sponsors se você tiver uma rota dedicada
+        const res = await fetch('/api/python?action=sponsors', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'user-id': userId // HEADER OBRIGATÓRIO VINCULADO AO SUPABASE
-            },
+            headers: { 'Content-Type': 'application/json', 'user-id': userId },
             body: JSON.stringify(attributes)
         });
-        
-        // Fallback robusto se a API não estiver configurada para sponsors ainda
-        if (res.status === 404) {
-            // console.warn("API de patrocinadores não encontrada. Verifique route.ts");
-            setLoading(false);
-            return;
-        }
-
         const data = await res.json();
-        if (data.sucesso) {
-            setResults(data.data);
-        }
-      } catch (e) { console.error(e); } finally { setLoading(false); }
+        if (data.sucesso) { setResults(data.data); }
+      } catch (e) { } finally { setLoading(false); }
   }, [attributes, userId]);
 
-  // Debounce para chamar a API
   useEffect(() => {
       if (!userId) return;
       const timer = setTimeout(() => { fetchSponsorData(); }, 500);
@@ -160,23 +144,26 @@ export default function SponsorsPage() {
   }, [attributes, fetchSponsorData, userId]);
 
   const saveToDb = () => {
-      if (!sponsorName.trim()) return alert("Digite o nome.");
+      if (!sponsorName.trim()) return showAlert("Campo Obrigatório", "Por favor, digite o nome do patrocinador.");
+      
       const newItem: SavedSponsor = {
           id: Date.now().toString(),
           name: sponsorName,
           attributes: { ...attributes },
           date: new Date().toLocaleDateString('pt-BR')
       };
+
       const existingIndex = savedSponsors.findIndex(s => s.name.toLowerCase() === sponsorName.toLowerCase());
-      let newList;
+      
       if (existingIndex >= 0) {
-          if (!confirm(`Atualizar "${sponsorName}"?`)) return;
-          newList = [...savedSponsors];
-          newList[existingIndex] = newItem;
+          showConfirm("Atualizar", `Deseja sobrescrever os dados de "${sponsorName}"?`, () => {
+              const newList = [...savedSponsors];
+              newList[existingIndex] = newItem;
+              setSavedSponsors(newList);
+          });
       } else {
-          newList = [newItem, ...savedSponsors];
+          setSavedSponsors([newItem, ...savedSponsors]);
       }
-      setSavedSponsors(newList);
   };
 
   const loadFromDb = (item: SavedSponsor) => {
@@ -185,272 +172,299 @@ export default function SponsorsPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const deleteFromDb = (id: string) => {
-      if (confirm("Remover?")) {
-          const newList = savedSponsors.filter(s => s.id !== id);
-          setSavedSponsors(newList);
-      }
+  const deleteFromDb = (id: string, name: string) => {
+      showConfirm("Excluir", `Remover "${name}" do banco de dados?`, () => {
+          setSavedSponsors(savedSponsors.filter(s => s.id !== id));
+      });
   };
 
-  // Loader enquanto verifica sessão
-  if (isAuthLoading) {
-      return (
-        <div className="flex h-screen items-center justify-center bg-slate-950">
-          <Loader2 className="animate-spin text-amber-500" size={48} />
-        </div>
-      );
-  }
-
-  if (!userId) return null;
+  if (isAuthLoading) return (
+    <div className="flex h-screen items-center justify-center bg-[#050507]">
+      <div className="relative w-12 h-12">
+        <div className="absolute inset-0 border-2 border-amber-500/20 rounded-full"></div>
+        <div className="absolute inset-0 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans pb-20 selection:bg-amber-500/30">
+    <div className="min-h-screen bg-[#050507] text-slate-300 font-mono pb-20">
         
-        {/* === HEADER OTIMIZADO === */}
-        <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-md mb-6">
-            <div className="max-w-[1600px] mx-auto px-6 py-4 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg shadow-amber-500/20">
-                        <Briefcase className="text-white" size={20} />
+        {/* === HEADER ALFA RACING === */}
+        <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 bg-[#050507]/80">
+            <div className="max-w-[1600px] mx-auto p-4 flex justify-between items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl shadow-lg">
+                        <Briefcase className="text-amber-500" size={18} />
                     </div>
-                    <div>
-                        <h1 className="text-lg font-bold text-white tracking-tight uppercase leading-none">
-                            Negociação <span className="text-amber-500">Comercial</span>
-                        </h1>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                            Gestão de Patrocínios • <span className="text-amber-400/80">{userEmail}</span>
-                        </p>
+                    <div className="hidden sm:block">
+                        <h1 className="text-xs font-black text-white uppercase tracking-widest leading-none mb-0.5">Sponsor Negotiation</h1>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase">{userEmail}</p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="relative group w-64">
-                        <input 
-                            type="text" 
-                            value={sponsorName}
-                            onChange={(e) => setSponsorName(e.target.value)}
-                            className="w-full bg-slate-950 text-sm font-bold text-white outline-none placeholder-slate-600 h-10 pl-9 pr-4 rounded-xl border border-slate-700 focus:border-amber-500/50 transition-all shadow-inner"
-                            placeholder="Nome do Patrocinador..."
-                        />
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    </div>
-                    
-                    <button 
-                        onClick={saveToDb}
-                        className="flex items-center gap-2 px-5 h-10 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-wide border border-amber-400/20"
-                    >
-                        <Save size={14} />
-                        <span>Salvar</span>
-                    </button>
+                <div className="flex-1 max-w-md relative">
+                    <input 
+                        type="text" 
+                        value={sponsorName}
+                        onChange={(e) => setSponsorName(e.target.value)}
+                        className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-10 text-xs font-bold text-white outline-none focus:border-amber-500/50 transition-all"
+                        placeholder="Nome do Patrocinador..."
+                    />
+                    <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                 </div>
+                
+                <button 
+                    onClick={saveToDb}
+                    className="p-3 sm:px-5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2 border border-amber-400/20"
+                >
+                    <Save size={16} />
+                    <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Salvar</span>
+                </button>
             </div>
         </header>
 
-        <main className="max-w-[1600px] mx-auto px-6 flex flex-col gap-6">
+        <main className="max-w-[1600px] mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
             
-            {/* === LINHA SUPERIOR: INPUTS E RESULTADOS === */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* ESQUERDA: ATRIBUTOS E MÉTRICAS (5/12) */}
-                <div className="lg:col-span-5 space-y-6">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-800/50">
-                            <h3 className="font-bold text-slate-300 uppercase tracking-wider text-xs flex items-center gap-2">
-                                <BarChart3 size={14} className="text-amber-500" /> Perfil Psicológico
-                            </h3>
-                            <span className="text-[10px] bg-slate-950 px-2 py-1 rounded text-slate-500 border border-slate-800 font-mono">1 - 7</span>
-                        </div>
-                        <div className="space-y-4">
-                            <AttributeSlider label="Finanças" value={attributes.finances} onChange={(v) => handleAttributeChange('finances', v)} />
-                            <AttributeSlider label="Expectativas" value={attributes.expectations} onChange={(v) => handleAttributeChange('expectations', v)} />
-                            <AttributeSlider label="Paciência" value={attributes.patience} onChange={(v) => handleAttributeChange('patience', v)} />
-                            <AttributeSlider label="Reputação" value={attributes.reputation} onChange={(v) => handleAttributeChange('reputation', v)} />
-                            <AttributeSlider label="Imagem" value={attributes.image} onChange={(v) => handleAttributeChange('image', v)} />
-                            <AttributeSlider label="Negociação" value={attributes.negotiation} onChange={(v) => handleAttributeChange('negotiation', v)} />
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                        <h3 className="font-bold text-slate-300 uppercase tracking-wider text-xs mb-4 flex items-center gap-2">
-                            <Gauge size={14} className="text-indigo-400" /> Métricas da Rodada
+            {/* === COLUNA ESQUERDA: PERFIL (5/12) === */}
+            <div className="lg:col-span-5 space-y-6">
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+                    <div className="bg-white/5 p-4 border-b border-white/5 flex justify-between items-center">
+                        <h3 className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+                            <BarChart3 size={14} className="text-amber-500" /> Perfil Comercial
                         </h3>
-                        <div className="grid grid-cols-3 gap-4">
-                            <MetricInput label="Prog. Atual" value={attributes.currentProgress} onChange={(v) => handleAttributeChange('currentProgress', v)} suffix="%" step={0.1} />
-                            <MetricInput label="Prog. Médio" value={attributes.averageProgress} onChange={(v) => handleAttributeChange('averageProgress', v)} suffix="%" step={0.1} />
-                            <MetricInput label="Gerentes" value={attributes.managers} onChange={(v) => handleAttributeChange('managers', v)} highlight icon={<Users size={12} />} />
-                        </div>
+                        <HelpCircle size={14} className="text-slate-600" />
                     </div>
-                </div>
+                    <div className="p-4 md:p-6 space-y-5">
+                        <AttributeSlider label="Finanças" value={attributes.finances} onChange={(v) => handleAttributeChange('finances', v)} />
+                        <AttributeSlider label="Expectativas" value={attributes.expectations} onChange={(v) => handleAttributeChange('expectations', v)} />
+                        <AttributeSlider label="Paciência" value={attributes.patience} onChange={(v) => handleAttributeChange('patience', v)} />
+                        <AttributeSlider label="Reputação" value={attributes.reputation} onChange={(v) => handleAttributeChange('reputation', v)} />
+                        <AttributeSlider label="Imagem" value={attributes.image} onChange={(v) => handleAttributeChange('image', v)} />
+                        <AttributeSlider label="Negociação" value={attributes.negotiation} onChange={(v) => handleAttributeChange('negotiation', v)} />
+                    </div>
+                </section>
 
-                {/* DIREITA: RESPOSTAS E KPIs (7/12) */}
-                <div className="lg:col-span-7 flex flex-col gap-6">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-xl">
-                        <div className="bg-slate-800/50 px-5 py-3 border-b border-slate-800 flex justify-between items-center backdrop-blur-md">
-                            <h2 className="text-xs font-bold text-amber-500 uppercase tracking-widest flex items-center gap-2">
-                                <MessageSquare size={16} /> Respostas Sugeridas
-                            </h2>
-                            {loading && <span className="text-[10px] text-amber-500 font-bold animate-pulse bg-amber-500/10 px-2 py-1 rounded">ANALISANDO...</span>}
-                        </div>
-                        <div className="p-4 space-y-2">
-                            {QUESTIONS_LABELS.map((q, index) => (
-                                <div key={index} className="flex items-center justify-between bg-slate-950 border border-slate-800/50 rounded-xl p-3 hover:border-amber-500/20 transition-all">
-                                    <div className="flex items-center gap-3 pr-4">
-                                        <div className="min-w-[24px] h-[24px] flex items-center justify-center bg-slate-900 rounded-lg text-[10px] font-mono font-bold text-slate-500 border border-slate-800">0{index + 1}</div>
-                                        <p className="text-xs text-slate-300 font-medium leading-relaxed">{q}</p>
-                                    </div>
-                                    <div className={`px-4 py-2 rounded-lg border min-w-[140px] text-center transition-all ${loading ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-amber-500/5 border-amber-500/20 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.05)]'}`}>
-                                        <span className={`font-mono text-xs font-bold uppercase block truncate ${loading && 'blur-sm'}`}>
-                                            {translate(results.answers[index]) || "..."}
-                                        </span>
-                                    </div>
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 md:p-6 shadow-xl">
+                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Gauge size={14} className="text-indigo-400" /> Métricas Rodada
+                    </h3>
+                    <div className="grid grid-cols-3 gap-3 md:gap-4">
+                        <MetricInput label="Prog. Atual" value={attributes.currentProgress} onChange={(v) => handleAttributeChange('currentProgress', v)} suffix="%" />
+                        <MetricInput label="Prog. Médio" value={attributes.averageProgress} onChange={(v) => handleAttributeChange('averageProgress', v)} suffix="%" />
+                        <MetricInput label="Gerentes" value={attributes.managers} onChange={(v) => handleAttributeChange('managers', v)} highlight />
+                    </div>
+                </section>
+            </div>
+
+            {/* === COLUNA DIREITA: RESULTADOS (7/12) === */}
+            <div className="lg:col-span-7 space-y-6">
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+                    <div className="bg-amber-500/10 p-4 border-b border-white/5 flex justify-between items-center">
+                        <h2 className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
+                            <MessageSquare size={16} /> Respostas Estratégicas
+                        </h2>
+                        {loading && <div className="animate-pulse flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+                            <span className="text-[9px] text-amber-500 font-black">CALCULANDO</span>
+                        </div>}
+                    </div>
+                    <div className="p-4 md:p-6 space-y-3">
+                        {QUESTIONS_LABELS.map((q, index) => (
+                            <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between bg-black/40 border border-white/5 rounded-xl p-4 hover:border-amber-500/20 transition-all gap-3">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black text-slate-600 min-w-[20px]">0{index + 1}</span>
+                                    <p className="text-[11px] text-slate-400 font-bold leading-tight">{q}</p>
                                 </div>
-                            ))}
+                                <div className={`px-4 py-3 rounded-xl border text-center transition-all ${loading ? 'opacity-30' : 'bg-amber-500/5 border-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.05)]'}`}>
+                                    <span className="font-black text-xs uppercase tracking-wider block">
+                                        {translate(results.answers[index]) || "---"}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-2">
+                            <TrendingUp size={14} /> Diferença Projetada
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className={`text-4xl font-black ${results.stats.diff >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
+                                {results.stats.diff > 0 ? '+' : ''}{Number(results.stats.diff).toFixed(2)}
+                            </span>
+                            <span className="text-xs text-slate-600 font-black">%</span>
+                        </div>
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
+                            {results.stats.diff >= 0 ? <TrendingUp size={80} /> : <TrendingDown size={80} />}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden group hover:border-slate-700 transition-colors">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                                <TrendingUp size={14} /> Diferença Projetada
+                    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-2">
+                            <Users size={14} /> Progresso Adversário
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-4xl font-black text-white">
+                                {Number(results.stats.opponentProgress).toFixed(2)}
                             </span>
-                            <div className="flex items-baseline gap-2">
-                                <span className={`text-4xl font-black font-mono tracking-tighter ${results.stats.diff >= 0 ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]' : 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]'}`}>
-                                    {results.stats.diff > 0 ? '+' : ''}{Number(results.stats.diff).toFixed(2)}
-                                </span>
-                                <span className="text-xs text-slate-500 font-bold">%</span>
-                            </div>
-                            <div className="absolute right-0 bottom-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <TrendingUp size={60} />
-                            </div>
+                            <span className="text-xs text-slate-600 font-black">%</span>
                         </div>
-
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-center relative overflow-hidden group hover:border-slate-700 transition-colors">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                                <Users size={14} /> Progresso Adversário
-                            </span>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-4xl font-black font-mono tracking-tighter text-white">
-                                    {Number(results.stats.opponentProgress).toFixed(2)}
-                                </span>
-                                <span className="text-xs text-slate-500 font-bold">%</span>
-                            </div>
-                            <div className="absolute bottom-0 left-0 w-full h-1.5 bg-slate-800">
-                                 <div className="h-full bg-indigo-500 opacity-50" style={{width: `${Math.min(results.stats.opponentProgress, 100)}%`}}></div>
-                            </div>
+                        <div className="absolute bottom-0 left-0 w-full h-1 bg-white/5">
+                             <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(results.stats.opponentProgress, 100)}%` }}
+                                className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" 
+                             />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* === LINHA INFERIOR: BANCO DE DADOS (FULL WIDTH) === */}
-            <div className="w-full">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col">
-                    <div className="flex justify-between items-center mb-6 pb-2 border-b border-slate-800/50">
-                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                            <History size={16} /> Banco de Dados Salvo
-                        </h3>
-                        <div className="flex gap-2">
-                             {filteredSponsors.length > 0 && <span className="text-[10px] text-amber-500 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">{filteredSponsors.length} registros</span>}
+            {/* === BANCO DE DADOS (FULL WIDTH) === */}
+            <section className="lg:col-span-12 space-y-6">
+                <div className="flex items-center gap-3 px-1">
+                    <History size={16} className="text-slate-500" />
+                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Sponsors Database</h3>
+                    <div className="h-px flex-1 bg-white/5" />
+                    <span className="text-[9px] text-amber-500 font-black bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                        {filteredSponsors.length} REGISTROS
+                    </span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {filteredSponsors.length === 0 ? (
+                        <div className="col-span-full py-16 flex flex-col items-center justify-center bg-white/[0.01] border border-dashed border-white/5 rounded-3xl">
+                            <Search size={32} className="text-slate-800 mb-4" />
+                            <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Nenhum patrocinador encontrado</p>
                         </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {filteredSponsors.length === 0 ? (
-                            <div className="col-span-full py-10 flex flex-col items-center justify-center text-slate-600 bg-slate-950/50 rounded-xl border border-dashed border-slate-800">
-                                <Search size={32} className="mb-3 opacity-30" />
-                                <span className="text-sm font-medium">Nenhum patrocinador salvo.</span>
-                            </div>
-                        ) : (
-                            filteredSponsors.map((item) => (
-                                <div key={item.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl hover:border-amber-500/30 transition-all flex flex-col justify-between group h-full">
-                                    <div className="mb-4">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <h4 className="font-bold text-white text-sm truncate pr-2">{item.name}</h4>
-                                                <span className="text-[10px] text-slate-600 font-mono">{item.date}</span>
-                                            </div>
-                                            <button onClick={() => deleteFromDb(item.id)} className="text-slate-700 hover:text-rose-500 p-1.5 rounded hover:bg-slate-900 transition-colors">
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                        
-                                        {/* Barras de Status Visuais */}
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[9px] text-slate-500 w-8 uppercase">Fin</span>
-                                                <div className="h-1.5 bg-slate-900 rounded-full flex-1 overflow-hidden"><div className="h-full bg-indigo-500" style={{width: `${(item.attributes.finances/7)*100}%`}}></div></div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[9px] text-slate-500 w-8 uppercase">Exp</span>
-                                                <div className="h-1.5 bg-slate-900 rounded-full flex-1 overflow-hidden"><div className="h-full bg-emerald-500" style={{width: `${(item.attributes.expectations/7)*100}%`}}></div></div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[9px] text-slate-500 w-8 uppercase">Neg</span>
-                                                <div className="h-1.5 bg-slate-900 rounded-full flex-1 overflow-hidden"><div className="h-full bg-amber-500" style={{width: `${(item.attributes.negotiation/7)*100}%`}}></div></div>
-                                            </div>
-                                        </div>
+                    ) : (
+                        filteredSponsors.map((item) => (
+                            <motion.div 
+                                key={item.id} 
+                                layout
+                                className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl hover:border-amber-500/30 transition-all flex flex-col group"
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="overflow-hidden">
+                                        <h4 className="font-black text-white text-sm truncate uppercase tracking-tight">{item.name}</h4>
+                                        <span className="text-[9px] text-slate-600 font-bold block mt-1">{item.date}</span>
                                     </div>
-                                    
-                                    <button onClick={() => loadFromDb(item)} className="w-full py-2 bg-slate-900 hover:bg-amber-600 text-slate-400 hover:text-white text-[10px] font-bold rounded-lg transition-colors uppercase tracking-widest flex items-center justify-center gap-2 group-hover:border-amber-500/50 border border-slate-800">
-                                        Carregar <ChevronRight size={10} />
+                                    <button 
+                                        onClick={() => deleteFromDb(item.id, item.name)} 
+                                        className="text-slate-700 hover:text-rose-500 transition-colors"
+                                    >
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                                
+                                <div className="space-y-2 mb-6">
+                                    <DBMiniMetric label="FIN" val={item.attributes.finances} color="bg-indigo-500" />
+                                    <DBMiniMetric label="EXP" val={item.attributes.expectations} color="bg-emerald-500" />
+                                    <DBMiniMetric label="NEG" val={item.attributes.negotiation} color="bg-amber-500" />
+                                </div>
+                                
+                                <button 
+                                    onClick={() => loadFromDb(item)} 
+                                    className="w-full h-11 bg-white/5 hover:bg-amber-600 text-[10px] font-black text-slate-400 hover:text-white rounded-xl transition-all uppercase tracking-widest flex items-center justify-center gap-2 group-hover:border-amber-500/50 border border-transparent"
+                                >
+                                    Carregar Dados <ChevronRight size={14} />
+                                </button>
+                            </motion.div>
+                        ))
+                    )}
                 </div>
-            </div>
-
+            </section>
         </main>
+
+        {/* --- CUSTOM DIALOGS --- */}
+        <AnimatePresence>
+            {modal.isOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
+                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#0f0f12] border border-white/10 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 overflow-hidden">
+                        <div className={`h-1.5 w-full ${modal.type === 'alert' ? 'bg-rose-500' : modal.type === 'confirm' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
+                        <div className="p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                {modal.type === 'alert' && <AlertTriangle className="text-rose-500" size={24} />}
+                                {modal.type === 'confirm' && <AlertCircle className="text-indigo-500" size={24} />}
+                                {modal.type === 'info' && <Info className="text-emerald-500" size={24} />}
+                                <h3 className="text-lg font-black text-white uppercase tracking-tight">{modal.title}</h3>
+                            </div>
+                            <p className="text-slate-400 text-xs leading-relaxed mb-8">{modal.message}</p>
+                            <div className="flex gap-3">
+                                {modal.type === 'confirm' ? (
+                                    <>
+                                        <button onClick={closeModal} className="flex-1 bg-white/5 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Cancelar</button>
+                                        <button onClick={() => { modal.onConfirm?.(); closeModal(); }} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Confirmar</button>
+                                    </>
+                                ) : (
+                                    <button onClick={closeModal} className="w-full bg-white/5 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Fechar</button>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     </div>
   );
 }
 
-// --- COMPONENTES AUXILIARES ---
+// --- SUB-COMPONENTES ---
 
 function AttributeSlider({ label, value, onChange }: { label: string, value: number, onChange: (val: number) => void }) {
-    const MAX = 7;
-    const blocks = Array.from({ length: MAX }, (_, i) => i + 1);
-
-    const getColor = (idx: number) => {
-        if (idx > value) return 'bg-slate-800 border-slate-700/50';
-        if (value <= 2) return 'bg-rose-500 border-rose-400 shadow-[0_0_4px_rgba(244,63,94,0.4)]';
-        if (value >= 6) return 'bg-emerald-500 border-emerald-400 shadow-[0_0_4px_rgba(16,185,129,0.4)]';
-        return 'bg-amber-500 border-amber-400 shadow-[0_0_4px_rgba(245,158,11,0.4)]';
-    };
-
     return (
-        <div className="flex items-center justify-between gap-4 h-8 group">
-            <span className="text-[10px] font-bold text-slate-500 uppercase w-24 text-right truncate group-hover:text-slate-300 transition-colors">{label}</span>
-            <div className="flex-1 flex items-center gap-1 h-full cursor-pointer py-1">
-                {blocks.map((idx) => (
-                    <div 
+        <div className="flex flex-col gap-2 group">
+            <div className="flex justify-between items-center px-1">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-amber-500 transition-colors">{label}</span>
+                <span className="text-[10px] font-black text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">{value}</span>
+            </div>
+            <div className="flex gap-1.5 h-10 md:h-8">
+                {[1, 2, 3, 4, 5, 6, 7].map((idx) => (
+                    <button 
                         key={idx} 
                         onClick={() => onChange(idx)} 
-                        className={`flex-1 h-2.5 rounded-sm border transition-all duration-200 cursor-pointer hover:h-4 ${getColor(idx)}`}
-                    ></div>
+                        className={`flex-1 rounded-md transition-all duration-300 border h-full
+                            ${idx <= value 
+                                ? (value <= 2 ? 'bg-rose-500 border-rose-400' : value >= 6 ? 'bg-emerald-500 border-emerald-400' : 'bg-amber-500 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]') 
+                                : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                    />
                 ))}
             </div>
-            <span className="text-xs font-mono font-bold text-slate-400 w-5 text-center">{value}</span>
         </div>
     );
 }
 
-function MetricInput({ label, value, onChange, suffix, step = 1, highlight, icon }: { label: string, value: number, onChange: (val: number) => void, suffix?: string, step?: number, highlight?: boolean, icon?: any }) {
+function MetricInput({ label, value, onChange, suffix, highlight }: { label: string, value: number, onChange: (val: number) => void, suffix?: string, highlight?: boolean }) {
     return (
-        <div className={`flex flex-col bg-slate-950 p-3 rounded-xl border transition-colors ${highlight ? 'border-amber-500/30 bg-amber-900/5' : 'border-slate-800'}`}>
-            <span className={`text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1 ${highlight ? 'text-amber-500' : 'text-slate-500'}`}>
-                {icon} {label}
+        <div className={`flex flex-col bg-black/40 p-3 rounded-2xl border transition-all ${highlight ? 'border-amber-500/30' : 'border-white/5'}`}>
+            <span className={`text-[8px] font-black uppercase tracking-widest mb-1.5 ${highlight ? 'text-amber-500' : 'text-slate-600'}`}>
+                {label}
             </span>
-            <div className="flex items-center">
+            <div className="flex items-center gap-1">
                 <input 
                     type="number" 
-                    step={step} 
                     value={value} 
                     onChange={(e) => onChange(Number(e.target.value))} 
-                    className={`w-full bg-transparent text-left font-mono font-bold outline-none text-base p-0 m-0 ${highlight ? 'text-white' : 'text-slate-200'}`} 
+                    className="w-full bg-transparent text-sm font-black text-white outline-none" 
                 />
+                {suffix && <span className="text-[9px] font-bold text-slate-700">{suffix}</span>}
             </div>
+        </div>
+    )
+}
+
+function DBMiniMetric({ label, val, color }: { label: string, val: number, color: string }) {
+    return (
+        <div className="flex items-center gap-3">
+            <span className="text-[8px] text-slate-600 font-black w-6">{label}</span>
+            <div className="h-1 bg-white/5 flex-1 rounded-full overflow-hidden">
+                <div className={`h-full ${color}`} style={{ width: `${(val / 7) * 100}%` }} />
+            </div>
+            <span className="text-[8px] text-slate-400 font-black w-2">{val}</span>
         </div>
     )
 }
