@@ -97,7 +97,7 @@ export default function MarketPage() {
     
     const [userId, setUserId] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string>('');
-    const [modal, setModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'info' }>({ isOpen: false, title: '', message: '', type: 'success' });
+    const [modal, setModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ isOpen: false, title: '', message: '', type: 'success' });
 
     // AUTH & DATA LOAD
     useEffect(() => {
@@ -120,38 +120,26 @@ export default function MarketPage() {
         } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
-    // --- FUNÇÃO DE ATUALIZAÇÃO DO BANCO (RESTAURADA) ---
     const handleUpdateDatabase = async () => {
         if (!userId) return;
         setLoading(true);
         try {
-            // Chamada POST para o backend atualizar o JSON via scraper/gpro
-            const res = await fetch('/api/market/update', { 
-                method: 'POST', 
-                headers: { 'user-id': userId } 
-            });
+            const res = await fetch('/api/market/update', { method: 'POST', headers: { 'user-id': userId } });
             const data = await res.json();
             if (data.success) {
-                setModal({ 
-                    isOpen: true, 
-                    type: 'success', 
-                    title: 'Base Sincronizada', 
-                    message: `${data.count} pilotos foram importados com sucesso do mercado GPRO.` 
-                });
-                await loadData(userId); // Recarrega a tabela local
+                setModal({ isOpen: true, type: 'success', title: 'Sincronização OK', message: `${data.count} pilotos foram atualizados no banco de dados.` });
+                await loadData(userId);
             } else {
                 setModal({ 
                     isOpen: true, 
-                    type: 'info', 
+                    type: 'error', 
                     title: 'Erro na Sincronização', 
-                    message: data.error || 'Não foi possível atualizar os dados agora.' 
+                    message: data.error || 'Ocorreu um problema ao gravar no servidor.' 
                 });
             }
-        } catch (e) { 
-            console.error(e); 
-        } finally { 
-            setLoading(false); 
-        }
+        } catch (e: any) { 
+            setModal({ isOpen: true, type: 'error', title: 'Erro de Conexão', message: e.message || 'Erro fatal no servidor.' });
+        } finally { setLoading(false); }
     };
 
     const filteredDrivers = useMemo(() => {
@@ -198,7 +186,6 @@ export default function MarketPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* Estatísticas de Base */}
                         <div className="hidden md:flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl border border-white/5">
                             <div className="flex flex-col items-center">
                                 <span className="text-[8px] text-slate-600 font-black uppercase">Base</span>
@@ -206,12 +193,11 @@ export default function MarketPage() {
                             </div>
                             <div className="w-px h-4 bg-white/10" />
                             <div className="flex flex-col items-center">
-                                <span className="text-[8px] text-blue-500 font-black uppercase">Filtro</span>
+                                <span className="text-[8px] text-blue-500 font-black uppercase">Filtrados</span>
                                 <span className="text-xs text-blue-400 font-black">{filteredDrivers.length}</span>
                             </div>
                         </div>
 
-                        {/* Botão de Filtros */}
                         <button onClick={() => setIsFilterOpen(true)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all relative">
                             <Filter size={16} className="text-blue-400" />
                             {Object.values(filters).some(f => f.min !== 0) && (
@@ -219,16 +205,9 @@ export default function MarketPage() {
                             )}
                         </button>
 
-                        {/* Botão de Sincronização */}
-                        <button 
-                            onClick={handleUpdateDatabase} 
-                            disabled={loading} 
-                            className="p-3 sm:px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg transition-all flex items-center gap-2 border border-blue-400/20 disabled:opacity-50"
-                        >
+                        <button onClick={handleUpdateDatabase} disabled={loading} className="p-3 sm:px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg transition-all flex items-center gap-2 border border-blue-400/20 disabled:opacity-50">
                             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">
-                                {loading ? 'Sincronizando...' : 'Sincronizar'}
-                            </span>
+                            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">{loading ? 'Sincronizando...' : 'Sincronizar'}</span>
                         </button>
                     </div>
                 </div>
@@ -304,11 +283,11 @@ export default function MarketPage() {
                                 </div>
                                 
                                 <div className="space-y-8 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
-                                    {/* SEÇÃO PERFORMANCE PRINCIPAL */}
+                                    {/* PERFORMANCE PRINCIPAL */}
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 px-1">
                                             <Trophy size={14} className="text-blue-500" />
-                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Performance Principal</h4>
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Performance</h4>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <RangeFilter label="OA Total" filter={filters.total} onChange={(t:any, v:any) => updateFilter('total', t, v)} highlight />
@@ -318,11 +297,11 @@ export default function MarketPage() {
                                         </div>
                                     </div>
 
-                                    {/* SEÇÃO TÉCNICO & HABILIDADES */}
+                                    {/* TÉCNICO & HABILIDADES */}
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 px-1">
                                             <Zap size={14} className="text-amber-500" />
-                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Habilidades Técnicas</h4>
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Técnico</h4>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <RangeFilter label="Técnica" filter={filters.tecnica} onChange={(t:any, v:any) => updateFilter('tecnica', t, v)} />
@@ -332,11 +311,11 @@ export default function MarketPage() {
                                         </div>
                                     </div>
 
-                                    {/* SEÇÃO PERFIL & FINANCEIRO */}
+                                    {/* PERFIL & FINANCEIRO */}
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 px-1">
                                             <DollarSign size={14} className="text-emerald-500" />
-                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contrato & Perfil</h4>
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contrato</h4>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 pb-4">
                                             <RangeFilter label="Salário" filter={filters.salario} onChange={(t:any, v:any) => updateFilter('salario', t, v)} />
@@ -361,17 +340,18 @@ export default function MarketPage() {
                 )}
             </AnimatePresence>
 
-            {/* MODAL DE NOTIFICAÇÃO (PARA SUCESSO DA SINCRONIZAÇÃO) */}
+            {/* MODAL DE STATUS */}
             <AnimatePresence>
                 {modal.isOpen && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setModal({ ...modal, isOpen: false })} />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#0f0f12] border border-white/10 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 p-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                {modal.type === 'success' ? <CheckCircle2 className="text-emerald-500" size={24} /> : <Info className="text-blue-500" size={24} />}
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#0f0f12] border border-white/10 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 p-6 overflow-hidden">
+                            <div className={`absolute top-0 left-0 h-1.5 w-full ${modal.type === 'success' ? 'bg-emerald-500' : modal.type === 'error' ? 'bg-rose-500' : 'bg-blue-500'}`} />
+                            <div className="flex items-center gap-3 mb-4 mt-2">
+                                {modal.type === 'success' ? <CheckCircle2 className="text-emerald-500" size={24} /> : modal.type === 'error' ? <ShieldAlert className="text-rose-500" size={24} /> : <Info className="text-blue-500" size={24} />}
                                 <h3 className="text-lg font-black text-white uppercase tracking-tight">{modal.title}</h3>
                             </div>
-                            <p className="text-slate-400 text-xs font-bold leading-relaxed mb-6">{modal.message}</p>
+                            <p className="text-slate-400 text-xs font-bold leading-relaxed mb-8">{modal.message}</p>
                             <button onClick={() => setModal({ ...modal, isOpen: false })} className="w-full bg-white/5 hover:bg-white/10 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Fechar</button>
                         </motion.div>
                     </div>

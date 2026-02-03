@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '@/app/lib/supabase';
 import zlib from 'zlib';
 import { promisify } from 'util';
 
 const gunzip = promisify(zlib.gunzip);
 
-const DATA_PATH_JSON = path.join(process.cwd(), 'data', 'drivers.json');
 const GPRO_DOWNLOAD_CSV_URL = "https://www.gpro.net/br/GetMarketFile.asp?market=drivers&type=csv";
 
 const COLUMN_MAP: Record<string, string> = {
@@ -23,6 +21,7 @@ const SIMPLE_NUMERIC_KEYS = [
     'peso', 'idade', 'nivel', 'ofertas'
 ];
 
+// --- FUNÇÕES AUXILIARES ---
 function safeParseInt(value: string, isCurrency: boolean = false): number {
     if (!value) return 0;
     let cleanValue = value.trim();
@@ -33,7 +32,6 @@ function safeParseInt(value: string, isCurrency: boolean = false): number {
     return isNaN(parsed) ? 0 : parsed;
 }
 
-// Parser de Estado para CSV (Trata aspas perfeitamente)
 function parseCSVLine(line: string, separator: string): string[] {
     const columns: string[] = [];
     let currentColumn = "";
@@ -54,6 +52,24 @@ function parseCSVLine(line: string, separator: string): string[] {
     return columns.map(val => val.replace(/^"|"$/g, '').trim());
 }
 
+// --- MÉTODO GET: BUSCA DO SUPABASE ---
+export async function GET() {
+    try {
+        const { data, error } = await supabase
+            .from('market_drivers')
+            .select('*')
+            .order('total', { ascending: false });
+
+        if (error) throw error;
+
+        return NextResponse.json({ success: true, data: data || [] });
+    } catch (e: any) {
+        console.error("Erro ao buscar drivers:", e.message);
+        return NextResponse.json({ success: false, error: e.message, data: [] }, { status: 500 });
+    }
+}
+
+// --- MÉTODO POST: SINCRONIZAÇÃO GPRO -> SUPABASE ---
 export async function POST() {
     try {
         const response = await fetch(GPRO_DOWNLOAD_CSV_URL, { next: { revalidate: 0 } });
@@ -71,7 +87,7 @@ export async function POST() {
         }
 
         const lines = content.split(/\r?\n/).filter(l => l.trim().length > 0);
-        if (lines.length < 2) throw new Error("CSV vazio");
+        if (lines.length < 2) throw new Error("CSV vazio ou inválido");
 
         const headerIndex = 1;
         const rawHeader = lines[headerIndex].trim();
@@ -79,6 +95,7 @@ export async function POST() {
         const headers = parseCSVLine(rawHeader, separator);
 
         const drivers = [];
+
         for (let i = headerIndex + 1; i < lines.length; i++) {
             const values = parseCSVLine(lines[i], separator);
             if (values.length < 5) continue;
@@ -89,6 +106,7 @@ export async function POST() {
                 const val = values[idx] || "";
 
                 if (key === 'aposentadoria') return;
+                
                 if (key === 'favorito') {
                     driverObj[key] = val;
                 } else if (SIMPLE_NUMERIC_KEYS.includes(key)) {
@@ -100,25 +118,25 @@ export async function POST() {
                 }
             });
 
-            if (driverObj.id) drivers.push(driverObj);
+            if (driverObj.id) {
+                drivers.push(driverObj);
+            }
         }
 
-        const dir = path.dirname(DATA_PATH_JSON);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(DATA_PATH_JSON, JSON.stringify(drivers, null, 2));
+        // Envia para o Supabase (Upsert baseado no ID)
+        const { error } = await supabase
+            .from('market_drivers')
+            .upsert(drivers, { onConflict: 'id' });
 
-        return NextResponse.json({ success: true, count: drivers.length });
+        if (error) throw error;
+
+        return NextResponse.json({ 
+            success: true, 
+            count: drivers.length 
+        });
+
     } catch (error: any) {
+        console.error("Erro na sincronização:", error.message);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
-}
-
-export async function GET() {
-    try {
-        if (fs.existsSync(DATA_PATH_JSON)) {
-            const data = fs.readFileSync(DATA_PATH_JSON, 'utf-8');
-            return NextResponse.json({ success: true, data: JSON.parse(data) });
-        }
-    } catch (e) { console.error(e); }
-    return NextResponse.json({ success: true, data: [] });
 }
