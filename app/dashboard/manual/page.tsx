@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; 
 import { supabase } from '../../lib/supabase'; 
 import { 
   RefreshCw, History, ArrowRight, ArrowDown,
   Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown,
-  ChevronDown, Check, StopCircle, AlertCircle
+  ChevronRight, AlertCircle, CheckCircle2, Flag, StopCircle, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -22,60 +22,76 @@ const ALL_FEEDBACK_OPTIONS: Record<string, string[]> = {
     "Suspensão": ["O carro está rígido demais. Diminua muito mais a rigidez", "A rigidez da suspensão está muito alta", "O carro está muito rígido. Diminua um pouco a rigidez", "OK", "Eu penso que com uma suspensão um pouco mais rígida eu poderei ir mais rápido", "A rigidez da suspensão está muito baixa", "A rigidez da suspensão deve ser muito maior"]
 };
 
-// --- FUNÇÕES AUXILIARES ---
 const getShortFeedback = (msg: string) => {
-    if (!msg) return "";
     if (msg === "OK") return "SATISFATÓRIO";
-    if (msg.includes("muito mais") || msg.includes("não posso") || msg.includes("muito alta") || msg.includes("muito rígid") || msg.includes("muito curta") || msg.includes("explodir")) return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") ? "CRÍTICO BAIXO" : "CRÍTICO ALTO";
-    if (msg.includes("um pouco") || msg.includes("pode ser maior") || msg.includes("gostaria")) return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") ? "AJUSTE BAIXO" : "AJUSTE ALTO";
+    if (msg.includes("muito mais") || msg.includes("não posso") || msg.includes("muito alta") || msg.includes("muito rígid") || msg.includes("muito curta") || msg.includes("explodir")) {
+        return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") ? "CRÍTICO BAIXO" : "CRÍTICO ALTO";
+    }
+    if (msg.includes("um pouco") || msg.includes("pode ser maior") || msg.includes("gostaria")) {
+        return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") ? "AJUSTE BAIXO" : "AJUSTE ALTO";
+    }
     return "AJUSTE REQUERIDO";
 };
+
 const getFeedbackColor = (msg: string) => {
-    if (!msg) return "text-slate-500";
-    return msg === "OK" ? "text-emerald-400" : (msg.includes("muito") || msg.includes("não") || msg.includes("explodir") ? "text-rose-500" : "text-amber-400");
+    if (msg === "OK") return "text-emerald-400";
+    if (msg.includes("muito") || msg.includes("não") || msg.includes("explodir")) return "text-rose-500";
+    return "text-amber-400";
 };
 
 export default function ManualSetupPage() {
     const router = useRouter();
     
-    // --- STATES ---
+    // --- STATE DO SETUP ---
     const [xp, setXp] = useState<string>("0");
     const [ct, setCt] = useState<string>("0");
     const [zs, setZs] = useState({ total: 0, half: 0 });
     const [history, setHistory] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [inputs, setInputs] = useState<Record<string, number>>({ "Asa Dianteira": 500, "Asa Traseira": 500, "Motor": 500, "Freios": 500, "Câmbio": 500, "Suspensão": 500 });
+    const [inputs, setInputs] = useState<Record<string, number>>({
+        "Asa Dianteira": 500, "Asa Traseira": 500, "Motor": 500, 
+        "Freios": 500, "Câmbio": 500, "Suspensão": 500
+    });
     const [feedbacks, setFeedbacks] = useState<Record<string, string>>({});
     const [analysis, setAnalysis] = useState<Record<string, { final: any, margin: any }>>({});
     const [availableOptions, setAvailableOptions] = useState<Record<string, string[]>>(ALL_FEEDBACK_OPTIONS);
     const [isManuallyFinished, setIsManuallyFinished] = useState(false);
+    
+    // --- STATE DE AUTENTICAÇÃO ---
     const [userId, setUserId] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string>('');
-    
-    // State para controlar qual dropdown está aberto
-    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
-    // --- EFEITOS ---
     useEffect(() => {
         async function initSession() {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) { router.push('/login'); return; }
+
+            if (!session) {
+                router.push('/login');
+                return;
+            }
+
             const uid = session.user.id;
             setUserId(uid);
             setUserEmail(session.user.email || 'Gerente');
+            
             const userKey = `${BASE_STORAGE_KEY}_${uid}`;
             const saved = localStorage.getItem(userKey);
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
-                    setXp(data.xp || "0"); setCt(data.ct || "0"); setZs(data.zs || { total: 0, half: 0 });
-                    setHistory(data.history || []); setInputs(data.inputs || inputs); setAnalysis(data.analysis || {});
-                    setAvailableOptions(data.availableOptions || ALL_FEEDBACK_OPTIONS); setIsManuallyFinished(data.isManuallyFinished || false);
+                    setXp(data.xp || "0"); 
+                    setCt(data.ct || "0"); 
+                    setZs(data.zs || { total: 0, half: 0 });
+                    setHistory(data.history || []); 
+                    setInputs(data.inputs || inputs);
+                    setAnalysis(data.analysis || {}); 
+                    setAvailableOptions(data.availableOptions || ALL_FEEDBACK_OPTIONS);
+                    setIsManuallyFinished(data.isManuallyFinished || false);
                 } catch(e) { console.error("Erro ao ler storage", e); }
             }
         }
         initSession();
-    }, [router, inputs]);
+    }, [router]);
 
     useEffect(() => {
         if (userId) {
@@ -84,110 +100,143 @@ export default function ManualSetupPage() {
         }
     }, [xp, ct, zs, history, inputs, analysis, availableOptions, userId, isManuallyFinished]);
 
-    // Fechar dropdown ao clicar fora
-    useEffect(() => {
-        const handleClickOutside = () => setActiveDropdown(null);
-        if (activeDropdown) window.addEventListener('click', handleClickOutside);
-        return () => window.removeEventListener('click', handleClickOutside);
-    }, [activeDropdown]);
+    const handleReset = () => {
+        if (confirm("Reiniciar sessão? Isso apagará seu histórico de voltas atual.")) {
+            if (userId) {
+                const userKey = `${BASE_STORAGE_KEY}_${userId}`;
+                localStorage.removeItem(userKey);
+            }
+            window.location.reload();
+        }
+    };
 
-    const handleReset = () => { if (confirm("Reiniciar sessão? Isso apagará seu histórico de voltas atual.")) { if (userId) { localStorage.removeItem(`${BASE_STORAGE_KEY}_${userId}`); } window.location.reload(); }};
-    const handleManualFinish = () => { if (history.length === 0) return alert("Processe pelo menos uma volta antes de finalizar."); if (confirm("Deseja encerrar a sessão agora e ver os valores calculados até o momento?")) { setIsManuallyFinished(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }};
-    
-    const handleCalculate = async () => { 
+    const handleManualFinish = () => {
+        if (history.length === 0) return alert("Processe pelo menos uma volta antes de finalizar.");
+        if (confirm("Deseja encerrar a sessão agora e ver os valores calculados até o momento?")) {
+            setIsManuallyFinished(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handleCalculate = async () => {
+        if (!userId) return;
+        if (!xp || !ct || xp === "0") return alert("Insira XP e CT do piloto para iniciar.");
+        
+        const missingFeedbacks = PARTS.filter(p => !feedbacks[p]);
+        if (missingFeedbacks.length > 0) return alert(`Selecione o feedback para: ${missingFeedbacks.join(', ')}`);
+
         setLoading(true);
-        await new Promise(r => setTimeout(r, 800));
+        const payload = { 
+            driver: { xp, ct }, 
+            history, 
+            currentLapData: PARTS.reduce((acc: any, part) => { 
+                acc[part] = { acerto: inputs[part], msg: feedbacks[part] }; 
+                return acc; 
+            }, {}) 
+        };
         
-        // Lógica Simulada (Substitua pela sua real)
-        const newEntry: any = {};
-        let allOk = true;
-        PARTS.forEach(part => {
-            newEntry[part] = { acerto: inputs[part], msg: feedbacks[part] || "OK" };
-            if((feedbacks[part] || "OK") !== "OK") allOk = false;
-        });
-        
-        const newHistory = [...history, newEntry];
-        setHistory(newHistory);
-        setFeedbacks({});
-        if(allOk) setIsManuallyFinished(true);
-        setLoading(false);
+        try {
+            const res = await fetch('/api/manual', { 
+                method: 'POST', 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'user-id': userId 
+                }, 
+                body: JSON.stringify(payload) 
+            });
+            const json = await res.json();
+            if (json.sucesso) {
+                setZs(json.data.zs);
+                setHistory([...history, json.data.processedLap]);
+                
+                if (history.length < 7) {
+                    setInputs(json.data.nextSuggestions);
+                }
+                
+                setAnalysis(json.data.finalAnalysis);
+                if (json.data.allowedOptions) setAvailableOptions(json.data.allowedOptions);
+                setFeedbacks({}); 
+                
+            } else {
+                alert("Erro no cálculo: " + (json.error || "Desconhecido"));
+            }
+        } catch (e) { alert("Erro de rede ao calcular."); } finally { setLoading(false); }
     };
 
     const isFinished = history.length >= 8 || isManuallyFinished;
-    
+
     if (!userId) return (
         <div className="flex h-screen items-center justify-center bg-[#050507] text-indigo-500 gap-4">
-            <div className="relative w-12 h-12">
-                <div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full"></div>
-                <div className="absolute inset-0 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <span className="font-mono text-xs animate-pulse">CARREGANDO SESSÃO...</span>
+             <div className="relative w-12 h-12"><div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full"></div><div className="absolute inset-0 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
+             <span className="font-mono text-xs animate-pulse">CARREGANDO...</span>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-[#050507] text-slate-300 font-mono pb-24">
-            <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 md:space-y-8 animate-fadeIn">
-                
-                {/* Header Responsivo */}
-                <motion.div 
-                    initial={{ opacity: 0, y: -20 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 shadow-2xl flex justify-between items-center backdrop-blur-xl relative z-30"
-                >
-                    <div className="flex items-center gap-3 overflow-hidden">
-                         <div className="bg-indigo-600/20 p-2.5 rounded-xl border border-indigo-500/30 shrink-0">
-                            <Calculator size={20} className="text-indigo-400" />
+        <div className="min-h-screen bg-[#050507] text-slate-300 font-mono selection:bg-indigo-500/30 pb-32">
+            
+            {/* Header Sticky com Blur */}
+            <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#050507]/80">
+                <div className="max-w-[1600px] mx-auto p-4 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                         <div className="bg-indigo-600/20 p-2 rounded-lg border border-indigo-500/30">
+                            <Calculator size={18} className="text-indigo-400" />
                          </div>
-                         <div className="min-w-0">
-                            <h1 className="text-xs md:text-sm font-black text-white uppercase tracking-widest leading-none mb-1">Telemetria</h1>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase truncate">Setup • {userEmail}</p>
+                         <div className="flex flex-col">
+                            <h1 className="text-xs font-black text-white uppercase tracking-widest leading-none mb-0.5">Telemetria</h1>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase truncate max-w-[150px] sm:max-w-none">
+                                Manual • {userEmail}
+                            </p>
                          </div>
                     </div>
                     <button 
                         onClick={handleReset} 
-                        className="flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-2 md:px-4 md:py-2 rounded-lg border border-rose-500/20 transition-all group shrink-0"
+                        className="p-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg border border-rose-500/20 transition-all active:scale-95"
+                        aria-label="Reiniciar"
                     >
-                        <RefreshCw size={16} className="group-hover:rotate-180 transition-transform duration-500" />
-                        <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Reiniciar</span>
+                        <RefreshCw size={16} />
                     </button>
-                </motion.div>
+                </div>
+            </header>
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                    {/* Lateral */}
-                    <div className="xl:col-span-3 space-y-4 md:space-y-6 order-2 xl:order-1">
+            <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-6 md:space-y-8 animate-fadeIn">
+                
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
+                    
+                    {/* Coluna Lateral: Dados e Status */}
+                    <div className="xl:col-span-3 space-y-4 md:space-y-6">
+                        {/* Card de Habilidades */}
                         <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
                             <div className="bg-white/5 p-3 md:p-4 border-b border-white/5 flex items-center gap-2">
                                 <Cpu size={14} className="text-indigo-400" />
-                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Parâmetros</h3>
+                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Parâmetros do Piloto</h3>
                             </div>
-                            <div className="p-4 grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Experiência</label>
+                            <div className="p-4 md:p-6 grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase block">Experiência (XP)</label>
                                     <input 
                                         type="number" 
                                         value={xp} 
                                         onChange={e=>setXp(e.target.value)} 
                                         disabled={history.length > 0} 
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" 
-                                        placeholder="XP"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" 
                                     />
                                 </div>
-                                <div>
-                                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1.5 ml-1">Conhec.</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase block">Técnica (CT)</label>
                                     <input 
                                         type="number" 
                                         value={ct} 
                                         onChange={e=>setCt(e.target.value)} 
                                         disabled={history.length > 0} 
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" 
-                                        placeholder="CT"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" 
                                     />
                                 </div>
                             </div>
                         </section>
 
-                        <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
+                        {/* Card de Previsão */}
+                        <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden min-h-[300px] md:min-h-[400px]">
                             <div className="bg-white/5 p-3 md:p-4 border-b border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <Target size={14} className="text-emerald-400" />
@@ -195,20 +244,22 @@ export default function ManualSetupPage() {
                                 </div>
                                 {history.length > 0 && <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">V{history.length}</span>}
                             </div>
-                            <div className="p-4 space-y-4">
+                            <div className="p-4 md:p-6 space-y-5">
                                 {PARTS.map(part => {
                                     const data = analysis[part];
                                     return (
                                         <div key={part} className="space-y-1.5">
                                             <div className="flex justify-between items-end">
                                                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">{part}</span>
-                                                <span className="text-[10px] text-slate-400 font-bold">±{data?.margin || "?"}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-slate-600 font-bold">±{data?.margin || "?"}</span>
+                                                </div>
                                             </div>
                                             <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
                                                 <motion.div 
-                                                    initial={{ width: 0 }} 
-                                                    animate={{ width: data ? `${(Number(data.final)/1000)*100}%` : 0 }} 
-                                                    transition={{ duration: 1, ease: "easeOut" }} 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: data ? `${Math.min((Number(data.final)/1000)*100, 100)}%` : 0 }} 
+                                                    transition={{ duration: 1, ease: "easeOut" }}
                                                     className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]" 
                                                 />
                                             </div>
@@ -219,220 +270,192 @@ export default function ManualSetupPage() {
                         </section>
                     </div>
 
-                    {/* Principal */}
-                    <div className="xl:col-span-9 space-y-6 order-1 xl:order-2">
-                        <section className={`border rounded-2xl overflow-visible transition-all duration-500 shadow-2xl relative z-20 ${isFinished ? 'border-emerald-500/50 bg-emerald-950/[0.1]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
+                    {/* Área Principal */}
+                    <div className="xl:col-span-9 space-y-6 md:space-y-8">
+                        
+                        {/* INPUTS / RESULTADO */}
+                        <section className={`border rounded-2xl overflow-hidden transition-all duration-500 ${isFinished ? 'border-emerald-500 bg-emerald-950/[0.1] shadow-[0_0_30px_rgba(16,185,129,0.1)]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
                             <div className={`p-4 border-b flex justify-between items-center ${isFinished ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-indigo-500/30 bg-indigo-500/10'}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg shrink-0 ${isFinished ? 'bg-emerald-500 text-black' : 'bg-indigo-500 text-white'}`}>
-                                        {isFinished ? <Trophy size={18} /> : <Timer size={18} />}
+                                    <div className={`p-1.5 rounded-lg ${isFinished ? 'bg-emerald-500 text-black' : 'bg-indigo-500 text-white'}`}>
+                                        {isFinished ? <Trophy size={16} /> : <Timer size={16} />}
                                     </div>
                                     <div>
-                                        <h2 className={`text-xs md:text-sm font-black uppercase tracking-widest ${isFinished ? 'text-emerald-400' : 'text-white'}`}>
-                                            {isFinished ? "Setup Ideal" : `Ajuste da Volta ${history.length + 1}`}
+                                        <h2 className={`text-sm font-black uppercase tracking-widest ${isFinished ? 'text-emerald-400' : 'text-white'}`}>
+                                            {isFinished ? "Ideal Calculado" : `Setup Volta ${history.length + 1}`}
                                         </h2>
-                                        <p className="text-[10px] opacity-70 font-bold uppercase hidden sm:block">
-                                            {isFinished ? "Valores calculados com sucesso" : "Insira os valores e selecione o feedback"}
-                                        </p>
                                     </div>
                                 </div>
-                                {isFinished && <div className="px-3 py-1 bg-emerald-500 text-black text-[9px] md:text-[10px] font-black uppercase rounded shadow-lg animate-pulse">Concluído</div>}
+                                {isFinished && (
+                                    <Flag size={16} className="text-emerald-500 animate-pulse" />
+                                )}
                             </div>
 
-                            <div className="p-4 md:p-6 lg:p-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 mb-8">
+                            <div className="p-4 md:p-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-12 md:gap-y-6 mb-8">
                                     {PARTS.map(part => {
                                         const displayValue = isFinished ? analysis[part]?.final : inputs[part];
-                                        const currentFeedback = feedbacks[part] || "";
-                                        const isDropdownOpen = activeDropdown === part;
                                         
                                         return (
-                                            <div key={part} className="space-y-2 group relative">
-                                                <div className="flex justify-between items-center">
-                                                    <label className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isFinished ? 'text-emerald-500/70' : 'text-slate-400 group-hover:text-indigo-400'}`}>
-                                                        {part}
-                                                    </label>
+                                            <div key={part} className="bg-white/[0.03] md:bg-transparent rounded-xl p-3 md:p-0 border border-white/5 md:border-0 space-y-2 group">
+                                                <div className="flex justify-between items-center px-1">
+                                                    <label className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isFinished ? 'text-emerald-500/70' : 'text-slate-400 md:group-hover:text-indigo-400'}`}>{part}</label>
+                                                    {isFinished && <CheckCircle2 size={10} className="text-emerald-500" />}
                                                 </div>
-                                                
-                                                {isFinished ? (
-                                                    <div className="w-full bg-emerald-500/10 border border-emerald-500/50 text-center text-3xl font-black py-4 rounded-xl text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                                                        {displayValue}
+                                                <div className="flex flex-col sm:flex-row items-stretch gap-3">
+                                                    <div className="relative w-full sm:w-auto sm:flex-1">
+                                                        {isFinished ? (
+                                                            <div className="w-full bg-emerald-500/10 border border-emerald-500/50 text-center text-xl font-black py-3 rounded-xl text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                                                                {displayValue}
+                                                            </div>
+                                                        ) : (
+                                                            <input 
+                                                                type="number" 
+                                                                value={displayValue} 
+                                                                onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} 
+                                                                className="w-full h-12 bg-black/40 border border-white/10 text-center text-lg font-black rounded-xl outline-none text-white focus:border-indigo-500 focus:bg-black/60 transition-all appearance-none" 
+                                                            />
+                                                        )}
                                                     </div>
-                                                ) : (
-                                                    <div className="bg-black/20 p-1.5 rounded-2xl border border-white/5 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-all space-y-2 relative">
-                                                        <input 
-                                                            type="number" 
-                                                            value={displayValue} 
-                                                            onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} 
-                                                            className="w-full bg-transparent text-center text-2xl font-black py-2 outline-none text-white placeholder-slate-700"
-                                                        />
-                                                        
-                                                        {/* CUSTOM DROPDOWN TRIGGER */}
-                                                        <div 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setActiveDropdown(isDropdownOpen ? null : part);
-                                                            }}
-                                                            className={`w-full bg-white/5 border border-white/10 min-h-[48px] px-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-white/10 transition-colors ${currentFeedback ? (currentFeedback === "OK" ? "border-emerald-500/30 bg-emerald-500/5" : "border-indigo-500/30 bg-indigo-500/5") : ""}`}
-                                                        >
-                                                            <span className={`text-[10px] font-bold uppercase leading-tight line-clamp-2 ${currentFeedback ? (currentFeedback === "OK" ? "text-emerald-400" : "text-indigo-200") : "text-slate-500"}`}>
-                                                                {currentFeedback === "OK" ? "✅ Satisfeito (OK)" : (currentFeedback || "Selecione o feedback...")}
-                                                            </span>
-                                                            <ChevronDown size={14} className={`text-slate-500 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                                                    {!isFinished && (
+                                                        <div className="flex-[2] relative">
+                                                            <select 
+                                                                value={feedbacks[part] || ""} 
+                                                                onChange={e=>setFeedbacks({...feedbacks,[part]:e.target.value})}
+                                                                className={`w-full h-12 bg-black/40 border border-white/10 text-[10px] sm:text-xs font-bold pl-4 pr-8 rounded-xl outline-none appearance-none cursor-pointer focus:border-indigo-500 transition-all ${feedbacks[part] ? (feedbacks[part] === "OK" ? "text-emerald-400 border-emerald-500/30" : "text-white") : "text-slate-500"}`}
+                                                            >
+                                                                <option value="">Selecione o feedback...</option>
+                                                                {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => (
+                                                                    <option key={i} value={opt} className="bg-slate-900 text-white py-2">
+                                                                        {opt === "OK" ? "✅ Satisfeito (OK)" : opt}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                                <ChevronRight size={14} className="rotate-90" />
+                                                            </div>
                                                         </div>
-
-                                                        {/* CUSTOM DROPDOWN MENU */}
-                                                        <AnimatePresence>
-                                                            {isDropdownOpen && (
-                                                                <motion.div 
-                                                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                                    className="absolute top-[calc(100%+8px)] left-0 w-[110%] -ml-[5%] md:w-full md:ml-0 bg-[#121215] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden ring-1 ring-black/50"
-                                                                >
-                                                                    <div className="max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-500/20 scrollbar-track-transparent">
-                                                                        <div className="p-1.5 space-y-1">
-                                                                            {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => {
-                                                                                const isSelected = currentFeedback === opt;
-                                                                                const isOkOption = opt === "OK";
-                                                                                return (
-                                                                                    <button
-                                                                                        key={i}
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            setFeedbacks({...feedbacks, [part]: opt});
-                                                                                            setActiveDropdown(null);
-                                                                                        }}
-                                                                                        className={`w-full text-left p-3 rounded-lg text-[10px] md:text-xs font-bold transition-all flex items-start gap-3
-                                                                                            ${isSelected 
-                                                                                                ? (isOkOption ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/20') 
-                                                                                                : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
-                                                                                            }`}
-                                                                                    >
-                                                                                        <div className={`mt-0.5 shrink-0 w-3 h-3 rounded-full border flex items-center justify-center ${isSelected ? (isOkOption ? 'border-emerald-500 bg-emerald-500' : 'border-indigo-500 bg-indigo-500') : 'border-slate-600'}`}>
-                                                                                            {isSelected && <Check size={8} className="text-black" />}
-                                                                                        </div>
-                                                                                        <span className="leading-snug">
-                                                                                            {isOkOption ? "Satisfeito (OK)" : opt}
-                                                                                        </span>
-                                                                                    </button>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
                                         )
                                     })}
                                 </div>
 
+                                {/* Botoes de Ação */}
                                 {!isFinished && (
-                                    <div className="flex flex-col gap-4 sticky bottom-2 z-10 sm:static">
-                                        {/* Botão Calcular Primeiro - Destaque Principal */}
+                                    <div className="flex flex-col-reverse md:flex-row gap-4">
                                         <motion.button 
-                                            whileHover={{ scale: 1.01 }} 
-                                            whileTap={{ scale: 0.98 }} 
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={handleManualFinish}
+                                            className="w-full md:flex-1 bg-slate-800/50 hover:bg-slate-700 text-slate-400 py-4 rounded-xl font-black uppercase tracking-[0.1em] text-[10px] md:text-xs border border-white/5 flex items-center justify-center gap-2 transition-all active:bg-slate-800"
+                                        >
+                                            <StopCircle size={14} />
+                                            Encerrar
+                                        </motion.button>
+
+                                        <motion.button 
+                                            whileTap={{ scale: 0.98 }}
                                             onClick={handleCalculate} 
                                             disabled={loading} 
-                                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 md:py-5 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                                            className="w-full md:flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white py-4 md:py-5 rounded-xl font-black uppercase tracking-[0.15em] text-xs md:text-sm shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed group active:translate-y-0.5"
                                         >
                                             {loading ? (
-                                                <><RefreshCw size={18} className="animate-spin" /> Processando...</>
+                                                <>
+                                                    <RefreshCw size={18} className="animate-spin" />
+                                                    Processando...
+                                                </>
                                             ) : (
                                                 <>
-                                                    Calcular Próxima Volta 
+                                                    Calcular Volta 
                                                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                                 </>
                                             )}
-                                        </motion.button>
-
-                                        {/* Botão Encerrar Depois - Secundário */}
-                                        <motion.button 
-                                            whileHover={{ scale: 1.01 }} 
-                                            whileTap={{ scale: 0.98 }} 
-                                            onClick={handleManualFinish} 
-                                            className="w-full bg-transparent hover:bg-slate-800/50 text-slate-500 hover:text-rose-400 py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] md:text-xs border border-dashed border-slate-700 hover:border-rose-500/30 flex items-center justify-center gap-2 transition-all"
-                                        >
-                                            <StopCircle size={14} />
-                                            <span>Encerrar Sessão</span>
                                         </motion.button>
                                     </div>
                                 )}
                             </div>
                         </section>
 
-                        {/* Histórico */}
-                        {history.length > 0 && (
-                            <div className="space-y-4 md:space-y-6 relative z-10">
-                                <div className="flex items-center gap-3 px-2">
-                                    <History size={16} className="text-slate-500" />
-                                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Histórico</h3>
-                                    <div className="h-px flex-1 bg-white/5" />
-                                </div>
-                                
-                                <div className="space-y-4">
-                                    {[...history].reverse().map((lap, idx) => {
-                                        const lapNumber = history.length - idx;
-                                        return (
-                                            <motion.div 
-                                                key={idx} 
-                                                initial={{ opacity: 0, y: 10 }} 
-                                                animate={{ opacity: 1, y: 0 }} 
-                                                transition={{ delay: idx * 0.05 }} 
-                                                className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden hover:border-white/10 transition-colors group"
-                                            >
-                                                <div className="bg-white/5 px-4 py-3 flex justify-between items-center border-b border-white/5">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-indigo-400 font-black text-xs tracking-wider">VOLTA {lapNumber}</span>
-                                                        {lapNumber === 1 && <span className="bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Início</span>}
-                                                    </div>
+                        {/* Timeline de Histórico */}
+                        <div className="space-y-6">
+                             <div className="flex items-center gap-3 px-1">
+                                <History size={16} className="text-slate-500" />
+                                <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Histórico</h3>
+                                <div className="h-px flex-1 bg-white/5" />
+                             </div>
+
+                             <div className="space-y-4">
+                                {[...history].reverse().map((lap, idx) => {
+                                    const lapNumber = history.length - idx;
+                                    return (
+                                        <motion.div 
+                                            key={idx} 
+                                            initial={{ opacity: 0, y: 10 }} 
+                                            animate={{ opacity: 1, y: 0 }} 
+                                            className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden"
+                                        >
+                                            <div className="bg-white/5 px-4 md:px-6 py-3 flex justify-between items-center border-b border-white/5">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-indigo-400 font-black text-xs tracking-wider">VOLTA {lapNumber}</span>
+                                                    {lapNumber === 1 && <span className="hidden sm:inline-block bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Início</span>}
                                                 </div>
-                                                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-y-6 gap-x-4">
-                                                    {PARTS.map(part => {
-                                                        const lapData = lap[part]; 
-                                                        const shortMsg = getShortFeedback(lapData.msg);
-                                                        const prevLap = history[lapNumber - 2]; 
-                                                        const delta = prevLap ? lapData.acerto - prevLap[part].acerto : 0;
-                                                        const isOk = lapData.msg === "OK";
-                                                        return (
-                                                            <div key={part} className="space-y-1 relative group/tooltip">
-                                                                <div className="text-[8px] text-slate-600 uppercase font-black tracking-wider truncate border-b border-white/5 pb-1 mb-1">{part}</div>
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <div className="flex items-end gap-2">
-                                                                        <span className={`text-sm md:text-base font-black leading-none ${isOk ? 'text-emerald-400' : 'text-white'}`}>{lapData.acerto}</span>
-                                                                        {delta !== 0 && (<div className={`flex items-center text-[9px] font-bold leading-none mb-0.5 ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{delta > 0 ? <TrendingUp size={10} className="mr-0.5" /> : <TrendingDown size={10} className="mr-0.5" />} {Math.abs(delta)}</div>)}
-                                                                    </div>
-                                                                    <span className={`text-[8px] font-bold uppercase truncate ${getFeedbackColor(lapData.msg)}`}>{shortMsg}</span>
-                                                                </div>
-                                                                <div className="absolute z-50 bottom-full left-0 mb-2 hidden group-hover/tooltip:block w-40 p-2 bg-[#0f0f12] border border-indigo-500/20 rounded shadow-xl pointer-events-none">
-                                                                    <p className="text-[9px] leading-tight text-slate-300 italic">"{lapData.msg}"</p>
+                                                <div className="text-[9px] text-slate-600 font-mono">
+                                                    TOTAL ZS: {lap.zs || 0}
+                                                </div>
+                                            </div>
+                                            <div className="p-4 md:p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
+                                                {PARTS.map(part => {
+                                                    const lapData = lap[part];
+                                                    const shortMsg = getShortFeedback(lapData.msg);
+                                                    
+                                                    const prevLap = history[lapNumber - 2];
+                                                    const delta = prevLap ? lapData.acerto - prevLap[part].acerto : 0;
+                                                    const isOk = lapData.msg === "OK";
+
+                                                    return (
+                                                        <div key={part} className="space-y-1 relative group/tooltip">
+                                                            <div className="text-[8px] text-slate-600 uppercase font-black tracking-wider truncate">{part}</div>
+                                                            <div className="flex items-center gap-2 md:gap-3">
+                                                                <span className={`text-sm md:text-base font-black ${isOk ? 'text-emerald-400' : 'text-white'}`}>
+                                                                    {lapData.acerto}
+                                                                </span>
+                                                                
+                                                                <div className="flex flex-col">
+                                                                    {delta !== 0 && (
+                                                                        <div className={`flex items-center text-[9px] font-bold leading-none ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                            {delta > 0 ? <TrendingUp size={10} className="mr-1" /> : <TrendingDown size={10} className="mr-1" />}
+                                                                            {Math.abs(delta)}
+                                                                        </div>
+                                                                    )}
+                                                                    <span className={`text-[8px] font-bold uppercase truncate max-w-[80px] md:max-w-[100px] mt-0.5 ${getFeedbackColor(lapData.msg)}`}>
+                                                                        {shortMsg}
+                                                                    </span>
                                                                 </div>
                                                             </div>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </motion.div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )}
+                                                            
+                                                            {/* Tooltip apenas Desktop */}
+                                                            <div className="hidden md:block absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/tooltip:opacity-100 transition-opacity w-48 p-3 bg-[#0f0f12] border border-indigo-500/20 rounded-lg shadow-2xl pointer-events-none">
+                                                                <div className="flex items-start gap-2">
+                                                                    <AlertCircle size={12} className="text-indigo-500 shrink-0 mt-0.5" />
+                                                                    <p className="text-[10px] leading-tight text-slate-300 italic font-medium">
+                                                                        "{lapData.msg}"
+                                                                    </p>
+                                                                </div>
+                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0f0f12] border-r border-b border-indigo-500/20 rotate-45 -translate-y-1"></div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </motion.div>
+                                    )
+                                })}
+                             </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            {/* Backdrop para fechar dropdown mobile ao clicar fora */}
-            {activeDropdown && (
-                <div 
-                    className="fixed inset-0 z-10 bg-black/20 backdrop-blur-[1px]" 
-                    onClick={() => setActiveDropdown(null)} 
-                    aria-hidden="true"
-                />
-            )}
         </div>
     );
 }
