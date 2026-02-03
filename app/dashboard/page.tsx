@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 import { 
   Settings, User, Car, Zap, Activity, Trophy, MapPin, 
   RefreshCw, Loader2, ChevronDown, ShieldCheck, Gauge, Cpu, Search, X, LogOut,
-  Lock, Unlock // Novos ícones para o Modo de Segurança
+  Lock, Unlock, Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -76,7 +76,6 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        // CORREÇÃO: z-index altíssimo para sobrepor tudo
                         className="absolute top-full left-0 mt-2 w-full md:w-[350px] bg-[#0F0F13] border border-white/20 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl z-[9999]"
                     >
                         <div className="p-3 border-b border-white/10 bg-white/[0.05]">
@@ -150,7 +149,7 @@ export default function DashboardHome() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
 
-  // NOVO: Estado para controle de segurança (bloqueio de edição)
+  // ESTADO DE EDIÇÃO (Começa falso para segurança)
   const [isEditMode, setIsEditMode] = useState(false);
 
   // 1. Check Session
@@ -244,7 +243,7 @@ export default function DashboardHome() {
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 md:space-y-8 relative z-10">
         
-        {/* CORREÇÃO 1: HEADER COM Z-INDEX SUPERIOR */}
+        {/* HEADER BAR */}
         <motion.div 
             initial={{ opacity: 0, y: -20 }} 
             animate={{ opacity: 1, y: 0 }} 
@@ -275,7 +274,7 @@ export default function DashboardHome() {
                         </h2>
                         <TrackSelector 
                             currentTrack={track} 
-                            tracksList={tracksList}
+                            tracksList={tracksList} 
                             onSelect={updateTrack} 
                         />
                     </div>
@@ -309,7 +308,7 @@ export default function DashboardHome() {
             </div>
         </motion.div>
 
-        {/* MAIN GRID - CORREÇÃO: z-0 para garantir que fique abaixo do header */}
+        {/* MAIN GRID */}
         <div className="flex flex-col xl:grid xl:grid-cols-12 gap-6 relative z-0">
             
             {/* COLUNA 1: INFO GERENTE */}
@@ -351,7 +350,7 @@ export default function DashboardHome() {
             </div>
 
             {/* COLUNA 2: DADOS PILOTO */}
-            <div className="order-1 xl:order-2 xl:col-span-5 bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-8 backdrop-blur-sm relative overflow-hidden shadow-xl transition-all duration-300">
+            <div className={`order-1 xl:order-2 xl:col-span-5 border rounded-2xl p-5 md:p-8 backdrop-blur-sm relative overflow-hidden shadow-xl transition-all duration-300 ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
                 {/* Indicador visual de travado */}
                 {!isEditMode && (
                     <div className="absolute top-2 right-2 text-slate-700 opacity-20 pointer-events-none">
@@ -361,8 +360,10 @@ export default function DashboardHome() {
 
                 <div className="flex justify-between items-center mb-6 md:mb-8 relative z-10">
                     <div className="flex items-center gap-3">
-                        <Cpu size={18} className={`transition-colors ${isEditMode ? 'text-indigo-400' : 'text-slate-600'}`}/>
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Piloto & Skills</h3>
+                        {isEditMode ? <Edit3 size={18} className="text-yellow-400 animate-pulse"/> : <Cpu size={18} className="text-slate-600"/>}
+                        <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isEditMode ? 'text-yellow-400' : 'text-white'}`}>
+                            {isEditMode ? 'Editando Piloto' : 'Piloto (Leitura)'}
+                        </h3>
                     </div>
                     <div className="flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
                         <span className="text-[8px] font-black text-indigo-300 uppercase mr-1">OA</span>
@@ -371,17 +372,28 @@ export default function DashboardHome() {
                 </div>
 
                 {/* Energia Bar */}
-                <div className={`mb-8 p-4 rounded-xl border transition-colors ${isEditMode ? 'bg-black/40 border-white/5' : 'bg-black/20 border-white/5 opacity-80'}`}>
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">
-                        <span className="flex items-center gap-2"><Zap size={14} className={isEditMode ? "text-amber-500 animate-pulse" : "text-slate-600"}/> Energia</span>
-                        <span className="text-white text-xs">{driver.energia}%</span>
+                <div className={`mb-8 p-4 rounded-xl border transition-colors ${isEditMode ? 'bg-black/40 border-white/10' : 'bg-black/20 border-white/5 opacity-80'}`}>
+                    <div className="flex justify-between items-end mb-3">
+                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            <Zap size={14} className={isEditMode ? "text-amber-500" : "text-slate-600"}/> Energia
+                        </span>
+                        {/* INPUT NUMÉRICO DIRETO */}
+                        <div className="flex items-center gap-2">
+                             <input 
+                                disabled={!isEditMode}
+                                type="number" 
+                                min={0} 
+                                max={100}
+                                value={driver.energia} 
+                                onChange={(e)=>updateDriver('energia', Math.min(100, Math.max(0, Number(e.target.value))))} 
+                                className={`w-16 h-10 bg-black/50 text-center text-sm font-black text-white rounded border focus:outline-none transition-all ${isEditMode ? 'border-yellow-500/50 focus:border-yellow-400' : 'border-white/10 text-slate-500'}`}
+                             />
+                             <span className="text-xs font-bold text-slate-500">%</span>
+                        </div>
                     </div>
-                    <div className="h-6 bg-white/5 rounded-full overflow-hidden flex relative">
+                    {/* BARRA APENAS VISUAL (SEM SLIDER) */}
+                    <div className="h-4 bg-white/5 rounded-full overflow-hidden flex relative">
                         <motion.div initial={{ width: 0 }} animate={{ width: `${driver.energia}%` }} transition={{ duration: 1 }} className={`h-full bg-gradient-to-r shadow-[0_0_15px_#6366f1] ${isEditMode ? 'from-indigo-600 to-cyan-500' : 'from-slate-700 to-slate-600 grayscale'}`} />
-                        <input 
-                            disabled={!isEditMode}
-                            type="range" min={0} max={100} value={driver.energia} onChange={(e)=>updateDriver('energia', Math.min(100, Math.max(0, Number(e.target.value))))} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed" 
-                        />
                     </div>
                 </div>
 
@@ -411,7 +423,9 @@ export default function DashboardHome() {
                 {/* CARRO */}
                 <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-xl">
                     <div className="bg-white/[0.02] p-4 border-b border-white/5 flex justify-between items-center">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2"><Car size={14} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/> Carro</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2">
+                            <Car size={14} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/> Carro
+                        </h3>
                         <div className="flex gap-3 pr-1">
                             <span className="text-[8px] font-black text-slate-500 w-12 text-center">NVL</span>
                             <span className="text-[8px] font-black text-slate-500 w-12 text-center">DSG%</span>
@@ -434,10 +448,9 @@ export default function DashboardHome() {
                 <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl">
                     <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-4">
                         <Activity size={16} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/>
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Telemetria (Carro x Pista)</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Telemetria</h3>
                     </div>
                     <div className="space-y-8">
-                        {/* A telemetria geralmente é apenas visualização e ajuste fino de teste, podemos deixar habilitado ou seguir o padrão */}
                         <PerformanceMetric 
                             label="Power" 
                             data={performanceData.power} 
@@ -468,7 +481,7 @@ export default function DashboardHome() {
   );
 }
 
-// --- SUBCOMPONENTES (Com Prop Disabled) ---
+// --- SUBCOMPONENTES REFATORADOS (SEM SLIDERS) ---
 
 function DetailRow({ label, value, color = "text-slate-300" }: any) {
     return (
@@ -482,12 +495,13 @@ function DetailRow({ label, value, color = "text-slate-300" }: any) {
 function TelemetryInput({ label, value, max, onChange, isSmall, disabled }: any) {
     const pct = Math.min(100, (value / max) * 100);
     return (
-        <div className={`space-y-2 group ${isSmall ? 'flex-1' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className={`space-y-2 group ${isSmall ? 'flex-1' : ''} ${disabled ? 'opacity-50' : ''}`}>
             <div className="flex justify-between items-end">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-indigo-400 transition-colors cursor-pointer">
+                <label className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
                     {label}
                 </label>
                 <div className="flex items-center gap-2">
+                    {/* INPUT NUMÉRICO GRANDE E CLICÁVEL */}
                     <input 
                         disabled={disabled}
                         type="number" 
@@ -495,18 +509,16 @@ function TelemetryInput({ label, value, max, onChange, isSmall, disabled }: any)
                         max={max}
                         value={value} 
                         onChange={onChange}
-                        className="w-14 h-8 bg-black/30 text-right text-xs font-black text-white px-2 rounded border border-white/10 focus:border-indigo-500 focus:bg-white/10 outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500"
+                        // Aumentei a altura (h-10) e a fonte para facilitar o toque
+                        className={`w-16 h-10 bg-black/40 text-center text-sm font-black rounded border focus:outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500 focus:bg-white/10'}`}
                     />
                     <span className="text-[9px] font-mono text-slate-600 hidden md:inline">/ {max}</span>
                 </div>
             </div>
-            {/* Slider */}
-            <div className={`h-5 md:h-3 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/5 cursor-pointer group-hover:bg-white/10'}`}>
-                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : 'bg-indigo-500/80 group-hover:bg-indigo-500'}`} />
-                <input 
-                    disabled={disabled}
-                    type="range" min="0" max={max} value={value} onChange={onChange} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed" 
-                />
+            
+            {/* BARRA VISUAL (SEM SLIDER DENTRO) */}
+            <div className={`h-3 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>
+                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : 'bg-indigo-500'}`} />
             </div>
         </div>
     )
@@ -526,9 +538,9 @@ function CarRow({ part, onLvl, onWear, disabled }: any) {
         <div className={`flex items-center justify-between py-3 md:py-2 rounded px-2 transition-colors border-b border-white/5 md:border-0 last:border-0 ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter w-24 truncate">{part.name}</span>
             <div className="flex items-center gap-3 md:gap-4">
-                <input disabled={disabled} type="number" value={part.lvl} onChange={handleLvlChange} className="w-12 h-10 md:h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-white outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500" />
+                <input disabled={disabled} type="number" value={part.lvl} onChange={handleLvlChange} className={`w-12 h-10 md:h-8 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500'}`} />
                 <div className="relative">
-                    <input disabled={disabled} type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-10 md:h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500 ${isCritical && !disabled ? 'text-rose-500 animate-pulse border-rose-500/30' : 'text-emerald-400'}`} />
+                    <input disabled={disabled} type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-10 md:h-8 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : (isCritical ? 'border-rose-500/30 text-rose-500' : 'border-white/10 text-emerald-400 focus:border-yellow-500')}`} />
                     {isCritical && !disabled && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>}
                 </div>
             </div>
@@ -556,16 +568,16 @@ function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
                     <div className="hidden md:block text-center"><p className="text-[6px] text-slate-600 font-black uppercase">Peça</p><p className="text-[10px] font-black text-slate-400">{data.part}</p></div>
                     <div className="text-center flex flex-col items-center">
                         <p className="text-[6px] text-indigo-400/80 font-black uppercase mb-0.5">Teste</p>
-                        <input disabled={disabled} type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-12 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-indigo-400 outline-none focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500" />
+                        <input disabled={disabled} type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className={`w-14 h-9 bg-black/40 border rounded text-center text-xs font-black outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-indigo-400 focus:border-yellow-500'}`} />
                     </div>
                     <div className="text-center bg-white/5 px-2 py-1 rounded min-w-[30px] hidden md:block"><p className="text-[6px] text-slate-500 font-black uppercase">Req</p><p className="text-[10px] font-black text-white">{data.pista}</p></div>
                 </div>
             </div>
             {/* Barra Visual */}
-            <div className="h-4 md:h-3 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
+            <div className="h-3 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
                 <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${barPart}%` }} />
                 <div className={`h-full absolute top-0 ${isOk ? (disabled ? 'bg-indigo-900' : 'bg-indigo-500 shadow-[0_0_10px_#6366f1]') : (disabled ? 'bg-amber-900' : 'bg-amber-500 shadow-[0_0_10px_#f59e0b]')}`} style={{ left: `${barPart}%`, width: `${barTest}%` }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-1 h-6 md:h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full transition-all duration-500" style={{ left: `${reqPos}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-1 h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full transition-all duration-500" style={{ left: `${reqPos}%` }} />
             </div>
         </div>
     );
