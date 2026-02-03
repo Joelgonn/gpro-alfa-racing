@@ -149,6 +149,51 @@ function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Functi
     );
 }
 
+// --- COMPONENTE DE EFEITO DE CHUVA ---
+function RainOverlay() {
+  // Cria 80 gotas com propriedades aleatórias fixas (useMemo para não recalcular a cada render)
+  const drops = useMemo(() => {
+    return Array.from({ length: 80 }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100, // Posição horizontal %
+      delay: Math.random() * 2,  // Atraso na animação
+      duration: 0.5 + Math.random() * 0.4, // Velocidade da queda
+      length: 10 + Math.random() * 15 // Tamanho do rastro
+    }));
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
+      {/* Estilo da animação injetado localmente */}
+      <style jsx global>{`
+        @keyframes rainfall {
+          0% { transform: translateY(-20vh); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(120vh); opacity: 0; }
+        }
+        .rain-drop { animation-name: rainfall; animation-timing-function: linear; animation-iteration-count: infinite; }
+      `}</style>
+
+      {/* Camada escura/azulada para ambientação */}
+      <div className="absolute inset-0 bg-slate-900/20 backdrop-grayscale-[30%] transition-all duration-1000" />
+
+      {/* Renderização das gotas */}
+      {drops.map((drop) => (
+        <div
+          key={drop.id}
+          className="rain-drop absolute top-0 w-[1px] bg-gradient-to-b from-transparent via-indigo-300/50 to-transparent shadow-[0_0_4px_rgba(165,180,252,0.4)]"
+          style={{
+            left: `${drop.left}%`,
+            height: `${drop.length}vh`,
+            animationDuration: `${drop.duration}s`,
+            animationDelay: `-${drop.delay}s`, // Delay negativo para começar já chovendo
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function StrategyPage() {
   const router = useRouter(); 
@@ -310,7 +355,22 @@ export default function StrategyPage() {
   const currentStintData = activeTab === 'manual' ? outputs?.stints_personal : outputs?.stints_predefined;
 
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono relative">
+      
+      {/* --- NOVIDADE: EFEITO DE CHUVA --- */}
+      <AnimatePresence>
+        {inputs.race_options.condicao === "Wet" && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            transition={{ duration: 1 }}
+          >
+            <RainOverlay />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* ---------------------------------- */}
       {/* 1. SELEÇÃO DE PISTA (HEADER) */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 backdrop-blur-xl">
