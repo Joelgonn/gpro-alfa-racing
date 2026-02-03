@@ -247,7 +247,7 @@ export default function StrategyPage() {
   if (isSyncing || !userId) return (
     <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-indigo-400 gap-4">
       <div className="relative w-20 h-20"><div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full"></div><div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
-      <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando Estratégia</span>
+      <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando_Engenharia</span>
     </div>
   );
 
@@ -293,7 +293,7 @@ export default function StrategyPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-8">
         {/* CONFIGURATION SIDEBAR */}
-        <div className="xl:col-span-4 space-y-4 md:space-y-8 order-2 xl:order-1">
+        <div className="xl:col-span-4 space-y-4 md:space-y-8">
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
             <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
                 <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Settings size={14} className="text-indigo-400"/> Dados da Corrida</h3>
@@ -379,7 +379,7 @@ export default function StrategyPage() {
         </div>
 
         {/* MAIN ANALYSIS AREA */}
-        <div className="xl:col-span-8 space-y-4 md:space-y-8 order-1 xl:order-2">
+        <div className="xl:col-span-8 space-y-4 md:space-y-8">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
                 {[
                     { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
