@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation'; 
 import { supabase } from '../../lib/supabase'; 
 import { 
   RefreshCw, History, ArrowRight, ArrowDown,
   Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown,
-  ChevronRight, AlertCircle, StopCircle
+  ChevronDown, Check, StopCircle, AlertCircle
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const PARTS = ["Asa Dianteira", "Asa Traseira", "Motor", "Freios", "Câmbio", "Suspensão"];
 const BASE_STORAGE_KEY = 'gpro_manual_setup_session';
@@ -51,6 +51,9 @@ export default function ManualSetupPage() {
     const [isManuallyFinished, setIsManuallyFinished] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string>('');
+    
+    // State para controlar qual dropdown está aberto
+    const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
     // --- EFEITOS ---
     useEffect(() => {
@@ -72,7 +75,7 @@ export default function ManualSetupPage() {
             }
         }
         initSession();
-    }, [router, inputs]); // Adicionei inputs para garantir consistência inicial, mas cuidado com loops
+    }, [router, inputs]);
 
     useEffect(() => {
         if (userId) {
@@ -81,16 +84,21 @@ export default function ManualSetupPage() {
         }
     }, [xp, ct, zs, history, inputs, analysis, availableOptions, userId, isManuallyFinished]);
 
+    // Fechar dropdown ao clicar fora
+    useEffect(() => {
+        const handleClickOutside = () => setActiveDropdown(null);
+        if (activeDropdown) window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, [activeDropdown]);
+
     const handleReset = () => { if (confirm("Reiniciar sessão? Isso apagará seu histórico de voltas atual.")) { if (userId) { localStorage.removeItem(`${BASE_STORAGE_KEY}_${userId}`); } window.location.reload(); }};
     const handleManualFinish = () => { if (history.length === 0) return alert("Processe pelo menos uma volta antes de finalizar."); if (confirm("Deseja encerrar a sessão agora e ver os valores calculados até o momento?")) { setIsManuallyFinished(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }};
     
-    // Placeholder para a lógica de cálculo (mantendo a estrutura do seu projeto)
     const handleCalculate = async () => { 
         setLoading(true);
-        // Simulando delay de cálculo
         await new Promise(r => setTimeout(r, 800));
         
-        // --- LÓGICA SIMULADA PARA DEMONSTRAÇÃO (Substitua pela sua lógica real) ---
+        // Lógica Simulada (Substitua pela sua real)
         const newEntry: any = {};
         let allOk = true;
         PARTS.forEach(part => {
@@ -98,16 +106,10 @@ export default function ManualSetupPage() {
             if((feedbacks[part] || "OK") !== "OK") allOk = false;
         });
         
-        // Atualiza histórico
         const newHistory = [...history, newEntry];
         setHistory(newHistory);
-        
-        // Simplesmente limpa feedbacks para a próxima volta
         setFeedbacks({});
-        
-        // Se tudo OK, finaliza
         if(allOk) setIsManuallyFinished(true);
-        
         setLoading(false);
     };
 
@@ -131,7 +133,7 @@ export default function ManualSetupPage() {
                 <motion.div 
                     initial={{ opacity: 0, y: -20 }} 
                     animate={{ opacity: 1, y: 0 }} 
-                    className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 shadow-2xl flex justify-between items-center backdrop-blur-xl relative z-40"
+                    className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 shadow-2xl flex justify-between items-center backdrop-blur-xl relative z-30"
                 >
                     <div className="flex items-center gap-3 overflow-hidden">
                          <div className="bg-indigo-600/20 p-2.5 rounded-xl border border-indigo-500/30 shrink-0">
@@ -145,7 +147,6 @@ export default function ManualSetupPage() {
                     <button 
                         onClick={handleReset} 
                         className="flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 p-2 md:px-4 md:py-2 rounded-lg border border-rose-500/20 transition-all group shrink-0"
-                        title="Reiniciar Sessão"
                     >
                         <RefreshCw size={16} className="group-hover:rotate-180 transition-transform duration-500" />
                         <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Reiniciar</span>
@@ -153,9 +154,8 @@ export default function ManualSetupPage() {
                 </motion.div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                    {/* Coluna Lateral: Dados e Status */}
+                    {/* Lateral */}
                     <div className="xl:col-span-3 space-y-4 md:space-y-6 order-2 xl:order-1">
-                        {/* Card XP/CT - Grid 2 colunas no mobile */}
                         <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
                             <div className="bg-white/5 p-3 md:p-4 border-b border-white/5 flex items-center gap-2">
                                 <Cpu size={14} className="text-indigo-400" />
@@ -169,7 +169,7 @@ export default function ManualSetupPage() {
                                         value={xp} 
                                         onChange={e=>setXp(e.target.value)} 
                                         disabled={history.length > 0} 
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm md:text-base" 
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" 
                                         placeholder="XP"
                                     />
                                 </div>
@@ -180,14 +180,13 @@ export default function ManualSetupPage() {
                                         value={ct} 
                                         onChange={e=>setCt(e.target.value)} 
                                         disabled={history.length > 0} 
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm md:text-base" 
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" 
                                         placeholder="CT"
                                     />
                                 </div>
                             </div>
                         </section>
 
-                        {/* Card Análise - Escondido se vazio para economizar espaço no mobile */}
                         <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
                             <div className="bg-white/5 p-3 md:p-4 border-b border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -220,10 +219,9 @@ export default function ManualSetupPage() {
                         </section>
                     </div>
 
-                    {/* Área Principal */}
+                    {/* Principal */}
                     <div className="xl:col-span-9 space-y-6 order-1 xl:order-2">
-                        {/* Card de Input / Resultado */}
-                        <section className={`border rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl ${isFinished ? 'border-emerald-500/50 bg-emerald-950/[0.1]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
+                        <section className={`border rounded-2xl overflow-visible transition-all duration-500 shadow-2xl relative z-20 ${isFinished ? 'border-emerald-500/50 bg-emerald-950/[0.1]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
                             <div className={`p-4 border-b flex justify-between items-center ${isFinished ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-indigo-500/30 bg-indigo-500/10'}`}>
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-lg shrink-0 ${isFinished ? 'bg-emerald-500 text-black' : 'bg-indigo-500 text-white'}`}>
@@ -242,12 +240,14 @@ export default function ManualSetupPage() {
                             </div>
 
                             <div className="p-4 md:p-6 lg:p-8">
-                                {/* Grid de Inputs Refatorado para Mobile */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 mb-8">
                                     {PARTS.map(part => {
                                         const displayValue = isFinished ? analysis[part]?.final : inputs[part];
+                                        const currentFeedback = feedbacks[part] || "";
+                                        const isDropdownOpen = activeDropdown === part;
+                                        
                                         return (
-                                            <div key={part} className="space-y-2 group">
+                                            <div key={part} className="space-y-2 group relative">
                                                 <div className="flex justify-between items-center">
                                                     <label className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isFinished ? 'text-emerald-500/70' : 'text-slate-400 group-hover:text-indigo-400'}`}>
                                                         {part}
@@ -259,32 +259,70 @@ export default function ManualSetupPage() {
                                                         {displayValue}
                                                     </div>
                                                 ) : (
-                                                    <div className="bg-black/20 p-1.5 rounded-2xl border border-white/5 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-all space-y-2">
-                                                        {/* Input Numérico */}
+                                                    <div className="bg-black/20 p-1.5 rounded-2xl border border-white/5 focus-within:border-indigo-500/50 focus-within:bg-black/40 transition-all space-y-2 relative">
                                                         <input 
                                                             type="number" 
                                                             value={displayValue} 
                                                             onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} 
                                                             className="w-full bg-transparent text-center text-2xl font-black py-2 outline-none text-white placeholder-slate-700"
                                                         />
-                                                        {/* Dropdown Customizado */}
-                                                        <div className="relative w-full">
-                                                            <select 
-                                                                value={feedbacks[part] || ""} 
-                                                                onChange={e=>setFeedbacks({...feedbacks,[part]:e.target.value})} 
-                                                                className={`w-full bg-white/5 border-t border-white/10 text-[10px] font-bold py-3 pl-3 pr-8 rounded-xl outline-none appearance-none cursor-pointer hover:bg-white/10 transition-all ${feedbacks[part] ? (feedbacks[part] === "OK" ? "text-emerald-400" : "text-amber-200") : "text-slate-500"}`}
-                                                            >
-                                                                <option value="">Selecione o feedback...</option>
-                                                                {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => (
-                                                                    <option key={i} value={opt} className="bg-slate-900 text-white py-2">
-                                                                        {opt === "OK" ? "✅ Satisfeito (OK)" : opt}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                                                                <ChevronRight size={14} className="rotate-90" />
-                                                            </div>
+                                                        
+                                                        {/* CUSTOM DROPDOWN TRIGGER */}
+                                                        <div 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveDropdown(isDropdownOpen ? null : part);
+                                                            }}
+                                                            className={`w-full bg-white/5 border border-white/10 min-h-[48px] px-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-white/10 transition-colors ${currentFeedback ? (currentFeedback === "OK" ? "border-emerald-500/30 bg-emerald-500/5" : "border-indigo-500/30 bg-indigo-500/5") : ""}`}
+                                                        >
+                                                            <span className={`text-[10px] font-bold uppercase leading-tight line-clamp-2 ${currentFeedback ? (currentFeedback === "OK" ? "text-emerald-400" : "text-indigo-200") : "text-slate-500"}`}>
+                                                                {currentFeedback === "OK" ? "✅ Satisfeito (OK)" : (currentFeedback || "Selecione o feedback...")}
+                                                            </span>
+                                                            <ChevronDown size={14} className={`text-slate-500 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                                                         </div>
+
+                                                        {/* CUSTOM DROPDOWN MENU */}
+                                                        <AnimatePresence>
+                                                            {isDropdownOpen && (
+                                                                <motion.div 
+                                                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                                    className="absolute top-[calc(100%+8px)] left-0 w-[110%] -ml-[5%] md:w-full md:ml-0 bg-[#121215] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden ring-1 ring-black/50"
+                                                                >
+                                                                    <div className="max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-500/20 scrollbar-track-transparent">
+                                                                        <div className="p-1.5 space-y-1">
+                                                                            {(availableOptions[part] || ALL_FEEDBACK_OPTIONS[part]).map((opt, i) => {
+                                                                                const isSelected = currentFeedback === opt;
+                                                                                const isOkOption = opt === "OK";
+                                                                                return (
+                                                                                    <button
+                                                                                        key={i}
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            setFeedbacks({...feedbacks, [part]: opt});
+                                                                                            setActiveDropdown(null);
+                                                                                        }}
+                                                                                        className={`w-full text-left p-3 rounded-lg text-[10px] md:text-xs font-bold transition-all flex items-start gap-3
+                                                                                            ${isSelected 
+                                                                                                ? (isOkOption ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/20') 
+                                                                                                : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
+                                                                                            }`}
+                                                                                    >
+                                                                                        <div className={`mt-0.5 shrink-0 w-3 h-3 rounded-full border flex items-center justify-center ${isSelected ? (isOkOption ? 'border-emerald-500 bg-emerald-500' : 'border-indigo-500 bg-indigo-500') : 'border-slate-600'}`}>
+                                                                                            {isSelected && <Check size={8} className="text-black" />}
+                                                                                        </div>
+                                                                                        <span className="leading-snug">
+                                                                                            {isOkOption ? "Satisfeito (OK)" : opt}
+                                                                                        </span>
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
                                                     </div>
                                                 )}
                                             </div>
@@ -293,38 +331,43 @@ export default function ManualSetupPage() {
                                 </div>
 
                                 {!isFinished && (
-                                    <div className="flex flex-col sm:flex-row gap-3 md:gap-4 sticky bottom-2 z-10 sm:static">
-                                        <motion.button 
-                                            whileHover={{ scale: 1.01 }} 
-                                            whileTap={{ scale: 0.98 }} 
-                                            onClick={handleManualFinish} 
-                                            className="flex-1 bg-slate-800/90 backdrop-blur hover:bg-slate-700 text-slate-300 py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] md:text-xs border border-white/5 flex items-center justify-center gap-2 transition-all shadow-lg"
-                                        >
-                                            <StopCircle size={16} />
-                                            <span>Encerrar</span>
-                                        </motion.button>
-                                        
+                                    <div className="flex flex-col gap-4 sticky bottom-2 z-10 sm:static">
+                                        {/* Botão Calcular Primeiro - Destaque Principal */}
                                         <motion.button 
                                             whileHover={{ scale: 1.01 }} 
                                             whileTap={{ scale: 0.98 }} 
                                             onClick={handleCalculate} 
                                             disabled={loading} 
-                                            className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] md:text-xs shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+                                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 md:py-5 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                                         >
                                             {loading ? (
-                                                <><RefreshCw size={16} className="animate-spin" /> Processando...</>
+                                                <><RefreshCw size={18} className="animate-spin" /> Processando...</>
                                             ) : (
-                                                <>Calcular <span className="hidden sm:inline">Volta</span> <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>
+                                                <>
+                                                    Calcular Próxima Volta 
+                                                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                                </>
                                             )}
+                                        </motion.button>
+
+                                        {/* Botão Encerrar Depois - Secundário */}
+                                        <motion.button 
+                                            whileHover={{ scale: 1.01 }} 
+                                            whileTap={{ scale: 0.98 }} 
+                                            onClick={handleManualFinish} 
+                                            className="w-full bg-transparent hover:bg-slate-800/50 text-slate-500 hover:text-rose-400 py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] md:text-xs border border-dashed border-slate-700 hover:border-rose-500/30 flex items-center justify-center gap-2 transition-all"
+                                        >
+                                            <StopCircle size={14} />
+                                            <span>Encerrar Sessão</span>
                                         </motion.button>
                                     </div>
                                 )}
                             </div>
                         </section>
 
-                        {/* Timeline de Histórico */}
+                        {/* Histórico */}
                         {history.length > 0 && (
-                            <div className="space-y-4 md:space-y-6">
+                            <div className="space-y-4 md:space-y-6 relative z-10">
                                 <div className="flex items-center gap-3 px-2">
                                     <History size={16} className="text-slate-500" />
                                     <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Histórico</h3>
@@ -348,8 +391,6 @@ export default function ManualSetupPage() {
                                                         {lapNumber === 1 && <span className="bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Início</span>}
                                                     </div>
                                                 </div>
-                                                
-                                                {/* Grid de Histórico Responsivo: 2 col mobile, 3 tablet, 6 desktop */}
                                                 <div className="p-4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-y-6 gap-x-4">
                                                     {PARTS.map(part => {
                                                         const lapData = lap[part]; 
@@ -357,26 +398,16 @@ export default function ManualSetupPage() {
                                                         const prevLap = history[lapNumber - 2]; 
                                                         const delta = prevLap ? lapData.acerto - prevLap[part].acerto : 0;
                                                         const isOk = lapData.msg === "OK";
-                                                        
                                                         return (
                                                             <div key={part} className="space-y-1 relative group/tooltip">
                                                                 <div className="text-[8px] text-slate-600 uppercase font-black tracking-wider truncate border-b border-white/5 pb-1 mb-1">{part}</div>
                                                                 <div className="flex flex-col gap-0.5">
                                                                     <div className="flex items-end gap-2">
                                                                         <span className={`text-sm md:text-base font-black leading-none ${isOk ? 'text-emerald-400' : 'text-white'}`}>{lapData.acerto}</span>
-                                                                        {delta !== 0 && (
-                                                                            <div className={`flex items-center text-[9px] font-bold leading-none mb-0.5 ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                                {delta > 0 ? <TrendingUp size={10} className="mr-0.5" /> : <TrendingDown size={10} className="mr-0.5" />} 
-                                                                                {Math.abs(delta)}
-                                                                            </div>
-                                                                        )}
+                                                                        {delta !== 0 && (<div className={`flex items-center text-[9px] font-bold leading-none mb-0.5 ${delta > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{delta > 0 ? <TrendingUp size={10} className="mr-0.5" /> : <TrendingDown size={10} className="mr-0.5" />} {Math.abs(delta)}</div>)}
                                                                     </div>
-                                                                    <span className={`text-[8px] font-bold uppercase truncate ${getFeedbackColor(lapData.msg)}`}>
-                                                                        {shortMsg}
-                                                                    </span>
+                                                                    <span className={`text-[8px] font-bold uppercase truncate ${getFeedbackColor(lapData.msg)}`}>{shortMsg}</span>
                                                                 </div>
-                                                                
-                                                                {/* Tooltip melhorado para não sair da tela */}
                                                                 <div className="absolute z-50 bottom-full left-0 mb-2 hidden group-hover/tooltip:block w-40 p-2 bg-[#0f0f12] border border-indigo-500/20 rounded shadow-xl pointer-events-none">
                                                                     <p className="text-[9px] leading-tight text-slate-300 italic">"{lapData.msg}"</p>
                                                                 </div>
@@ -393,6 +424,15 @@ export default function ManualSetupPage() {
                     </div>
                 </div>
             </div>
+            
+            {/* Backdrop para fechar dropdown mobile ao clicar fora */}
+            {activeDropdown && (
+                <div 
+                    className="fixed inset-0 z-10 bg-black/20 backdrop-blur-[1px]" 
+                    onClick={() => setActiveDropdown(null)} 
+                    aria-hidden="true"
+                />
+            )}
         </div>
     );
 }
