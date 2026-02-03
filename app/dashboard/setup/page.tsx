@@ -7,7 +7,8 @@ import { useGame } from '../../context/GameContext';
 
 import {
   Loader2, Settings, ShieldAlert,
-  MapPin, ChevronDown, Search, X, ShieldCheck, CloudSun, Thermometer
+  MapPin, ChevronDown, Search, X, ShieldCheck, 
+  CloudSun, Thermometer, Sun, CloudRain // <<< ÍCONES NOVOS IMPORTADOS AQUI
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -16,7 +17,7 @@ const TRACK_FLAGS: { [key: string]: string } = { "A1-Ring": "at", "Adelaide": "a
 
 const COMPONENTS = [ { id: 'chassi', label: 'Chassi' }, { id: 'motor', label: 'Motor' }, { id: 'asaDianteira', label: 'Asa Dianteira' }, { id: 'asaTraseira', label: 'Asa Traseira' }, { id: 'assoalho', label: 'Assoalho' }, { id: 'laterais', label: 'Laterais' }, { id: 'radiador', label: 'Radiador' }, { id: 'cambio', label: 'Câmbio' }, { id: 'freios', label: 'Freios' }, { id: 'suspensao', label: 'Suspensão' }, { id: 'eletronicos', label: 'Eletrônicos' } ];
 
-// --- SELETOR DE PISTA CUSTOMIZADO (Com ajuste de largura mobile) ---
+// --- SELETOR DE PISTA CUSTOMIZADO (Mantido igual) ---
 function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -41,7 +42,6 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
             <AnimatePresence>
                 {isOpen && (
                     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                        // Aprimorado para mobile: evita overflow em telas pequenas
                         className="absolute top-full left-0 mt-2 w-80 max-w-xs bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl">
                         <div className="p-3 border-b border-white/5 bg-white/[0.02]">
                             <div className="relative">
@@ -80,28 +80,21 @@ export default function SetupPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('Gerente'); 
 
-  // --- HOOKS DE AUTENTICAÇÃO E DADOS (Lógica mantida igual, já está ótima) ---
+  // --- HOOKS DE AUTENTICAÇÃO E DADOS (Lógica mantida) ---
   useEffect(() => {
     async function checkSession() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          router.push('/login');
-          return;
-        }
+        if (!session) { router.push('/login'); return; }
         setUserId(session.user.id);
         if(session.user.email) setUserEmail(session.user.email);
-      } catch (error) {
-        console.error("Erro na autenticação:", error);
-        router.push('/login');
-      } finally {
-        setIsAuthLoading(false);
-      }
+      } catch (error) { console.error("Erro na autenticação:", error); router.push('/login'); } 
+      finally { setIsAuthLoading(false); }
     }
     checkSession();
   }, [router]);
   
-  const handleCalcular = useCallback(async () => { /* ...lógica mantida... */ 
+  const handleCalcular = useCallback(async () => { 
     if (!userId || !track || track === "Selecionar Pista" || isAuthLoading) return;
     setLoading(true);
     try {
@@ -162,9 +155,8 @@ export default function SetupPage() {
   if (!userId) return null;
 
   return (
-    // Aprimorado para mobile: padding e espaçamento ajustados
     <div className="p-4 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
-      {/* HEADER BAR */}
+      {/* HEADER BAR (Mantido igual) */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 backdrop-blur-xl">
           <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
@@ -193,7 +185,7 @@ export default function SetupPage() {
       </motion.div>
 
       <main className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
-        {/* COLUNA ESQUERDA: INPUTS */}
+        {/* COLUNA ESQUERDA: INPUTS (Mantido igual) */}
         <div className="xl:col-span-7 space-y-6">
           <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 md:p-8 backdrop-blur-sm">
             <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
@@ -222,7 +214,7 @@ export default function SetupPage() {
           </section>
         </div>
 
-        {/* COLUNA DIREITA: RESULTADOS */}
+        {/* COLUNA DIREITA: RESULTADOS (Mantido igual) */}
         <div className="xl:col-span-5 space-y-6">
           <AnimatePresence mode='wait'>
             {resultado && (
@@ -233,28 +225,21 @@ export default function SetupPage() {
                     {loading && <Loader2 className="animate-spin text-white" size={14} />}
                   </div>
                   <div className='space-y-3'>
-                    {/* Cabeçalho visível apenas no desktop */}
                     <div className="hidden md:grid grid-cols-4 px-4 py-1 text-[8px] font-black text-slate-500 uppercase">
                       <span>Componente</span><span className="text-center">Q1</span><span className="text-center">Q2</span><span className="text-center">Corrida</span>
                     </div>
                      {['asaDianteira', 'asaTraseira', 'motor', 'freios', 'cambio', 'suspensao'].map((part) => (
-                        // Aprimorado para Mobile: Layout de "card" para mobile, grid para desktop
                         <div key={part} className="bg-black/20 hover:bg-white/5 transition-colors p-4 rounded-lg border border-white/5 md:grid md:grid-cols-4 md:items-center md:py-3">
                             <span className="text-sm font-bold text-white uppercase tracking-wider md:text-[10px]">{part.replace('asa', 'Asa ')}</span>
-                            
-                            {/* Container para os valores. No desktop, ele "desaparece" e seus filhos são promovidos ao grid pai */}
                             <div className="grid grid-cols-3 gap-2 mt-3 md:contents">
-                                {/* Q1 */}
                                 <div className="text-center bg-black/20 rounded p-2 md:bg-transparent md:p-0">
                                   <span className="text-[9px] font-bold text-slate-500 md:hidden">Q1</span>
                                   <p className="text-lg text-slate-400 font-mono md:text-sm">{safeRender(resultado[part]?.q1)}</p>
                                 </div>
-                                {/* Q2 */}
                                 <div className="text-center bg-black/20 rounded p-2 md:bg-transparent md:p-0">
                                   <span className="text-[9px] font-bold text-slate-500 md:hidden">Q2</span>
                                   <p className="text-lg text-slate-400 font-mono md:text-sm">{safeRender(resultado[part]?.q2)}</p>
                                 </div>
-                                {/* Corrida */}
                                 <div className="text-center bg-indigo-900/20 rounded p-2 md:bg-transparent md:p-0">
                                   <span className="text-[9px] font-bold text-indigo-400 md:hidden">Corrida</span>
                                   <p className="text-xl font-black text-indigo-400 md:text-lg">{safeRender(resultado[part]?.race)}</p>
@@ -302,14 +287,27 @@ export default function SetupPage() {
   );
 }
 
-// --- Componentes Auxiliares (mantidos iguais) ---
+// --- Componentes Auxiliares ---
 function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) {
   return <div className="space-y-4"><h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">{title}</h3><div className="space-y-4">{children}</div></div>
 }
 function HUDInput({ value, name, onChange, label }: any) {
   return <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all"><label className="block text-[8px] font-black text-slate-600 uppercase mb-2 tracking-widest">{label}</label><div className="flex items-center justify-between"><Thermometer size={16} className="text-indigo-400/50" /><input type="number" name={name} value={value || ''} onChange={onChange} className="bg-transparent text-right text-white font-black text-xl outline-none w-full" /><span className="text-sm text-slate-600 font-bold ml-2">°C</span></div></div>
 }
+
+// <<< COMPONENTE ATUALIZADO COM OS NOVOS ÍCONES >>>
 function WeatherSwitch({ name, value, onChange }: any) {
   const isDry = value === 'Dry';
-  return <div className="flex bg-black p-1 rounded-lg border border-white/5"><button onClick={() => onChange({ target: { name, value: 'Dry' } })} className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>☀️ Seco</button><button onClick={() => onChange({ target: { name, value: 'Wet' } })} className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${!isDry ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>🌧️ Chuva</button></div>
+  return (
+    <div className="flex bg-black p-1 rounded-lg border border-white/5">
+      <button onClick={() => onChange({ target: { name, value: 'Dry' } })}
+        className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>
+        <Sun size={14} /> Seco
+      </button>
+      <button onClick={() => onChange({ target: { name, value: 'Wet' } })}
+        className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${!isDry ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>
+        <CloudRain size={14} /> Chuva
+      </button>
+    </div>
+  )
 }
