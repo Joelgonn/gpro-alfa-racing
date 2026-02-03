@@ -6,10 +6,11 @@ import { supabase } from '../../lib/supabase';
 import { 
   RefreshCw, History, ArrowRight, ArrowDown,
   Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown,
-  ChevronRight, AlertCircle, CheckCircle2, Flag, StopCircle, Menu
+  ChevronRight, AlertCircle, CheckCircle2, Flag, StopCircle, Info, X, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// --- CONSTANTES ---
 const PARTS = ["Asa Dianteira", "Asa Traseira", "Motor", "Freios", "Câmbio", "Suspensão"];
 const BASE_STORAGE_KEY = 'gpro_manual_setup_session';
 
@@ -22,6 +23,7 @@ const ALL_FEEDBACK_OPTIONS: Record<string, string[]> = {
     "Suspensão": ["O carro está rígido demais. Diminua muito mais a rigidez", "A rigidez da suspensão está muito alta", "O carro está muito rígido. Diminua um pouco a rigidez", "OK", "Eu penso que com uma suspensão um pouco mais rígida eu poderei ir mais rápido", "A rigidez da suspensão está muito baixa", "A rigidez da suspensão deve ser muito maior"]
 };
 
+// --- HELPERS ---
 const getShortFeedback = (msg: string) => {
     if (msg === "OK") return "SATISFATÓRIO";
     if (msg.includes("muito mais") || msg.includes("não posso") || msg.includes("muito alta") || msg.includes("muito rígid") || msg.includes("muito curta") || msg.includes("explodir")) {
@@ -39,6 +41,7 @@ const getFeedbackColor = (msg: string) => {
     return "text-amber-400";
 };
 
+// --- COMPONENTE PRINCIPAL ---
 export default function ManualSetupPage() {
     const router = useRouter();
     
@@ -57,10 +60,37 @@ export default function ManualSetupPage() {
     const [availableOptions, setAvailableOptions] = useState<Record<string, string[]>>(ALL_FEEDBACK_OPTIONS);
     const [isManuallyFinished, setIsManuallyFinished] = useState(false);
     
+    // --- STATE DE UI (MODAL) ---
+    const [modal, setModal] = useState<{
+        isOpen: boolean;
+        type: 'alert' | 'confirm' | 'info';
+        title: string;
+        message: string;
+        onConfirm?: () => void;
+    }>({ isOpen: false, type: 'alert', title: '', message: '' });
+
     // --- STATE DE AUTENTICAÇÃO ---
     const [userId, setUserId] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string>('');
 
+    // --- FUNÇÕES DE MODAL ---
+    const showAlert = (title: string, message: string) => {
+        setModal({ isOpen: true, type: 'alert', title, message });
+    };
+
+    const showInfo = (title: string, message: string) => {
+        setModal({ isOpen: true, type: 'info', title, message });
+    };
+
+    const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+        setModal({ isOpen: true, type: 'confirm', title, message, onConfirm });
+    };
+
+    const closeModal = () => {
+        setModal(prev => ({ ...prev, isOpen: false }));
+    };
+
+    // --- INITIALIZATION ---
     useEffect(() => {
         async function initSession() {
             const { data: { session } } = await supabase.auth.getSession();
@@ -100,30 +130,40 @@ export default function ManualSetupPage() {
         }
     }, [xp, ct, zs, history, inputs, analysis, availableOptions, userId, isManuallyFinished]);
 
+    // --- HANDLERS (UPDATED TO USE CUSTOM MODAL) ---
     const handleReset = () => {
-        if (confirm("Reiniciar sessão? Isso apagará seu histórico de voltas atual.")) {
-            if (userId) {
-                const userKey = `${BASE_STORAGE_KEY}_${userId}`;
-                localStorage.removeItem(userKey);
+        showConfirm(
+            "Reiniciar Sessão?", 
+            "Isso apagará todo o histórico de voltas atual. Tem certeza?",
+            () => {
+                if (userId) {
+                    const userKey = `${BASE_STORAGE_KEY}_${userId}`;
+                    localStorage.removeItem(userKey);
+                }
+                window.location.reload();
             }
-            window.location.reload();
-        }
+        );
     };
 
     const handleManualFinish = () => {
-        if (history.length === 0) return alert("Processe pelo menos uma volta antes de finalizar.");
-        if (confirm("Deseja encerrar a sessão agora e ver os valores calculados até o momento?")) {
-            setIsManuallyFinished(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        if (history.length === 0) return showAlert("Atenção", "Processe pelo menos uma volta antes de finalizar.");
+        
+        showConfirm(
+            "Encerrar Sessão", 
+            "Deseja parar agora e ver os valores ideais calculados com base nos dados atuais?",
+            () => {
+                setIsManuallyFinished(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        );
     };
 
     const handleCalculate = async () => {
         if (!userId) return;
-        if (!xp || !ct || xp === "0") return alert("Insira XP e CT do piloto para iniciar.");
+        if (!xp || !ct || xp === "0") return showAlert("Dados Incompletos", "Insira a Experiência (XP) e Conhecimento Técnico (CT) do piloto.");
         
         const missingFeedbacks = PARTS.filter(p => !feedbacks[p]);
-        if (missingFeedbacks.length > 0) return alert(`Selecione o feedback para: ${missingFeedbacks.join(', ')}`);
+        if (missingFeedbacks.length > 0) return showAlert("Feedback Pendente", `Selecione o feedback para: ${missingFeedbacks.join(', ')}`);
 
         setLoading(true);
         const payload = { 
@@ -158,9 +198,9 @@ export default function ManualSetupPage() {
                 setFeedbacks({}); 
                 
             } else {
-                alert("Erro no cálculo: " + (json.error || "Desconhecido"));
+                showAlert("Erro de Cálculo", json.error || "Erro desconhecido ao processar dados.");
             }
-        } catch (e) { alert("Erro de rede ao calcular."); } finally { setLoading(false); }
+        } catch (e) { showAlert("Erro de Conexão", "Não foi possível conectar ao servidor."); } finally { setLoading(false); }
     };
 
     const isFinished = history.length >= 8 || isManuallyFinished;
@@ -176,7 +216,7 @@ export default function ManualSetupPage() {
         <div className="min-h-screen bg-[#050507] text-slate-300 font-mono selection:bg-indigo-500/30 pb-32">
             
             {/* Header Sticky com Blur */}
-            <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#050507]/80">
+            <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 bg-[#050507]/80">
                 <div className="max-w-[1600px] mx-auto p-4 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                          <div className="bg-indigo-600/20 p-2 rounded-lg border border-indigo-500/30">
@@ -199,13 +239,13 @@ export default function ManualSetupPage() {
                 </div>
             </header>
 
-            <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-6 md:space-y-8 animate-fadeIn">
+            <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-6 md:space-y-8 animate-fadeIn relative z-0">
                 
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
                     
-                    {/* Coluna Lateral: Dados e Status */}
+                    {/* Coluna Lateral */}
                     <div className="xl:col-span-3 space-y-4 md:space-y-6">
-                        {/* Card de Habilidades */}
+                        {/* XP/CT */}
                         <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
                             <div className="bg-white/5 p-3 md:p-4 border-b border-white/5 flex items-center gap-2">
                                 <Cpu size={14} className="text-indigo-400" />
@@ -235,7 +275,7 @@ export default function ManualSetupPage() {
                             </div>
                         </section>
 
-                        {/* Card de Previsão */}
+                        {/* Margens */}
                         <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden min-h-[300px] md:min-h-[400px]">
                             <div className="bg-white/5 p-3 md:p-4 border-b border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -273,7 +313,7 @@ export default function ManualSetupPage() {
                     {/* Área Principal */}
                     <div className="xl:col-span-9 space-y-6 md:space-y-8">
                         
-                        {/* INPUTS / RESULTADO */}
+                        {/* Inputs e Resultado */}
                         <section className={`border rounded-2xl overflow-hidden transition-all duration-500 ${isFinished ? 'border-emerald-500 bg-emerald-950/[0.1] shadow-[0_0_30px_rgba(16,185,129,0.1)]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
                             <div className={`p-4 border-b flex justify-between items-center ${isFinished ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-indigo-500/30 bg-indigo-500/10'}`}>
                                 <div className="flex items-center gap-3">
@@ -342,7 +382,7 @@ export default function ManualSetupPage() {
                                     })}
                                 </div>
 
-                                {/* Botoes de Ação */}
+                                {/* Botões */}
                                 {!isFinished && (
                                     <div className="flex flex-col-reverse md:flex-row gap-4">
                                         <motion.button 
@@ -377,7 +417,7 @@ export default function ManualSetupPage() {
                             </div>
                         </section>
 
-                        {/* Timeline de Histórico */}
+                        {/* Histórico */}
                         <div className="space-y-6">
                              <div className="flex items-center gap-3 px-1">
                                 <History size={16} className="text-slate-500" />
@@ -401,7 +441,7 @@ export default function ManualSetupPage() {
                                                     {lapNumber === 1 && <span className="hidden sm:inline-block bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Início</span>}
                                                 </div>
                                                 <div className="text-[9px] text-slate-600 font-mono">
-                                                    TOTAL ZS: {lap.zs || 0}
+                                                    ZS: {lap.zs || 0}
                                                 </div>
                                             </div>
                                             <div className="p-4 md:p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
@@ -414,7 +454,7 @@ export default function ManualSetupPage() {
                                                     const isOk = lapData.msg === "OK";
 
                                                     return (
-                                                        <div key={part} className="space-y-1 relative group/tooltip">
+                                                        <div key={part} className="space-y-1 relative">
                                                             <div className="text-[8px] text-slate-600 uppercase font-black tracking-wider truncate">{part}</div>
                                                             <div className="flex items-center gap-2 md:gap-3">
                                                                 <span className={`text-sm md:text-base font-black ${isOk ? 'text-emerald-400' : 'text-white'}`}>
@@ -428,21 +468,19 @@ export default function ManualSetupPage() {
                                                                             {Math.abs(delta)}
                                                                         </div>
                                                                     )}
-                                                                    <span className={`text-[8px] font-bold uppercase truncate max-w-[80px] md:max-w-[100px] mt-0.5 ${getFeedbackColor(lapData.msg)}`}>
-                                                                        {shortMsg}
-                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                                        <span className={`text-[8px] font-bold uppercase truncate max-w-[70px] ${getFeedbackColor(lapData.msg)}`}>
+                                                                            {shortMsg}
+                                                                        </span>
+                                                                        {/* Botão de Info para o Feedback Completo */}
+                                                                        <button 
+                                                                            onClick={() => showInfo(`Feedback: ${part}`, lapData.msg)}
+                                                                            className="text-slate-600 hover:text-indigo-400 transition-colors p-0.5 -m-0.5"
+                                                                        >
+                                                                            <Info size={10} />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            
-                                                            {/* Tooltip apenas Desktop */}
-                                                            <div className="hidden md:block absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/tooltip:opacity-100 transition-opacity w-48 p-3 bg-[#0f0f12] border border-indigo-500/20 rounded-lg shadow-2xl pointer-events-none">
-                                                                <div className="flex items-start gap-2">
-                                                                    <AlertCircle size={12} className="text-indigo-500 shrink-0 mt-0.5" />
-                                                                    <p className="text-[10px] leading-tight text-slate-300 italic font-medium">
-                                                                        "{lapData.msg}"
-                                                                    </p>
-                                                                </div>
-                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0f0f12] border-r border-b border-indigo-500/20 rotate-45 -translate-y-1"></div>
                                                             </div>
                                                         </div>
                                                     )
@@ -456,6 +494,81 @@ export default function ManualSetupPage() {
                     </div>
                 </div>
             </div>
+
+            {/* --- CUSTOM MODAL DIALOG --- */}
+            <AnimatePresence>
+                {modal.isOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6">
+                        <motion.div 
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }} 
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                            onClick={closeModal} 
+                        />
+                        <motion.div 
+                            initial={{ y: 50, opacity: 0, scale: 0.95 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: 50, opacity: 0, scale: 0.95 }}
+                            className="bg-[#0f0f12] border border-white/10 w-full max-w-sm rounded-2xl shadow-2xl relative z-10 overflow-hidden"
+                        >
+                            <div className={`h-1.5 w-full ${
+                                modal.type === 'alert' ? 'bg-rose-500' : 
+                                modal.type === 'confirm' ? 'bg-indigo-500' : 'bg-emerald-500'
+                            }`} />
+                            
+                            <div className="p-6">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-3">
+                                        {modal.type === 'alert' && <AlertTriangle className="text-rose-500" size={24} />}
+                                        {modal.type === 'confirm' && <AlertCircle className="text-indigo-500" size={24} />}
+                                        {modal.type === 'info' && <Info className="text-emerald-500" size={24} />}
+                                        <h3 className="text-lg font-black text-white uppercase tracking-wide leading-none pt-1">
+                                            {modal.title}
+                                        </h3>
+                                    </div>
+                                    <button onClick={closeModal} className="text-slate-500 hover:text-white transition-colors">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                
+                                <p className="text-slate-300 text-sm font-medium leading-relaxed">
+                                    {modal.message}
+                                </p>
+
+                                <div className="mt-8 flex gap-3">
+                                    {modal.type === 'confirm' ? (
+                                        <>
+                                            <button 
+                                                onClick={closeModal}
+                                                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    modal.onConfirm && modal.onConfirm();
+                                                    closeModal();
+                                                }}
+                                                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-600/20 transition-all"
+                                            >
+                                                Confirmar
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button 
+                                            onClick={closeModal}
+                                            className="w-full bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
+                                        >
+                                            Entendido
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
