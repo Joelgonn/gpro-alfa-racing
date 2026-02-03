@@ -198,7 +198,7 @@ export default function SponsorsPage() {
                         <Briefcase className="text-amber-500" size={18} />
                     </div>
                     <div className="hidden sm:block">
-                        <h1 className="text-xs font-black text-white uppercase tracking-widest leading-none mb-0.5">Sponsor Negotiation</h1>
+                        <h1 className="text-xs font-black text-white uppercase tracking-widest leading-none mb-0.5">Patrocinadores Negociações</h1>
                         <p className="text-[9px] text-slate-500 font-bold uppercase">{userEmail}</p>
                     </div>
                 </div>
@@ -327,7 +327,7 @@ export default function SponsorsPage() {
             <section className="lg:col-span-12 space-y-6">
                 <div className="flex items-center gap-3 px-1">
                     <History size={16} className="text-slate-500" />
-                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Sponsors Database</h3>
+                    <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Patrocinadores Database</h3>
                     <div className="h-px flex-1 bg-white/5" />
                     <span className="text-[9px] text-amber-500 font-black bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
                         {filteredSponsors.length} REGISTROS
