@@ -6,7 +6,8 @@ import { useGame } from '../context/GameContext';
 import { supabase } from '../lib/supabase';
 import { 
   Settings, User, Car, Zap, Activity, Trophy, MapPin, 
-  RefreshCw, Loader2, ChevronDown, ShieldCheck, Gauge, Cpu, Search, X, LogOut
+  RefreshCw, Loader2, ChevronDown, ShieldCheck, Gauge, Cpu, Search, X, LogOut,
+  Lock, Unlock // Novos ícones para o Modo de Segurança
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -37,13 +38,12 @@ const MOCK_PERFORMANCE_DATA = {
     zs: { wings: 0, motor: 0, brakes: 0, gear: 0, susp: 0 } 
 };
 
-// --- SELETOR DE PISTA (REFATORADO PARA MOBILE) ---
+// --- SELETOR DE PISTA ---
 function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Fecha ao clicar fora
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -59,7 +59,7 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
     }, [tracksList, search]);
 
     return (
-        <div className="relative z-50 w-full md:w-auto" ref={dropdownRef}>
+        <div className="relative w-full md:w-auto" ref={dropdownRef}>
             <button 
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 text-lg md:text-2xl text-white font-black tracking-tighter hover:text-indigo-400 transition-colors outline-none group bg-white/5 md:bg-transparent p-3 md:p-0 rounded-xl md:rounded-none border border-white/10 md:border-none active:scale-[0.98] duration-200"
@@ -76,8 +76,8 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        // No mobile, ocupa quase toda a largura e fica fixo/absoluto melhor posicionado
-                        className="absolute top-full left-0 mt-2 w-full md:w-[350px] bg-[#0F0F13] border border-white/20 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl z-[60]"
+                        // CORREÇÃO: z-index altíssimo para sobrepor tudo
+                        className="absolute top-full left-0 mt-2 w-full md:w-[350px] bg-[#0F0F13] border border-white/20 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl z-[9999]"
                     >
                         <div className="p-3 border-b border-white/10 bg-white/[0.05]">
                             <div className="relative">
@@ -149,6 +149,9 @@ export default function DashboardHome() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
+
+  // NOVO: Estado para controle de segurança (bloqueio de edição)
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // 1. Check Session
   useEffect(() => {
@@ -241,8 +244,12 @@ export default function DashboardHome() {
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 md:space-y-8 relative z-10">
         
-        {/* HEADER BAR */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-gray-900/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 md:p-1 shadow-2xl">
+        {/* CORREÇÃO 1: HEADER COM Z-INDEX SUPERIOR */}
+        <motion.div 
+            initial={{ opacity: 0, y: -20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="bg-gray-900/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 md:p-1 shadow-2xl sticky top-4 z-50"
+        >
             <div className="md:bg-black/40 md:rounded-xl md:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 
                 {/* Track Info */}
@@ -274,12 +281,22 @@ export default function DashboardHome() {
                     </div>
                 </div>
                 
-                {/* User & Status */}
+                {/* BOTÃO DE SEGURANÇA E STATUS */}
                 <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 border-t border-white/5 pt-4 md:pt-0 md:border-t-0">
-                     <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Gerente</span>
-                        <span className="text-[10px] font-bold text-indigo-300 truncate max-w-[120px]">{userEmail.split('@')[0]}</span>
-                     </div>
+                     
+                     {/* Botão de Trava (Safety Lock) */}
+                     <button 
+                        onClick={() => setIsEditMode(!isEditMode)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${isEditMode 
+                            ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20' 
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
+                     >
+                        {isEditMode ? <Unlock size={14} /> : <Lock size={14} />}
+                        <div className="flex flex-col text-left">
+                            <span className="text-[8px] font-black uppercase tracking-widest">Modo Edição</span>
+                            <span className="text-[10px] font-bold">{isEditMode ? 'DESBLOQUEADO' : 'BLOQUEADO'}</span>
+                        </div>
+                     </button>
 
                      <div className="flex flex-col items-end">
                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Rede</span>
@@ -292,10 +309,10 @@ export default function DashboardHome() {
             </div>
         </motion.div>
 
-        {/* MAIN GRID */}
-        <div className="flex flex-col xl:grid xl:grid-cols-12 gap-6 relative">
+        {/* MAIN GRID - CORREÇÃO: z-0 para garantir que fique abaixo do header */}
+        <div className="flex flex-col xl:grid xl:grid-cols-12 gap-6 relative z-0">
             
-            {/* COLUNA 1: INFO GERENTE (Mobile: Último item ou comprimido? Aqui deixamos primeiro para ações rápidas) */}
+            {/* COLUNA 1: INFO GERENTE */}
             <div className="order-3 xl:order-1 xl:col-span-3 space-y-6">
                 <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col h-full backdrop-blur-sm shadow-xl">
                     <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
@@ -333,11 +350,18 @@ export default function DashboardHome() {
                 </section>
             </div>
 
-            {/* COLUNA 2: DADOS PILOTO (Mobile: O mais importante) */}
-            <div className="order-1 xl:order-2 xl:col-span-5 bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-8 backdrop-blur-sm relative overflow-hidden shadow-xl">
-                <div className="flex justify-between items-center mb-6 md:mb-8">
+            {/* COLUNA 2: DADOS PILOTO */}
+            <div className="order-1 xl:order-2 xl:col-span-5 bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-8 backdrop-blur-sm relative overflow-hidden shadow-xl transition-all duration-300">
+                {/* Indicador visual de travado */}
+                {!isEditMode && (
+                    <div className="absolute top-2 right-2 text-slate-700 opacity-20 pointer-events-none">
+                        <Lock size={100} />
+                    </div>
+                )}
+
+                <div className="flex justify-between items-center mb-6 md:mb-8 relative z-10">
                     <div className="flex items-center gap-3">
-                        <Cpu size={18} className="text-indigo-400"/>
+                        <Cpu size={18} className={`transition-colors ${isEditMode ? 'text-indigo-400' : 'text-slate-600'}`}/>
                         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Piloto & Skills</h3>
                     </div>
                     <div className="flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
@@ -347,37 +371,37 @@ export default function DashboardHome() {
                 </div>
 
                 {/* Energia Bar */}
-                <div className="mb-8 bg-black/40 p-4 rounded-xl border border-white/5">
+                <div className={`mb-8 p-4 rounded-xl border transition-colors ${isEditMode ? 'bg-black/40 border-white/5' : 'bg-black/20 border-white/5 opacity-80'}`}>
                     <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">
-                        <span className="flex items-center gap-2"><Zap size={14} className="text-amber-500 animate-pulse"/> Energia</span>
+                        <span className="flex items-center gap-2"><Zap size={14} className={isEditMode ? "text-amber-500 animate-pulse" : "text-slate-600"}/> Energia</span>
                         <span className="text-white text-xs">{driver.energia}%</span>
                     </div>
                     <div className="h-6 bg-white/5 rounded-full overflow-hidden flex relative">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${driver.energia}%` }} transition={{ duration: 1 }} className="h-full bg-gradient-to-r from-indigo-600 to-cyan-500 shadow-[0_0_15px_#6366f1]" />
-                        <input type="range" min={0} max={100} value={driver.energia} onChange={(e)=>updateDriver('energia', Math.min(100, Math.max(0, Number(e.target.value))))} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${driver.energia}%` }} transition={{ duration: 1 }} className={`h-full bg-gradient-to-r shadow-[0_0_15px_#6366f1] ${isEditMode ? 'from-indigo-600 to-cyan-500' : 'from-slate-700 to-slate-600 grayscale'}`} />
+                        <input 
+                            disabled={!isEditMode}
+                            type="range" min={0} max={100} value={driver.energia} onChange={(e)=>updateDriver('energia', Math.min(100, Math.max(0, Number(e.target.value))))} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed" 
+                        />
                     </div>
                 </div>
 
                 {/* Inputs de Skill */}
-                <div className="space-y-5 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-5 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar relative z-10">
                     {['concentracao', 'talento', 'agressividade', 'experiencia', 'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao'].map((skill) => (
-                        <TelemetryInput key={skill} label={skill} value={(driver as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e:any)=>updateDriver(skill as any, Number(e.target.value))} />
+                        <TelemetryInput 
+                            key={skill} 
+                            label={skill} 
+                            value={(driver as any)[skill]} 
+                            max={skill === 'experiencia' ? 300 : 250} 
+                            onChange={(e:any)=>updateDriver(skill as any, Number(e.target.value))} 
+                            disabled={!isEditMode}
+                        />
                     ))}
                     
                     <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-white/5">
-                        <TelemetryInput label="Peso" value={driver.peso} max={250} onChange={(e:any)=>updateDriver('peso', Number(e.target.value))} isSmall />
-                        <TelemetryInput label="Idade" value={driver.idade} max={99} onChange={(e:any)=>updateDriver('idade', Number(e.target.value))} isSmall />
+                        <TelemetryInput label="Peso" value={driver.peso} max={250} onChange={(e:any)=>updateDriver('peso', Number(e.target.value))} isSmall disabled={!isEditMode} />
+                        <TelemetryInput label="Idade" value={driver.idade} max={99} onChange={(e:any)=>updateDriver('idade', Number(e.target.value))} isSmall disabled={!isEditMode} />
                     </div>
-                </div>
-
-                {/* Zone Stats */}
-                <div className="mt-8 bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10 grid grid-cols-5 gap-1 text-center">
-                    {Object.entries(performanceData.zs || {}).map(([key, val]) => (
-                        <div key={key} className="flex flex-col items-center justify-center p-1">
-                            <p className="text-[7px] font-black text-slate-500 uppercase mb-1">{key}</p>
-                            <p className="text-[11px] font-black text-indigo-400">{val}</p>
-                        </div>
-                    ))}
                 </div>
             </div>
 
@@ -387,7 +411,7 @@ export default function DashboardHome() {
                 {/* CARRO */}
                 <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-xl">
                     <div className="bg-white/[0.02] p-4 border-b border-white/5 flex justify-between items-center">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2"><Car size={14} className="text-indigo-400"/> Carro</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2"><Car size={14} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/> Carro</h3>
                         <div className="flex gap-3 pr-1">
                             <span className="text-[8px] font-black text-slate-500 w-12 text-center">NVL</span>
                             <span className="text-[8px] font-black text-slate-500 w-12 text-center">DSG%</span>
@@ -399,6 +423,7 @@ export default function DashboardHome() {
                                 <CarRow key={idx} part={part} 
                                     onLvl={(val: number)=>updateCar(idx, 'lvl', val)}
                                     onWear={(val: number)=>updateCar(idx, 'wear', val)}
+                                    disabled={!isEditMode}
                                 />
                             ))}
                         </div>
@@ -408,27 +433,31 @@ export default function DashboardHome() {
                 {/* PERFORMANCE TEST */}
                 <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl">
                     <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-4">
-                        <Activity size={16} className="text-indigo-400"/>
+                        <Activity size={16} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/>
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Telemetria (Carro x Pista)</h3>
                     </div>
                     <div className="space-y-8">
+                        {/* A telemetria geralmente é apenas visualização e ajuste fino de teste, podemos deixar habilitado ou seguir o padrão */}
                         <PerformanceMetric 
                             label="Power" 
                             data={performanceData.power} 
                             test={testPoints.power} 
                             onTest={(v: number) => setTestPoints(p => ({...p, power: v}))}
+                            disabled={!isEditMode}
                         />
                         <PerformanceMetric 
                             label="Handling" 
                             data={performanceData.handling} 
                             test={testPoints.handling} 
                             onTest={(v: number) => setTestPoints(p => ({...p, handling: v}))}
+                            disabled={!isEditMode}
                         />
                         <PerformanceMetric 
                             label="Accel" 
                             data={performanceData.accel} 
                             test={testPoints.accel} 
                             onTest={(v: number) => setTestPoints(p => ({...p, accel: v}))}
+                            disabled={!isEditMode}
                         />
                     </div>
                 </section>
@@ -439,7 +468,7 @@ export default function DashboardHome() {
   );
 }
 
-// --- SUBCOMPONENTES (Melhorados para Touch) ---
+// --- SUBCOMPONENTES (Com Prop Disabled) ---
 
 function DetailRow({ label, value, color = "text-slate-300" }: any) {
     return (
@@ -450,40 +479,40 @@ function DetailRow({ label, value, color = "text-slate-300" }: any) {
     )
 }
 
-function TelemetryInput({ label, value, max, onChange, isSmall }: any) {
+function TelemetryInput({ label, value, max, onChange, isSmall, disabled }: any) {
     const pct = Math.min(100, (value / max) * 100);
     return (
-        <div className={`space-y-2 group ${isSmall ? 'flex-1' : ''}`}>
+        <div className={`space-y-2 group ${isSmall ? 'flex-1' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="flex justify-between items-end">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-indigo-400 transition-colors cursor-pointer" onClick={() => {
-                    const input = document.getElementById(`input-${label}`);
-                    if(input) input.focus();
-                }}>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-indigo-400 transition-colors cursor-pointer">
                     {label}
                 </label>
                 <div className="flex items-center gap-2">
                     <input 
-                        id={`input-${label}`}
+                        disabled={disabled}
                         type="number" 
                         min="0" 
                         max={max}
                         value={value} 
                         onChange={onChange}
-                        className="w-14 h-8 bg-black/30 text-right text-xs font-black text-white px-2 rounded border border-white/10 focus:border-indigo-500 focus:bg-white/10 outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-14 h-8 bg-black/30 text-right text-xs font-black text-white px-2 rounded border border-white/10 focus:border-indigo-500 focus:bg-white/10 outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500"
                     />
                     <span className="text-[9px] font-mono text-slate-600 hidden md:inline">/ {max}</span>
                 </div>
             </div>
-            {/* Slider mais grosso para mobile */}
-            <div className="h-5 md:h-3 bg-white/5 rounded-full overflow-hidden flex relative cursor-pointer group-hover:bg-white/10 transition-colors">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="h-full bg-indigo-500/80 group-hover:bg-indigo-500 transition-colors" />
-                <input type="range" min="0" max={max} value={value} onChange={onChange} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+            {/* Slider */}
+            <div className={`h-5 md:h-3 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/5 cursor-pointer group-hover:bg-white/10'}`}>
+                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : 'bg-indigo-500/80 group-hover:bg-indigo-500'}`} />
+                <input 
+                    disabled={disabled}
+                    type="range" min="0" max={max} value={value} onChange={onChange} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed" 
+                />
             </div>
         </div>
     )
 }
 
-function CarRow({ part, onLvl, onWear }: any) {
+function CarRow({ part, onLvl, onWear, disabled }: any) {
     const isCritical = part.wear > 85;
     const handleLvlChange = (e: ChangeEvent<HTMLInputElement>) => {
         let val = parseInt(e.target.value); if(isNaN(val)) val = 1;
@@ -494,20 +523,20 @@ function CarRow({ part, onLvl, onWear }: any) {
         onWear(Math.max(0, Math.min(100, val)));
     };
     return (
-        <div className="flex items-center justify-between py-3 md:py-2 hover:bg-white/[0.02] rounded px-2 transition-colors border-b border-white/5 md:border-0 last:border-0">
+        <div className={`flex items-center justify-between py-3 md:py-2 rounded px-2 transition-colors border-b border-white/5 md:border-0 last:border-0 ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter w-24 truncate">{part.name}</span>
             <div className="flex items-center gap-3 md:gap-4">
-                <input type="number" value={part.lvl} onChange={handleLvlChange} className="w-12 h-10 md:h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-white outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <input disabled={disabled} type="number" value={part.lvl} onChange={handleLvlChange} className="w-12 h-10 md:h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-white outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500" />
                 <div className="relative">
-                    <input type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-10 md:h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isCritical ? 'text-rose-500 animate-pulse border-rose-500/30' : 'text-emerald-400'}`} />
-                    {isCritical && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>}
+                    <input disabled={disabled} type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-10 md:h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black outline-none focus:border-indigo-500/50 focus:bg-white/5 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500 ${isCritical && !disabled ? 'text-rose-500 animate-pulse border-rose-500/30' : 'text-emerald-400'}`} />
+                    {isCritical && !disabled && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>}
                 </div>
             </div>
         </div>
     )
 }
 
-function PerformanceMetric({ label, data, test, onTest }: any) {
+function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
     const diff = data.carro - data.pista;
     const isOk = diff >= 0;
     const barPart = Math.min(100, (data.part / 200) * 100);
@@ -515,7 +544,7 @@ function PerformanceMetric({ label, data, test, onTest }: any) {
     const reqPos = Math.min(100, (data.pista / 200) * 100);
 
     return (
-        <div className="space-y-3">
+        <div className={`space-y-3 ${disabled ? 'opacity-60' : ''}`}>
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-16">{label}</span>
@@ -527,7 +556,7 @@ function PerformanceMetric({ label, data, test, onTest }: any) {
                     <div className="hidden md:block text-center"><p className="text-[6px] text-slate-600 font-black uppercase">Peça</p><p className="text-[10px] font-black text-slate-400">{data.part}</p></div>
                     <div className="text-center flex flex-col items-center">
                         <p className="text-[6px] text-indigo-400/80 font-black uppercase mb-0.5">Teste</p>
-                        <input type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-12 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-indigo-400 outline-none focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                        <input disabled={disabled} type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-12 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-indigo-400 outline-none focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-slate-500" />
                     </div>
                     <div className="text-center bg-white/5 px-2 py-1 rounded min-w-[30px] hidden md:block"><p className="text-[6px] text-slate-500 font-black uppercase">Req</p><p className="text-[10px] font-black text-white">{data.pista}</p></div>
                 </div>
@@ -535,8 +564,7 @@ function PerformanceMetric({ label, data, test, onTest }: any) {
             {/* Barra Visual */}
             <div className="h-4 md:h-3 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
                 <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${barPart}%` }} />
-                <div className={`h-full absolute top-0 ${isOk ? 'bg-indigo-500 shadow-[0_0_10px_#6366f1]' : 'bg-amber-500 shadow-[0_0_10px_#f59e0b]'}`} style={{ left: `${barPart}%`, width: `${barTest}%` }} />
-                {/* Marcador de requisito */}
+                <div className={`h-full absolute top-0 ${isOk ? (disabled ? 'bg-indigo-900' : 'bg-indigo-500 shadow-[0_0_10px_#6366f1]') : (disabled ? 'bg-amber-900' : 'bg-amber-500 shadow-[0_0_10px_#f59e0b]')}`} style={{ left: `${barPart}%`, width: `${barTest}%` }} />
                 <div className="absolute top-1/2 -translate-y-1/2 w-1 h-6 md:h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full transition-all duration-500" style={{ left: `${reqPos}%` }} />
             </div>
         </div>
