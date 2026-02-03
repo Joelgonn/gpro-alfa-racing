@@ -1,140 +1,104 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/app/lib/supabase';
+import { supabase } from '@/app/lib/supabase'; 
 import zlib from 'zlib';
 import { promisify } from 'util';
 
 const gunzip = promisify(zlib.gunzip);
-
 const GPRO_DOWNLOAD_CSV_URL = "https://www.gpro.net/br/GetMarketFile.asp?market=drivers&type=csv";
 
+// Mapeamento exato com o que o banco de dados espera
 const COLUMN_MAP: Record<string, string> = {
     'ID': 'id', 'NAME': 'nome', 'NAT': 'nacionalidade', 'OA': 'total', 'CON': 'concentracao', 
     'TAL': 'talento', 'AGG': 'agressividade', 'EXP': 'experiencia', 'TEI': 'tecnica', 
     'STA': 'resistencia', 'CHA': 'carisma', 'MOT': 'motivacao', 'REP': 'reputacao', 
-    'WEI': 'peso', 'AGE': 'idade', 'RET': 'aposentadoria', 
-    'SAL': 'salario', 'FEE': 'taxa', 'OFF': 'ofertas', 'FAV': 'favorito', 'LVL': 'nivel'
+    'WEI': 'peso', 'AGE': 'idade', 'SAL': 'salario', 'FEE': 'taxa', 'OFF': 'ofertas', 
+    'FAV': 'favorito', 'LVL': 'nivel', 'RET': 'aposentadoria'
 };
 
-const SIMPLE_NUMERIC_KEYS = [
-    'id', 'total', 'concentracao', 'talento', 'agressividade', 'experiencia', 
-    'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao', 
-    'peso', 'idade', 'nivel', 'ofertas'
-];
+// Somente estas chaves serão enviadas para o Supabase
+const ALLOWED_KEYS = Object.values(COLUMN_MAP);
 
-// --- FUNÇÕES AUXILIARES ---
-function safeParseInt(value: string, isCurrency: boolean = false): number {
+const NUMERIC_KEYS = ['id', 'total', 'concentracao', 'talento', 'agressividade', 'experiencia', 'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao', 'peso', 'idade', 'ofertas', 'nivel'];
+
+function safeParseInt(value: string, isCurrency = false): number {
     if (!value) return 0;
     let cleanValue = value.trim();
-    if (isCurrency) {
-        cleanValue = cleanValue.replace(/[$,\s]/g, '').replace(/\./g, '');
-    }
+    if (isCurrency) cleanValue = cleanValue.replace(/[$,\s]/g, '').replace(/\./g, '');
     const parsed = parseInt(cleanValue, 10);
     return isNaN(parsed) ? 0 : parsed;
 }
 
 function parseCSVLine(line: string, separator: string): string[] {
     const columns: string[] = [];
-    let currentColumn = "";
+    let current = "";
     let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === separator && !inQuotes) {
-            columns.push(currentColumn.trim());
-            currentColumn = "";
-        } else {
-            currentColumn += char;
-        }
+    for (let char of line) {
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === separator && !inQuotes) { columns.push(current.trim()); current = ""; }
+        else current += char;
     }
-    columns.push(currentColumn.trim());
-    return columns.map(val => val.replace(/^"|"$/g, '').trim());
+    columns.push(current.trim());
+    return columns.map(v => v.replace(/^"|"$/g, '').trim());
 }
 
-// --- MÉTODO GET: BUSCA DO SUPABASE ---
 export async function GET() {
     try {
         const { data, error } = await supabase
             .from('market_drivers')
             .select('*')
-            .order('total', { ascending: false });
+            .order('total', { ascending: false })
+            .limit(15000);
 
         if (error) throw error;
-
         return NextResponse.json({ success: true, data: data || [] });
     } catch (e: any) {
-        console.error("Erro ao buscar drivers:", e.message);
-        return NextResponse.json({ success: false, error: e.message, data: [] }, { status: 500 });
+        return NextResponse.json({ success: false, error: e.message }, { status: 500 });
     }
 }
 
-// --- MÉTODO POST: SINCRONIZAÇÃO GPRO -> SUPABASE ---
 export async function POST() {
     try {
-        const response = await fetch(GPRO_DOWNLOAD_CSV_URL, { next: { revalidate: 0 } });
-        if (!response.ok) throw new Error(`Download falhou: ${response.status}`);
-
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        const res = await fetch(GPRO_DOWNLOAD_CSV_URL, { next: { revalidate: 0 } });
+        const buffer = Buffer.from(await res.arrayBuffer());
         let content: string;
-
-        try {
-            const decompressed = await gunzip(buffer);
-            content = decompressed.toString('latin1');
-        } catch {
-            content = buffer.toString('latin1');
-        }
+        try { content = (await gunzip(buffer)).toString('latin1'); } catch { content = buffer.toString('latin1'); }
 
         const lines = content.split(/\r?\n/).filter(l => l.trim().length > 0);
-        if (lines.length < 2) throw new Error("CSV vazio ou inválido");
+        const headers = parseCSVLine(lines[1], lines[1].includes(';') ? ';' : ',');
+        
+        const allDrivers = lines.slice(2).map(line => {
+            const values = parseCSVLine(line, lines[1].includes(';') ? ';' : ',');
+            const rawObj: any = {};
+            
+            headers.forEach((h, i) => {
+                const key = COLUMN_MAP[h.toUpperCase()];
+                if (!key) return; // Ignora colunas que não mapeamos
 
-        const headerIndex = 1;
-        const rawHeader = lines[headerIndex].trim();
-        const separator = rawHeader.includes(';') ? ';' : ',';
-        const headers = parseCSVLine(rawHeader, separator);
-
-        const drivers = [];
-
-        for (let i = headerIndex + 1; i < lines.length; i++) {
-            const values = parseCSVLine(lines[i], separator);
-            if (values.length < 5) continue;
-
-            const driverObj: any = {};
-            headers.forEach((header, idx) => {
-                const key = COLUMN_MAP[header.toUpperCase()] || header.toLowerCase();
-                const val = values[idx] || "";
-
-                if (key === 'aposentadoria') return;
-                
-                if (key === 'favorito') {
-                    driverObj[key] = val;
-                } else if (SIMPLE_NUMERIC_KEYS.includes(key)) {
-                    driverObj[key] = safeParseInt(val);
-                } else if (['salario', 'taxa'].includes(key)) {
-                    driverObj[key] = safeParseInt(val, true);
-                } else {
-                    driverObj[key] = val;
-                }
+                if (NUMERIC_KEYS.includes(key)) rawObj[key] = safeParseInt(values[i]);
+                else if (['salario', 'taxa'].includes(key)) rawObj[key] = safeParseInt(values[i], true);
+                else rawObj[key] = values[i];
             });
 
-            if (driverObj.id) {
-                drivers.push(driverObj);
-            }
+            // Cria um objeto limpo apenas com o que o Supabase aceita
+            const cleanObj: any = {};
+            ALLOWED_KEYS.forEach(key => {
+                if (rawObj[key] !== undefined) cleanObj[key] = rawObj[key];
+            });
+
+            return cleanObj;
+        }).filter(d => d.id);
+
+        const CHUNK_SIZE = 1000;
+        for (let i = 0; i < allDrivers.length; i += CHUNK_SIZE) {
+            const chunk = allDrivers.slice(i, i + CHUNK_SIZE);
+            const { error } = await supabase
+                .from('market_drivers')
+                .upsert(chunk, { onConflict: 'id' });
+            
+            if (error) throw error;
         }
 
-        // Envia para o Supabase (Upsert baseado no ID)
-        const { error } = await supabase
-            .from('market_drivers')
-            .upsert(drivers, { onConflict: 'id' });
-
-        if (error) throw error;
-
-        return NextResponse.json({ 
-            success: true, 
-            count: drivers.length 
-        });
-
+        return NextResponse.json({ success: true, count: allDrivers.length });
     } catch (error: any) {
         console.error("Erro na sincronização:", error.message);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
