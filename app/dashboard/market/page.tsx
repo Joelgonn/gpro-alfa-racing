@@ -27,6 +27,7 @@ const INITIAL_FILTERS = { total: { min: 0, max: 300 }, concentracao: { min: 0, m
 
 const ISO3_TO_ISO2_MAP: Record<string, string> = { "ABW": "aw", "AFG": "af", "AGO": "ao", "AIA": "ai", "ALA": "ax", "ALB": "al", "AND": "ad", "ARE": "ae", "ARG": "ar", "ARM": "am", "ASM": "as", "ATA": "aq", "ATF": "tf", "ATG": "ag", "AUS": "au", "AUT": "at", "AZE": "az", "BDI": "bi", "BEL": "be", "BEN": "bj", "BES": "bq", "BFA": "bf", "BGD": "bd", "BGR": "bg", "BHR": "bh", "BHS": "bs", "BIH": "ba", "BLM": "bl", "BLR": "by", "BLZ": "bz", "BMU": "bm", "BOL": "bo", "BRA": "br", "BRB": "bb", "BRN": "bn", "BTN": "bt", "BVT": "bv", "BWA": "bw", "CAF": "cf", "CAN": "ca", "CCK": "cc", "CHE": "ch", "CHL": "cl", "CHN": "cn", "CIV": "ci", "CMR": "cm", "COD": "cd", "COG": "cg", "COK": "ck", "COL": "co", "COM": "km", "CPV": "cv", "CRI": "cr", "CUB": "cu", "CUW": "cw", "CXR": "cx", "CYM": "ky", "CYP": "cy", "CZE": "cz", "DEU": "de", "DJI": "dj", "DMA": "dm", "DNK": "dk", "DOM": "do", "DZA": "dz", "ECU": "ec", "EGY": "eg", "ERI": "er", "ESH": "eh", "ESP": "es", "EST": "ee", "ETH": "et", "FIN": "fi", "FJI": "fj", "FLK": "fk", "FRA": "fr", "FRO": "fo", "FSM": "fm", "GAB": "ga", "GBR": "gb", "GEO": "ge", "GGY": "gg", "GHA": "gh", "GIB": "gi", "GIN": "gn", "GLP": "gp", "GMB": "gm", "GNB": "gw", "GNQ": "gq", "GRC": "gr", "GRD": "gd", "GRL": "gl", "GTM": "gt", "GUF": "gf", "GUM": "gu", "GUY": "gy", "ENG": "gb-eng", "NIR": "gb-nir", "SCO": "gb-sct", "WAL": "gb-wls", "WLS": "gb-wls", "HKG": "hk", "HMD": "hm", "HND": "hn", "HRV": "hr", "HTI": "ht", "HUN": "hu", "IDN": "id", "IMN": "im", "IND": "in", "IOT": "io", "IRL": "ie", "IRN": "ir", "IRQ": "iq", "ISL": "is", "ISR": "il", "ITA": "it", "JAM": "jm", "JEY": "je", "JOR": "jo", "JPN": "jp", "KAZ": "kz", "KEN": "ke", "KGZ": "kg", "KHM": "kh", "KIR": "ki", "KNA": "kn", "KOR": "kr", "KWT": "kw", "LAO": "la", "LBN": "lb", "LBR": "lr", "LBY": "ly", "LCA": "lc", "LIE": "li", "LKA": "lk", "LSO": "ls", "LTU": "lt", "LUX": "lu", "LVA": "lv", "MAC": "mo", "MAF": "mf", "MAR": "ma", "MCO": "mc", "MDA": "md", "MDG": "mg", "MDV": "mv", "MEX": "mx", "MHL": "mh", "MKD": "mk", "MLI": "ml", "MLT": "mt", "MMR": "mm", "MNE": "me", "MNG": "mn", "MNP": "mp", "MOZ": "mz", "MRT": "mr", "MSR": "ms", "MTQ": "mq", "MUS": "mu", "MWI": "mw", "MYS": "my", "MYT": "yt", "NAM": "na", "NCL": "nc", "NER": "ne", "NFK": "nf", "NGA": "ng", "NIC": "ni", "NIU": "nu", "NLD": "nl", "NOR": "no", "NPL": "np", "NRU": "nr", "NZL": "nz", "OMN": "om", "PAK": "pk", "PAN": "pa", "PCN": "pn", "PER": "pe", "PHL": "ph", "PLW": "pw", "PNG": "pg", "POL": "pl", "PRI": "pr", "PRK": "kp", "PRT": "pt", "PRY": "py", "PSE": "ps", "PYF": "pf", "QAT": "qa", "REU": "re", "ROU": "ro", "RUS": "ru", "RWA": "rw", "SAU": "sa", "SDN": "sd", "SEN": "sn", "SGP": "sg", "SGS": "gs", "SHN": "sh", "SJM": "sj", "SLB": "sb", "SLE": "sl", "SLV": "sv", "SMR": "sm", "SOM": "so", "SPM": "pm", "SRB": "rs", "SSD": "ss", "STP": "st", "SUR": "sr", "SVK": "sk", "SVN": "si", "SWE": "se", "SWZ": "sz", "SXM": "sx", "SYC": "sc", "SYR": "sy", "TCA": "tc", "TCD": "td", "TGO": "tg", "THA": "th", "TJK": "tj", "TKL": "tk", "TKM": "tm", "TLS": "tl", "TON": "to", "TTO": "tt", "TUN": "tn", "TUR": "tr", "TUV": "tv", "TWN": "tw", "TZA": "tz", "UGA": "ug", "UKR": "ua", "UMI": "um", "URY": "uy", "USA": "us", "UZB": "uz", "VAT": "va", "VCT": "vc", "VEN": "ve", "VGB": "vg", "VIR": "vi", "VNM": "vn", "VUT": "vu", "WLF": "wf", "WSM": "ws", "XKX": "xk", "YEM": "ye", "ZAF": "za", "ZMB": "zm", "ZWE": "zw" };
 
+// --- HELPERS ---
 const getFlagCode = (nationality: string): string => { 
     const code3 = nationality.trim().toUpperCase(); 
     const code2 = ISO3_TO_ISO2_MAP[code3]; 
@@ -41,7 +42,6 @@ const countFavTracks = (favString: string) => {
     return clean.split(/[,;]/).filter(t => t.trim().length > 0 && t.trim() !== '0').length; 
 };
 
-// --- COMPONENTES AUXILIARES ---
 const SortHeader = ({ label, sortKey, currentSort, onSort, align="center", className="", title }: any) => { 
     const active = currentSort?.key === sortKey; 
     return ( 
@@ -116,21 +116,42 @@ export default function MarketPage() {
         try {
             const res = await fetch('/api/market/update', { headers: { 'user-id': uid } });
             const data = await res.json();
-            if(data.success) setDrivers(data.data);
+            if(data.success && Array.isArray(data.data)) setDrivers(data.data);
         } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
+    // --- FUNÇÃO DE ATUALIZAÇÃO DO BANCO (RESTAURADA) ---
     const handleUpdateDatabase = async () => {
         if (!userId) return;
         setLoading(true);
         try {
-            const res = await fetch('/api/market/update', { method: 'POST', headers: { 'user-id': userId } });
+            // Chamada POST para o backend atualizar o JSON via scraper/gpro
+            const res = await fetch('/api/market/update', { 
+                method: 'POST', 
+                headers: { 'user-id': userId } 
+            });
             const data = await res.json();
             if (data.success) {
-                setModal({ isOpen: true, type: 'success', title: 'Base Atualizada', message: `${data.count} pilotos sincronizados!` });
-                loadData(userId);
+                setModal({ 
+                    isOpen: true, 
+                    type: 'success', 
+                    title: 'Base Sincronizada', 
+                    message: `${data.count} pilotos foram importados com sucesso do mercado GPRO.` 
+                });
+                await loadData(userId); // Recarrega a tabela local
+            } else {
+                setModal({ 
+                    isOpen: true, 
+                    type: 'info', 
+                    title: 'Erro na Sincronização', 
+                    message: data.error || 'Não foi possível atualizar os dados agora.' 
+                });
             }
-        } catch (e) { } finally { setLoading(false); }
+        } catch (e) { 
+            console.error(e); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     const filteredDrivers = useMemo(() => {
@@ -177,6 +198,7 @@ export default function MarketPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* Estatísticas de Base */}
                         <div className="hidden md:flex items-center gap-3 bg-white/5 px-4 py-2 rounded-xl border border-white/5">
                             <div className="flex flex-col items-center">
                                 <span className="text-[8px] text-slate-600 font-black uppercase">Base</span>
@@ -184,18 +206,29 @@ export default function MarketPage() {
                             </div>
                             <div className="w-px h-4 bg-white/10" />
                             <div className="flex flex-col items-center">
-                                <span className="text-[8px] text-blue-500 font-black uppercase">Filtrados</span>
+                                <span className="text-[8px] text-blue-500 font-black uppercase">Filtro</span>
                                 <span className="text-xs text-blue-400 font-black">{filteredDrivers.length}</span>
                             </div>
                         </div>
 
+                        {/* Botão de Filtros */}
                         <button onClick={() => setIsFilterOpen(true)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all relative">
                             <Filter size={16} className="text-blue-400" />
+                            {Object.values(filters).some(f => f.min !== 0) && (
+                                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                            )}
                         </button>
 
-                        <button onClick={handleUpdateDatabase} disabled={loading} className="p-3 sm:px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg transition-all flex items-center gap-2 border border-blue-400/20 disabled:opacity-50">
+                        {/* Botão de Sincronização */}
+                        <button 
+                            onClick={handleUpdateDatabase} 
+                            disabled={loading} 
+                            className="p-3 sm:px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg transition-all flex items-center gap-2 border border-blue-400/20 disabled:opacity-50"
+                        >
                             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Sincronizar</span>
+                            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">
+                                {loading ? 'Sincronizando...' : 'Sincronizar'}
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -246,7 +279,7 @@ export default function MarketPage() {
                 </div>
             </main>
 
-            {/* --- NOVO BOTTOM SHEET DE FILTROS --- */}
+            {/* --- BOTTOM SHEET DE FILTROS (MOBILE OPTIMIZED) --- */}
             <AnimatePresence>
                 {isFilterOpen && (
                     <div className="fixed inset-0 z-[100] flex items-end justify-center">
@@ -328,14 +361,14 @@ export default function MarketPage() {
                 )}
             </AnimatePresence>
 
-            {/* MODAL SIMPLES */}
+            {/* MODAL DE NOTIFICAÇÃO (PARA SUCESSO DA SINCRONIZAÇÃO) */}
             <AnimatePresence>
                 {modal.isOpen && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setModal({ ...modal, isOpen: false })} />
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#0f0f12] border border-white/10 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 p-6">
                             <div className="flex items-center gap-3 mb-4">
-                                <CheckCircle2 className="text-emerald-500" size={24} />
+                                {modal.type === 'success' ? <CheckCircle2 className="text-emerald-500" size={24} /> : <Info className="text-blue-500" size={24} />}
                                 <h3 className="text-lg font-black text-white uppercase tracking-tight">{modal.title}</h3>
                             </div>
                             <p className="text-slate-400 text-xs font-bold leading-relaxed mb-6">{modal.message}</p>
