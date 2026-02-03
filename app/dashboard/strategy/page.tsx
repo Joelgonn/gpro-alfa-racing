@@ -127,6 +127,28 @@ function BoostSection({ inputs, handleInput, outputs, className }: { inputs: Inp
     );
 }
 
+// --- NOVO SUBCOMPONENTE: STATS GRID (PARA REUTILIZAÇÃO) ---
+function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Function, className?: string }) {
+    return (
+        <div className={`grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 ${className}`}>
+            {[
+                { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
+                { l: "Combustível", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
+                { l: "Desgaste", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
+                { l: "Tempo Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
+                { l: "TCD Total", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <TrendingUp size={14}/> },
+            ].map((item, idx) => (
+                <div key={idx} className={`bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm ${idx === 4 ? 'col-span-2 md:col-span-1' : ''}`}>
+                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        {item.i} {item.l}
+                    </span>
+                    <span className="text-lg md:text-xl font-black text-white">{fmt(item.v, 2, item.unit)}</span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 
 export default function StrategyPage() {
   const router = useRouter(); 
@@ -281,7 +303,7 @@ export default function StrategyPage() {
   if (isSyncing || !userId) return (
     <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-indigo-400 gap-4">
       <div className="relative w-20 h-20"><div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full"></div><div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
-      <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando_Engenharia</span>
+      <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando Estratégia</span>
     </div>
   );
 
@@ -331,6 +353,9 @@ export default function StrategyPage() {
         {/* COLUNA ESQUERDA (DESKTOP) / PRIMEIROS ITENS (MOBILE) */}
         <div className="xl:col-span-4 space-y-4 md:space-y-8">
           
+          {/* --- ALTERAÇÃO AQUI: STATS VISÍVEIS SOMENTE NO MOBILE ANTES DOS DADOS --- */}
+          <StatsGrid outputs={outputs} fmt={fmt} className="xl:hidden" />
+
           {/* 3. DADOS DA CORRIDA (INPUTS) */}
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
             <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
@@ -395,22 +420,9 @@ export default function StrategyPage() {
         <div className="xl:col-span-8 space-y-4 md:space-y-8">
             
             {/* 4. ANÁLISE DE PERFORMANCE (CHARTS + TABLE) */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
-                {[
-                    { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
-                    { l: "Combustível", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
-                    { l: "Desgaste", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
-                    { l: "Tempo Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
-                    { l: "TCD Total", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <TrendingUp size={14}/> },
-                ].map((item, idx) => (
-                    <div key={idx} className={`bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm ${idx === 4 ? 'col-span-2 md:col-span-1' : ''}`}>
-                        <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                            {item.i} {item.l}
-                        </span>
-                        <span className="text-lg md:text-xl font-black text-white">{fmt(item.v, 2, item.unit)}</span>
-                    </div>
-                ))}
-            </div>
+            
+            {/* --- ALTERAÇÃO AQUI: STATS VISÍVEIS SOMENTE NO DESKTOP (JÁ QUE NO MOBILE ESTÁ NO TOPO DA OUTRA COLUNA) --- */}
+            <StatsGrid outputs={outputs} fmt={fmt} className="hidden xl:grid" />
 
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise da Performance</h3></div>
