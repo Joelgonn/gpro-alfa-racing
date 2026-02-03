@@ -2,10 +2,19 @@
 
 import Image from 'next/image';
 import { useState, useRef } from 'react';
-import { FaDiscord, FaTwitter, FaEnvelope, FaTrophy, FaUsers, FaChartLine } from 'react-icons/fa'; // Ícones para elementos visuais
+import { 
+  FaDiscord, 
+  FaTwitter, 
+  FaTrophy, 
+  FaUsers, 
+  FaChartLine, 
+  FaBars, 
+  FaTimes 
+} from 'react-icons/fa'; 
 
 export default function LandingPage() {
   const [copied, setCopied] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Estado para o menu mobile
   const emailRef = useRef<HTMLInputElement>(null);
 
   const handleCopyEmail = () => {
@@ -13,41 +22,76 @@ export default function LandingPage() {
       emailRef.current.select();
       document.execCommand('copy');
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000); // Resetar mensagem após 2 segundos
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Função para fechar o menu ao clicar em um link
+  const closeMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-blue-950 text-white font-sans antialiased">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-blue-950 text-white font-sans antialiased overflow-x-hidden">
+      
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 w-full z-50 bg-gray-950/80 backdrop-blur-sm shadow-lg py-4 px-6 md:px-12 flex justify-between items-center animate-fade-in-down">
-        
-        {/* Links de navegação */}
-        <div className="flex space-x-6">
-          {/* AQUI ESTÁ A MUDANÇA: Aponte para /login */}
-          <a href="/login" className="hover:text-yellow-400 transition-colors duration-300">Login @</a>
-          {/* FIM DA MUDANÇA */}
-          <a href="#sobre" className="hover:text-yellow-400 transition-colors duration-300">Sobre</a>
-          <a href="#conquistas" className="hover:text-yellow-400 transition-colors duration-300">Conquistas</a>
-          <a href="#junte-se" className="hover:text-yellow-400 transition-colors duration-300">Junte-se</a>
-          <a href="#contato" className="hover:text-yellow-400 transition-colors duration-300">Contato</a>
+      <nav className="fixed top-0 left-0 w-full z-50 bg-gray-950/90 backdrop-blur-md shadow-lg border-b border-gray-800/50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          
+          {/* Logo / Brand (Opcional - adicionei um texto placeholder se não tiver logo) */}
+          <div className="text-xl font-bold text-yellow-500 tracking-wider">
+            ALFA RACING
+          </div>
+
+          {/* Menu Desktop */}
+          <div className="hidden md:flex space-x-8 items-center">
+            <a href="/login" className="text-white hover:text-yellow-400 font-medium transition-colors duration-300">Login @</a>
+            <a href="#sobre" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Sobre</a>
+            <a href="#conquistas" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Conquistas</a>
+            <a href="#junte-se" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Junte-se</a>
+            <a href="#contato" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Contato</a>
+          </div>
+
+          {/* Botão Menu Mobile */}
+          <button 
+            onClick={toggleMobileMenu} 
+            className="md:hidden text-2xl text-white focus:outline-none hover:text-yellow-500 transition-colors"
+            aria-label="Toggle menu"
+          >
+            {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
+          </button>
+        </div>
+
+        {/* Menu Mobile Dropdown */}
+        <div className={`md:hidden absolute w-full bg-gray-950/95 backdrop-blur-xl border-b border-gray-800 shadow-2xl transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none'}`}>
+          <div className="flex flex-col items-center py-6 space-y-6 text-lg">
+            <a href="/login" onClick={closeMenu} className="text-yellow-400 font-semibold tracking-wide">Login @</a>
+            <a href="#sobre" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Sobre</a>
+            <a href="#conquistas" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Conquistas</a>
+            <a href="#junte-se" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Junte-se</a>
+            <a href="#contato" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Contato</a>
+          </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section id="home" className="relative h-screen flex items-center justify-center text-center overflow-hidden bg-cover bg-center" style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}> {/* Crie hero-bg.jpg em public/images */}
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-8">          
-                   
-          <h1 className="text-5xl md:text-7xl font-extrabold text-white leading-tight animate-fade-in-up">
-            ALFA RACING <span className="text-yellow-500">BRASIL</span>
+      <section id="home" className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed" style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}>
+        {/* Overlay Escuro */}
+        <div className="absolute inset-0 bg-black/60 md:bg-black/70 flex flex-col items-center justify-center p-6 pt-20">          
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white leading-tight animate-fade-in-up drop-shadow-lg">
+            ALFA RACING <br className="md:hidden"/> <span className="text-yellow-500">BRASIL</span>
           </h1>
-          <p className="mt-4 text-lg md:text-xl max-w-2xl text-gray-300 animate-fade-in-up delay-200">
+          <p className="mt-6 text-base sm:text-lg md:text-xl max-w-2xl text-gray-200 animate-fade-in-up delay-200 font-medium px-4">
             A paixão pela velocidade e a estratégia do GPRO se encontram aqui.
             Domine as pistas conosco!
           </p>
           <a
             href="#junte-se"
-            className="mt-8 px-8 py-3 bg-yellow-500 text-gray-900 text-lg font-semibold rounded-full shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 animate-bounce-in delay-500"
+            className="mt-10 px-8 py-4 bg-yellow-500 text-gray-900 text-lg font-bold rounded-full shadow-yellow-500/20 shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 active:scale-95 animate-bounce-in delay-500"
           >
             Seja um Lobo Alfa!
           </a>
@@ -55,67 +99,81 @@ export default function LandingPage() {
       </section>
 
       {/* Sobre Nós */}
-      <section id="sobre" className="py-20 px-6 md:px-12 bg-gradient-to-r from-gray-900 to-blue-900">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-left">Sobre a Alfa Racing Brasil</h2>
-          <p className="text-lg text-gray-300 mb-8 animate-fade-in-left delay-100">
+      <section id="sobre" className="py-16 px-6 md:px-12 bg-gradient-to-b from-gray-900 to-blue-900">
+        <div className="max-w-6xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-left">Sobre a Alfa Racing Brasil</h2>
+          <p className="text-base md:text-lg text-gray-300 mb-12 animate-fade-in-left delay-100 max-w-3xl mx-auto leading-relaxed">
             Nascemos da paixão por automobilismo e pelo desafio estratégico do Grand Prix Racing Online (GPRO).
-            Nossa equipe é formada por gerentes dedicados, apaixonados por táticas, desenvolvimento de pilotos e carros,
-            e que buscam a excelência em cada corrida. Somos mais que um time; somos uma comunidade de pilotos brasileiros!
+            Nossa equipe é formada por gerentes dedicados, apaixonados por táticas, desenvolvimento de pilotos e carros.
           </p>
-          <div className="grid md:grid-cols-3 gap-8 mt-12">
-            <div className="p-6 bg-gray-800 rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up">
-              <FaUsers className="text-5xl text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Comunidade Ativa</h3>
-              <p className="text-gray-400">Troque ideias, estratégias e experiências com outros entusiastas do GPRO.</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            <div className="p-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-xl hover:shadow-2xl hover:border-yellow-500/30 transition-all duration-300 animate-fade-in-up">
+              <FaUsers className="text-5xl text-yellow-500 mx-auto mb-6" />
+              <h3 className="text-xl font-semibold mb-3 text-white">Comunidade Ativa</h3>
+              <p className="text-gray-400 text-sm md:text-base">Troque ideias, estratégias e experiências com outros entusiastas do GPRO.</p>
             </div>
-            <div className="p-6 bg-gray-800 rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up delay-100">
-              <FaChartLine className="text-5xl text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Foco em Estratégia</h3>
-              <p className="text-gray-400">Aprimore suas habilidades de gerenciamento e tática para dominar as pistas.</p>
+            
+            <div className="p-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-xl hover:shadow-2xl hover:border-yellow-500/30 transition-all duration-300 animate-fade-in-up delay-100">
+              <FaChartLine className="text-5xl text-yellow-500 mx-auto mb-6" />
+              <h3 className="text-xl font-semibold mb-3 text-white">Foco em Estratégia</h3>
+              <p className="text-gray-400 text-sm md:text-base">Aprimore suas habilidades de gerenciamento e tática para dominar as pistas.</p>
             </div>
-            <div className="p-6 bg-gray-800 rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 animate-fade-in-up delay-200">
-              <Image
-                src="/images/bandeira-brasil.png" // <<-- IMAGEM DA BANDEIRA DO BRASIL (se tiver)
-                alt="Bandeira do Brasil"
-                width={100}
-                height={75}
-                className="mx-auto mb-4 rounded-full"
-              />
-              <h3 className="text-xl font-semibold mb-2">Orgulho Brasileiro</h3>
-              <p className="text-gray-400">Representamos o Brasil com garra e talento no cenário global do GPRO.</p>
+            
+            <div className="p-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-xl hover:shadow-2xl hover:border-yellow-500/30 transition-all duration-300 animate-fade-in-up delay-200">
+               {/* Fallback caso a imagem não exista, use um container ou ícone */}
+               <div className="mx-auto mb-6 relative w-24 h-24 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center">
+                  <Image
+                    src="/images/bandeira-brasil.png"
+                    alt="Bandeira do Brasil"
+                    width={100}
+                    height={100}
+                    className="object-cover w-full h-full"
+                    // Adicione um placeholder se quiser evitar layout shift
+                  />
+               </div>
+              <h3 className="text-xl font-semibold mb-3 text-white">Orgulho Brasileiro</h3>
+              <p className="text-gray-400 text-sm md:text-base">Representamos o Brasil com garra e talento no cenário global do GPRO.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Conquistas Recentes */}
-      <section id="conquistas" className="py-20 px-6 md:px-12 bg-gray-950">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-yellow-500 mb-10 animate-fade-in-right">Nossas Conquistas</h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-gray-800 p-8 rounded-lg shadow-xl flex flex-col items-center text-center animate-fade-in-right">
-              <FaTrophy className="text-6xl text-yellow-500 mb-4" />
-              <h3 className="text-2xl font-semibold mb-3">Títulos de Liga</h3>
-              <p className="text-gray-300 text-lg">
-                Celebramos diversos títulos em ligas de diferentes níveis, mostrando nossa consistência e habilidade em evoluir.
+      <section id="conquistas" className="py-16 px-6 md:px-12 bg-gray-950">
+        <div className="max-w-5xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-10 animate-fade-in-right">Nossas Conquistas</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Card 1 */}
+            <div className="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-lg flex flex-col items-center text-center animate-fade-in-right">
+              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                <FaTrophy className="text-4xl text-yellow-500" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-4 text-white">Títulos de Liga</h3>
+              <p className="text-gray-400 mb-6 text-sm md:text-base">
+                Celebramos diversos títulos em ligas de diferentes níveis, mostrando nossa consistência.
               </p>
-              <ul className="mt-4 text-left w-full text-gray-400 space-y-2">
-                <li><span className="font-bold text-yellow-500">🏆 Liga Elite:</span> 2º lugar na temporada SXX</li>
-                <li><span className="font-bold text-yellow-500">🥇 Liga Pro:</span> Campeões nas temporadas SYY e SZZ</li>
-                <li><span className="font-bold text-yellow-500">🌟 Liga Amador:</span> Inúmeras vitórias e promoções rápidas</li>
+              <ul className="text-left w-full text-gray-400 text-sm space-y-3 bg-gray-800/50 p-4 rounded-lg">
+                <li><span className="font-bold text-yellow-500">🏆 Liga Elite:</span> 2º lugar (SXX)</li>
+                <li><span className="font-bold text-yellow-500">🥇 Liga Pro:</span> Campeões (SYY, SZZ)</li>
+                <li><span className="font-bold text-yellow-500">🌟 Liga Amador:</span> Múltiplas vitórias</li>
               </ul>
             </div>
-            <div className="bg-gray-800 p-8 rounded-lg shadow-xl flex flex-col items-center text-center animate-fade-in-right delay-100">
-              <FaChartLine className="text-6xl text-yellow-500 mb-4" />
-              <h3 className="text-2xl font-semibold mb-3">Recordes e Evolução</h3>
-              <p className="text-gray-300 text-lg">
-                Constantemente quebramos nossos próprios recordes e ajudamos nossos membros a atingir seus objetivos no jogo.
+
+            {/* Card 2 */}
+            <div className="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-lg flex flex-col items-center text-center animate-fade-in-right delay-100">
+              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
+                <FaChartLine className="text-4xl text-yellow-500" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-4 text-white">Recordes e Evolução</h3>
+              <p className="text-gray-400 mb-6 text-sm md:text-base">
+                Constantemente quebramos nossos próprios recordes e ajudamos nossos membros.
               </p>
-              <ul className="mt-4 text-left w-full text-gray-400 space-y-2">
-                <li><span className="font-bold text-yellow-500">📈 Maior Pontuação:</span> 120 pontos em uma temporada</li>
-                <li><span className="font-bold text-yellow-500">🚀 Promoções:</span> Mais de 50 promoções para ligas superiores por nossos membros</li>
-                <li><span className="font-bold text-yellow-500">⚙️ Carro Otimizado:</span> Média de 90% de eficiência em setups de corrida</li>
+              <ul className="text-left w-full text-gray-400 text-sm space-y-3 bg-gray-800/50 p-4 rounded-lg">
+                <li><span className="font-bold text-yellow-500">📈 Recorde:</span> 120 pts na temporada</li>
+                <li><span className="font-bold text-yellow-500">🚀 Promoções:</span> +50 subidas de liga</li>
+                <li><span className="font-bold text-yellow-500">⚙️ Setup:</span> 90% eficiência média</li>
               </ul>
             </div>
           </div>
@@ -123,76 +181,84 @@ export default function LandingPage() {
       </section>
 
       {/* Junte-se à Equipe */}
-      <section id="junte-se" className="py-20 px-6 md:px-12 bg-gradient-to-r from-blue-900 to-gray-900 text-center">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-4xl font-bold text-white mb-6 animate-fade-in-up">Quer Fazer Parte da Alfa Racing Brasil?</h2>
-          <p className="text-lg text-gray-300 mb-10 animate-fade-in-up delay-100">
-            Buscamos gerentes dedicados, com espírito de equipe e vontade de aprender e crescer no GPRO.
+      <section id="junte-se" className="py-20 px-6 md:px-12 bg-gradient-to-r from-blue-900 to-gray-900 text-center relative overflow-hidden">
+        {/* Decorative background element */}
+        <div className="absolute top-0 left-0 w-full h-full bg-pattern opacity-10 pointer-events-none"></div>
+
+        <div className="max-w-4xl mx-auto relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 animate-fade-in-up">Quer Fazer Parte?</h2>
+          <p className="text-base md:text-lg text-gray-300 mb-10 animate-fade-in-up delay-100 max-w-2xl mx-auto">
+            Buscamos gerentes dedicados, com espírito de equipe e vontade de aprender.
             Se você compartilha essa paixão, nós temos um lugar para você!
           </p>
 
-          <div className="grid md:grid-cols-2 gap-8 text-left">
-            <div className="bg-gray-800 p-6 rounded-lg shadow-xl animate-fade-in-left">
-              <h3 className="text-2xl font-semibold text-yellow-500 mb-4">O Que Oferecemos:</h3>
-              <ul className="list-disc list-inside space-y-3 text-gray-300">
-                <li>Apoio e orientação de gerentes experientes.</li>
-                <li>Ambiente colaborativo para discutir estratégias.</li>
-                <li>Oportunidades de crescimento e promoções em ligas.</li>
-                <li>Eventos e campeonatos internos (opcional).</li>
-                <li>Uma comunidade divertida e acolhedora.</li>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 text-left">
+            <div className="bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl border border-gray-700 shadow-xl animate-fade-in-left">
+              <h3 className="text-xl font-bold text-yellow-500 mb-4">O Que Oferecemos:</h3>
+              <ul className="list-disc list-inside space-y-2 text-gray-300 text-sm md:text-base">
+                <li>Apoio de gerentes experientes.</li>
+                <li>Ambiente colaborativo.</li>
+                <li>Oportunidades de crescimento.</li>
+                <li>Campeonatos internos.</li>
               </ul>
             </div>
-            <div className="bg-gray-800 p-6 rounded-lg shadow-xl animate-fade-in-right">
-              <h3 className="text-2xl font-semibold text-yellow-500 mb-4">Como se Candidatar:</h3>
-              <p className="text-gray-300 mb-4">É simples! Entre em contato conosco através do nosso Discord ou e-mail. Conte-nos um pouco sobre sua experiência no GPRO e seu interesse em fazer parte da Alfa Racing Brasil.</p>
-              <p className="text-gray-300 font-bold">Estamos ansiosos para te conhecer!</p>
+            <div className="bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl border border-gray-700 shadow-xl animate-fade-in-right">
+              <h3 className="text-xl font-bold text-yellow-500 mb-4">Como se Candidatar:</h3>
+              <p className="text-gray-300 mb-4 text-sm md:text-base">
+                É simples! Entre em contato via Discord ou e-mail. Conte-nos sua experiência no GPRO.
+              </p>
+              <p className="text-white font-semibold text-sm md:text-base">Estamos ansiosos para te conhecer!</p>
             </div>
           </div>
 
           <a
-            href="https://discord.gg/SEULINKDISCORD" // <<-- SUBSTITUA PELO LINK REAL DO SEU DISCORD
+            href="https://discord.gg/SEULINKDISCORD" 
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-12 inline-flex items-center px-10 py-4 bg-purple-600 text-white text-xl font-bold rounded-full shadow-lg hover:bg-purple-700 transition-all duration-300 transform hover:scale-105 animate-bounce-in delay-200"
+            className="mt-12 inline-flex items-center px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] text-white text-lg font-bold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 animate-bounce-in w-full md:w-auto justify-center"
           >
-            <FaDiscord className="mr-3 text-3xl" />
+            <FaDiscord className="mr-3 text-2xl" />
             Entrar no Discord
           </a>
         </div>
       </section>
 
       {/* Contato */}
-      <section id="contato" className="py-20 px-6 md:px-12 bg-gray-950 text-center">
+      <section id="contato" className="py-16 px-6 md:px-12 bg-gray-950 text-center">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-down">Fale Conosco</h2>
-          <p className="text-lg text-gray-300 mb-10 animate-fade-in-down delay-100">
-            Tem dúvidas, sugestões ou quer apenas bater um papo? Não hesite em nos contatar!
+          <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-down">Fale Conosco</h2>
+          <p className="text-base md:text-lg text-gray-300 mb-10 animate-fade-in-down delay-100">
+            Dúvidas ou sugestões? Entre em contato!
           </p>
 
-          <div className="flex flex-col md:flex-row justify-center items-center gap-6">
-            <div className="relative w-full md:w-auto">
+          <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-6">
+            <div className="relative w-full md:w-auto group">
               <input
                 ref={emailRef}
                 type="text"
-                value="contato@alfaracingbrasil.com" // <<-- SUBSTITUA PELO SEU EMAIL REAL
+                value="contato@alfaracingbrasil.com" 
                 readOnly
-                className="w-full md:w-80 p-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 pr-12"
+                className="w-full md:w-80 p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm md:text-base focus:outline-none focus:border-yellow-500 transition-colors pr-20 truncate"
               />
               <button
                 onClick={handleCopyEmail}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-md text-sm font-semibold transition-all duration-300 ${
+                    copied 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-blue-600 text-white hover:bg-blue-500'
+                }`}
               >
                 {copied ? 'Copiado!' : 'Copiar'}
               </button>
             </div>
 
             <a
-              href="https://twitter.com/alfaracingbr" // <<-- SUBSTITUA PELO LINK REAL DO SEU TWITTER/X
+              href="https://twitter.com/alfaracingbr"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-all duration-300 transform hover:scale-105"
+              className="w-full md:w-auto inline-flex justify-center items-center px-8 py-3.5 bg-black text-white border border-gray-800 rounded-full shadow-lg hover:bg-gray-900 hover:border-blue-400 transition-all duration-300"
             >
-              <FaTwitter className="mr-3 text-xl" />
+              <FaTwitter className="mr-3 text-xl text-blue-400" />
               Twitter/X
             </a>
           </div>
@@ -200,14 +266,14 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 py-8 px-6 md:px-12 text-center text-gray-400 text-sm">
+      <footer className="bg-gray-950 border-t border-gray-900 py-8 px-6 text-center text-gray-500 text-xs md:text-sm">
         <div className="max-w-4xl mx-auto">
-          <p>&copy; {new Date().getFullYear()} Alfa Racing Brasil. Todos os direitos reservados.</p>
-          <p className="mt-2">Feito com paixão por GPRO.</p>
-          <div className="flex justify-center space-x-4 mt-4">
+          <p className="font-medium text-gray-400">&copy; {new Date().getFullYear()} Alfa Racing Brasil.</p>
+          <p className="mt-1">Feito com paixão por GPRO.</p>
+          <div className="flex flex-col md:flex-row justify-center items-center gap-3 md:gap-6 mt-6">
             <a href="https://gpro.net/gb/gpro.asp" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">GPRO Official</a>
-            <span className="text-gray-600">|</span>
-            <a href="#" className="hover:text-yellow-500 transition-colors">Política de Privacidade</a> {/* Crie esta página se necessário */}
+            <span className="hidden md:inline text-gray-700">|</span>
+            <a href="#" className="hover:text-yellow-500 transition-colors">Política de Privacidade</a>
           </div>
         </div>
       </footer>

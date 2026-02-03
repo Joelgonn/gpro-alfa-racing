@@ -5,7 +5,7 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  display: "swap", // Melhora a performance de carregamento da fonte
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -14,28 +14,38 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-// Metadados profissionais e completos
-export const metadata: Metadata = {
-  title: {
-    template: "%s | Nome da Sua Marca",
-    default: "Alfa Racing Brasil Tool",
-  },
-  description: "Ferramenta de Setup e Estratégia exclusiva para gerentes da Equipe Alfa Racing Brasil.",
-  icons: {
-    icon: "/favicon.ico", // Garanta que você tenha um favicon
-  },
-  // Open Graph ajuda o link a ficar bonito quando compartilhado no WhatsApp/LinkedIn
-  openGraph: {
-    title: "Alfa Racing Brasil Tool",
-    description: "Ferramenta de Setup e Estratégia da Equipe Alfa Racing Brasil.",
-    type: "website",
-    locale: "pt_BR",
-  },
+// Configuração de Viewport para Mobile (Premium Feel)
+export const viewport: Viewport = {
+  // Define a cor da barra de status do navegador para combinar com o header (gray-950)
+  themeColor: "#030712", 
+  width: "device-width",
+  initialScale: 1,
+  // maximumScale: 1, // Opcional: Remova o comentário se quiser impedir que o usuário dê zoom (sensação de app nativo), mas reduz acessibilidade.
 };
 
-// Configuração de viewport para mobile
-export const viewport: Viewport = {
-  themeColor: "#000000", // Cor da barra do navegador no mobile
+export const metadata: Metadata = {
+  title: {
+    template: "%s | Alfa Racing Brasil",
+    default: "Alfa Racing Brasil - GPRO Tool",
+  },
+  description: "Estratégia, setup e comunidade para gerentes da Equipe Alfa Racing Brasil no GPRO.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png", // Recomendado criar este arquivo em /public
+  },
+  openGraph: {
+    title: "Alfa Racing Brasil",
+    description: "Domine as pistas com a Alfa Racing Brasil.",
+    type: "website",
+    locale: "pt_BR",
+    siteName: "Alfa Racing Brasil",
+  },
+  // Melhora a experiência ao salvar na tela inicial do iOS
+  appleWebApp: {
+    title: "Alfa Racing",
+    statusBarStyle: "black-translucent",
+    capable: true,
+  },
 };
 
 export default function RootLayout({
@@ -51,16 +61,18 @@ export default function RootLayout({
           ${geistMono.variable} 
           antialiased 
           min-h-screen 
-          bg-background 
-          text-foreground 
-          selection:bg-black selection:text-white
+          /* Fundo padrão escuro para evitar flash branco no mobile */
+          bg-gray-950 
+          text-gray-100
+          /* Seleção de texto na cor da marca (Amarelo/Preto) */
+          selection:bg-yellow-500 selection:text-gray-900
+          /* Previne rolagem horizontal acidental no mobile */
+          overflow-x-hidden
         `}
       >
-        {/* Aqui você pode adicionar um Header/Navbar global futuramente */}
         <main className="flex flex-col min-h-screen">
             {children}
         </main>
-        {/* Aqui você pode adicionar um Footer global futuramente */}
       </body>
     </html>
   );
