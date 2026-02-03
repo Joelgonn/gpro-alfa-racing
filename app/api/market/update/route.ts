@@ -43,14 +43,27 @@ function parseCSVLine(line: string, separator: string): string[] {
 
 export async function GET() {
     try {
+        // Busca os drivers
         const { data, error } = await supabase
             .from('market_drivers')
             .select('*')
             .order('total', { ascending: false })
             .limit(15000);
 
+        // Busca a data do registro mais recente para sabermos o último Sync
+        const { data: lastRecord } = await supabase
+            .from('market_drivers')
+            .select('updated_at')
+            .order('updated_at', { ascending: false })
+            .limit(1);
+
         if (error) throw error;
-        return NextResponse.json({ success: true, data: data || [] });
+
+        return NextResponse.json({ 
+            success: true, 
+            data: data || [],
+            lastSync: lastRecord?.[0]?.updated_at || null // Envia para o front
+        });
     } catch (e: any) {
         return NextResponse.json({ success: false, error: e.message }, { status: 500 });
     }
