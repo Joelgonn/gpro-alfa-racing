@@ -74,7 +74,16 @@ function ConfigInput({ label, value, onChange }: { label: string, value: number,
 }
 
 function SupplierCarousel({ options, value, onChange }: { options: string[], value: string, onChange: (val: string) => void }) {
+    // Adicione um estado para controlar erro de imagem
+    const [imgError, setImgError] = useState(false);
+
+    // Reseta o estado de erro sempre que o valor (fornecedor) mudar
+    useEffect(() => {
+        setImgError(false);
+    }, [value]);
+
     if (!options || options.length === 0) return <div className="bg-black/40 p-3 rounded-lg border border-white/5 text-[9px] text-slate-500">Sem Opções</div>;
+    
     const currentIndex = options.findIndex(o => o === value);
     const handleNext = () => onChange(options[(currentIndex + 1) % options.length] || options[0]);
     const handlePrev = () => onChange(options[(currentIndex - 1 + options.length) % options.length] || options[0]);
@@ -82,19 +91,24 @@ function SupplierCarousel({ options, value, onChange }: { options: string[], val
     return (
         <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-white/5 select-none h-[60px]">
             <button onClick={handlePrev} className="text-slate-500 hover:text-white transition-colors p-2"><ChevronLeft size={16}/></button>
-            <div className="flex flex-col items-center justify-center flex-1">
-                {value && (
+            
+            <div className="flex items-center justify-center flex-1 h-full">
+                {/* LÓGICA: Se tem valor e não deu erro, mostra IMAGEM. Senão, mostra TEXTO. */}
+                {value && !imgError ? (
                     <img 
-                        // Garante que "Pipirelli" vire "pipirelli" e remove espaços extras
-                        src={`/tyres/${value?.toString().trim().toLowerCase()}.gif`} 
+                        // .toLowerCase() resolve o problema da imagem não aparecer em produção (Linux)
+                        src={`/tyres/${value.toString().toLowerCase().trim()}.gif`} 
                         alt={value} 
-                        className="h-6 object-contain mb-1 drop-shadow-md"
-                        // REMOVA OU COMENTE TEMPORARIAMENTE O ONERROR PARA VER O ERRO SE PERSISTIR
-                        // onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+                        className="h-10 w-auto object-contain drop-shadow-md transition-all" // Aumentei para h-10 para preencher melhor o espaço
+                        onError={() => setImgError(true)} 
                     />
+                ) : (
+                    <span className="font-black text-[10px] text-indigo-400 uppercase tracking-widest truncate max-w-[120px] text-center">
+                        {value || "Selecione"}
+                    </span>
                 )}
-                <span className="font-black text-[9px] text-indigo-400 uppercase tracking-widest truncate max-w-[120px] text-center">{value || "Selecione"}</span>
             </div>
+
             <button onClick={handleNext} className="text-slate-500 hover:text-white transition-colors p-2"><ChevronRight size={16}/></button>
         </div>
     )
