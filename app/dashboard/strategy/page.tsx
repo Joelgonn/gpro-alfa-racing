@@ -401,9 +401,61 @@ export default function StrategyPage() {
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise da Performance</h3></div>
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-xs min-w-[600px]">
-                        <thead><tr className="bg-black/20 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-white/5"><th className="p-4 text-left">Pneu</th><th className="p-4 text-center">Paradas</th><th className="p-4 text-center bg-white/5">Forçar Pits</th><th className="p-4 text-center bg-white/5">Forçar CT</th><th className="p-4 text-center">Comb.</th><th className="p-4 text-center">Desg.</th><th className="p-4 text-center">Gap</th></tr></thead>
-                        <tbody className="divide-y divide-white/[0.03]">{["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(c => { if(inputs.race_options.condicao === "Dry" && c === "Rain") return null; if(inputs.race_options.condicao === "Wet" && c !== "Rain") return null; const d = outputs?.compound_details_outputs?.[c]; const isBest = d?.total?.toString().toLowerCase() === "best" || d?.total === 0; return ( <tr key={c} className={`transition-colors hover:bg-white/[0.02] ${isBest ? 'bg-emerald-500/[0.03]' : ''}`}><td className="p-4 font-black text-white flex items-center gap-3"><div className={`w-2 h-2 rounded-full shadow-[0_0_8px] shrink-0 ${c==='Extra Soft'?'bg-rose-500 shadow-rose-500':c==='Soft'?'bg-amber-400 shadow-amber-400':c==='Medium'?'bg-white shadow-white':c==='Hard'?'bg-sky-400 shadow-sky-400':'bg-blue-500 shadow-blue-500'}`}></div>{c.replace("Extra Soft", "Ex. Soft")}</td><td className="p-4 text-center font-black text-slate-400">{fmt(d?.req_stops, 0)}</td><td className="p-3 text-center bg-black/20"><input type="number" className="w-12 bg-black/40 border border-white/10 rounded p-1 text-center font-black text-white focus:border-indigo-500 outline-none text-[10px]" value={inputs.compound_options[c]?.forcar_pits ?? ''} onChange={(e) => handleInput('compound_options', 'forcar_pits', e.target.value, c)} /></td><td className="p-3 text-center bg-black/20"><input type="number" className="w-12 bg-black/40 border border-white/10 rounded p-1 text-center font-black text-white focus:border-indigo-500 outline-none text-[10px]" value={inputs.compound_options[c]?.forcar_ct ?? ''} onChange={(e) => handleInput('compound_options', 'forcar_ct', e.target.value, c)} /></td><td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, 'L')}</td><td className="p-4 text-center text-slate-500 font-bold">{fmt(d?.tyre_wear, 1, '%')}</td><td className="p-4 text-center font-black">{isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20 text-[9px]">Ideal</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}</td></tr> ) })}</tbody>
+                    <table className="w-full text-xs min-w-[350px]"> {/* Ajustei o min-w para caber melhor no mobile sem scroll */}
+                        <thead>
+                            <tr className="bg-black/20 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-white/5">
+                                <th className="p-4 text-left">Pneu</th>
+                                <th className="p-4 text-center">Paradas</th>
+                                {/* Colunas Forçar removidas daqui */}
+                                <th className="p-4 text-center">Comb.</th>
+                                <th className="p-4 text-center">Desg.</th>
+                                <th className="p-4 text-center">Gap</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.03]">
+                            {["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(c => {
+                                if(inputs.race_options.condicao === "Dry" && c === "Rain") return null;
+                                if(inputs.race_options.condicao === "Wet" && c !== "Rain") return null;
+
+                                const d = outputs?.compound_details_outputs?.[c];
+                                const isBest = d?.total?.toString().toLowerCase() === "best" || d?.total === 0;
+
+                                return (
+                                    <tr key={c} className={`transition-colors hover:bg-white/[0.02] ${isBest ? 'bg-emerald-500/[0.03]' : ''}`}>
+                                        {/* Coluna Pneu */}
+                                        <td className="p-4 font-black text-white flex items-center gap-3">
+                                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] shrink-0 ${c==='Extra Soft'?'bg-rose-500 shadow-rose-500':c==='Soft'?'bg-amber-400 shadow-amber-400':c==='Medium'?'bg-white shadow-white':c==='Hard'?'bg-sky-400 shadow-sky-400':'bg-blue-500 shadow-blue-500'}`}></div>
+                                            {c.replace("Extra Soft", "Ex. Soft")}
+                                        </td>
+
+                                        {/* Coluna Paradas */}
+                                        <td className="p-4 text-center font-black text-slate-400">
+                                            {fmt(d?.req_stops, 0)}
+                                        </td>
+
+                                        {/* REMOVIDO: Inputs de Forçar Pits e CT */}
+
+                                        {/* Coluna Combustível */}
+                                        <td className="p-4 text-center text-indigo-400 font-bold">
+                                            {fmt(d?.fuel_load, 0, 'L')}
+                                        </td>
+
+                                        {/* Coluna Desgaste */}
+                                        <td className="p-4 text-center text-slate-500 font-bold">
+                                            {fmt(d?.tyre_wear, 1, '%')}
+                                        </td>
+
+                                        {/* Coluna Gap/Ideal */}
+                                        <td className="p-4 text-center font-black">
+                                            {isBest ? 
+                                                <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20 text-[9px]">Ideal</span> : 
+                                                <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
                     </table>
                 </div>
             </section>
