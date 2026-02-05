@@ -422,20 +422,45 @@ export async function POST(request: Request, context: any) {
         // 5. STRATEGY CALCULATE
         if (action.includes('strategy_calculate')) {
             const savedState = await getUserState(userId);
+            
+            // Pegamos a pista enviada pelo frontend ou a do banco
+            const currentTrack = body.pista || savedState.track;
+            
             const combinedState = {
                 race_options: { ...savedState.race_options, ...(body.race_options || {}) },
             };
             const tfSid = sheetIdMap['Tyre&Fuel'];
             const ro = combinedState.race_options || {};
             
-            if (ro.avg_temp !== undefined) {
-                 write(mainSheetId, 'R', 9, Number(ro.avg_temp));
+            // --- IMPORTANTE: ATUALIZA A PISTA NO MOTOR DO EXCEL ---
+            if (currentTrack) {
+                write(mainSheetId, 'R', 5, currentTrack);
             }
 
+            // Atualiza temperatura média
+            if (ro.avg_temp !== undefined) {
+                write(mainSheetId, 'R', 9, Number(ro.avg_temp));
+            }
+
+            // --- (OPCIONAL) ATUALIZA DRIVER E CAR SE ENVIADOS ---
+            // Isso garante que o cálculo de combustível/desgaste use o carro/piloto atual
+            if (body.driver) {
+                const d = body.driver;
+                const dVals = ["concentracao", "talento", "agressividade", "experiencia", "tecnica", "resistencia", "carisma", "motivacao", "reputacao", "peso", "idade", "energia"].map(k => [Number(d[k]) || 0]);
+                hf.setCellContents({ sheet: mainSheetId, col: 4, row: 5 }, dVals);
+            }
+            if (body.car) {
+                const carLvl = body.car.map((c: any) => [Number(c.lvl) || 1]);
+                const carWear = body.car.map((c: any) => [Number(c.wear) || 0]);
+                hf.setCellContents({ sheet: mainSheetId, col: 8, row: 5 }, carLvl);
+                hf.setCellContents({ sheet: mainSheetId, col: 9, row: 5 }, carWear);
+            }
+
+            // ... (restante do código de escrita em 'Tyre&Fuel' permanece igual)
             let finalSupplier = ro.pneus_fornecedor;
             const tyresSid = sheetIdMap['Tyres'];
             if (tyresSid !== undefined && finalSupplier) {
-                 for (let r = 2; r <= 15; r++) {
+                for (let r = 2; r <= 15; r++) {
                     const name = hf.getCellValue({ sheet: tyresSid, col: 0, row: r - 1 });
                     if (name && name.toString().toLowerCase().trim() === finalSupplier.toString().toLowerCase().trim()) {
                         finalSupplier = name; break;
