@@ -65,9 +65,27 @@ function ConfigInput({ label, value, onChange }: { label: string, value: number,
         <div className="bg-black/40 p-3 rounded-lg border border-white/5">
             <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">{label}</label>
             <div className="flex items-center justify-between gap-1">
-                <button onClick={() => onChange(Math.max(0, value - 1))} className="text-slate-500 hover:text-white transition-colors p-1"><ChevronLeft size={14} /></button>
-                <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="bg-transparent font-black text-sm text-white outline-none w-full text-center appearance-none" />
-                <button onClick={() => onChange(value + 1)} className="text-slate-500 hover:text-white transition-colors p-1"><ChevronRight size={14} /></button>
+                {/* Botão Menos */}
+                <button onClick={() => onChange(Math.max(0, value - 1))} className="text-slate-500 hover:text-white transition-colors p-1 flex-shrink-0">
+                    <ChevronLeft size={14} />
+                </button>
+                
+                {/* CORREÇÃO AQUI: 
+                    1. Troquei 'w-full' por 'flex-1' (ocupa o espaço disponível)
+                    2. Adicionei 'min-w-0' (impede colapso no flexbox)
+                    3. Adicionei 'p-0' (remove padding padrão de mobile que pode ocultar o texto)
+                */}
+                <input 
+                    type="number" 
+                    value={value} 
+                    onChange={(e) => onChange(Number(e.target.value))} 
+                    className="bg-transparent font-black text-sm text-white outline-none flex-1 min-w-0 text-center appearance-none p-0" 
+                />
+                
+                {/* Botão Mais */}
+                <button onClick={() => onChange(value + 1)} className="text-slate-500 hover:text-white transition-colors p-1 flex-shrink-0">
+                    <ChevronRight size={14} />
+                </button>
             </div>
         </div>
     );
