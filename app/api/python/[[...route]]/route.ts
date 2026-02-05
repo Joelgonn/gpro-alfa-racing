@@ -22,11 +22,9 @@ const CELLS = {
     INPUT_WEATHER_Q2: 'T8', 
     INPUT_WEATHER_RACE: 'T9',
 
-    // CORREÇÃO AQUI: Célula para o Risco Pista Livre
-    // Agora aponta para a aba Tyre&Fuel, coluna C (índice 2), linha 4 (índice 3)
-    INPUT_RISCO_PISTA_LIVRE_SHEET: 'Tyre&Fuel', // Nome da aba
-    INPUT_RISCO_PISTA_LIVRE_COL: 'C',          // Coluna C
-    INPUT_RISCO_PISTA_LIVRE_ROW: 4,            // Linha 4
+    INPUT_RISCO_PISTA_LIVRE_SHEET: 'Tyre&Fuel', 
+    INPUT_RISCO_PISTA_LIVRE_COL: 'C',          
+    INPUT_RISCO_PISTA_LIVRE_ROW: 4,            
 
     OUTPUT_START_ROW: 6,
     OUTPUT_COL_Q1: 28, OUTPUT_COL_Q2: 29, OUTPUT_COL_RACE: 30,
@@ -38,21 +36,18 @@ const CELLS = {
     OUTPUT_ZS_COL: 21, OUTPUT_ZS_START_ROW: 24,
 };
 
-// --- CONFIGURAÇÃO PATROCINADORES (BASEADO NO SEU ARQUIVO) ---
+// --- CONFIGURAÇÃO PATROCINADORES ---
 const SPONSOR_CONFIG = {
     SHEET_NAME_PRIMARY: 'Patrocinador',
     SHEET_NAME_FALLBACK: 'Patrocinador 1',
     TABLES_SHEET: 'Tables',
-    
-    REF_ROW_START_IDX: 36, // O37:T43 (Indices 0-based: Row 36-42)
-    
-    // Colunas (Indices 0-based: A=0, O=14...)
-    COL_KEY: 14,          // O (Chave 1-7) no ExcelJS colIndex
-    COL_EXPECT_IDX: 15,   // P
-    COL_POP_IDX: 16,      // Q
-    COL_AMOUNT_IDX: 17,   // R
-    COL_DURATION_IDX: 18, // S
-    COL_AREA_IDX: 19      // T
+    REF_ROW_START_IDX: 36, 
+    COL_KEY: 14,          
+    COL_EXPECT_IDX: 15,   
+    COL_POP_IDX: 16,      
+    COL_AMOUNT_IDX: 17,   
+    COL_DURATION_IDX: 18, 
+    COL_AREA_IDX: 19      
 };
 
 // --- SINGLETONS ---
@@ -314,7 +309,7 @@ export async function POST(request: Request, context: any) {
                 weatherQ1: body.weatherQ1 || savedState.weather?.weatherQ1,
                 weatherQ2: body.weatherQ2 || savedState.weather?.weatherQ2,
                 weatherRace: body.weatherRace || savedState.weather?.weatherRace,
-                desgasteModifier: body.desgasteModifier !== undefined ? body.desgasteModifier : (savedState.desgasteModifier !== undefined ? savedState.desgasteModifier : 0) // Pega do body, depois do savedState, senão 0
+                desgasteModifier: body.desgasteModifier !== undefined ? body.desgasteModifier : (savedState.desgasteModifier !== undefined ? savedState.desgasteModifier : 0)
             };
 
             if (combinedState.track) write(mainSheetId, 'R', 5, combinedState.track);
@@ -337,7 +332,6 @@ export async function POST(request: Request, context: any) {
                 hf.setCellContents({ sheet: mainSheetId, col: 4, row: 5 }, dVals);
             }
 
-            // CORREÇÃO FINAL: Injeta desgasteModifier na célula correta do Excel (Tyre&Fuel C4)
             const tyreFuelSid = sheetIdMap[CELLS.INPUT_RISCO_PISTA_LIVRE_SHEET];
             if (tyreFuelSid !== undefined) {
                 write(tyreFuelSid, CELLS.INPUT_RISCO_PISTA_LIVRE_COL, CELLS.INPUT_RISCO_PISTA_LIVRE_ROW, Number(combinedState.desgasteModifier) || 0);
@@ -434,6 +428,10 @@ export async function POST(request: Request, context: any) {
             const tfSid = sheetIdMap['Tyre&Fuel'];
             const ro = combinedState.race_options || {};
             
+            if (ro.avg_temp !== undefined) {
+                 write(mainSheetId, 'R', 9, Number(ro.avg_temp));
+            }
+
             let finalSupplier = ro.pneus_fornecedor;
             const tyresSid = sheetIdMap['Tyres'];
             if (tyresSid !== undefined && finalSupplier) {
