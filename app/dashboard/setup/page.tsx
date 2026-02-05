@@ -327,4 +327,29 @@ export default function SetupPage() {
 // --- Componentes Auxiliares (Mantidos) ---
 function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) { return <div className="space-y-4"><h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">{title}</h3><div className="space-y-4">{children}</div></div> }
 function HUDInput({ value, name, onChange, label }: any) { return <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all"><label className="block text-[8px] font-black text-slate-600 uppercase mb-2 tracking-widest">{label}</label><div className="flex items-center justify-between"><Thermometer size={16} className="text-indigo-400/50" /><input type="number" name={name} value={value || ''} onChange={onChange} className="bg-transparent text-right text-white font-black text-xl outline-none w-full" /><span className="text-sm text-slate-600 font-bold ml-2">°C</span></div></div> }
-function WeatherSwitch({ name, value, onChange }: any) { const isDry = value === 'Dry'; return (<div className="flex bg-black p-1 rounded-lg border border-white/5"><button onClick={() => onChange({ target: { name, value: 'Dry' } })} className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}><Sun size={14} /> Seco</button><button onClick={() => onChange({ target: { name, value: 'Wet' } })} className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${!isDry ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}><CloudRain size={14} /> Chuva</button></div>) }
+function WeatherSwitch({ name, value, onChange }: any) { 
+    const isDry = value === 'Dry'; 
+    return (
+        <div className="flex bg-black p-1 rounded-lg border border-white/5">
+            {/* Botão Seco - Agora Laranja */}
+            <button 
+                onClick={() => onChange({ target: { name, value: 'Dry' } })} 
+                className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${
+                    isDry ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
+                }`}
+            >
+                <Sun size={14} /> Seco
+            </button>
+
+            {/* Botão Chuva - Agora Indigo (Roxo/Azul) para combinar com a outra página */}
+            <button 
+                onClick={() => onChange({ target: { name, value: 'Wet' } })} 
+                className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${
+                    !isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
+                }`}
+            >
+                <CloudRain size={14} /> Chuva
+            </button>
+        </div>
+    ) 
+}
