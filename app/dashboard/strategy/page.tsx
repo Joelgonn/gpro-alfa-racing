@@ -85,10 +85,12 @@ function SupplierCarousel({ options, value, onChange }: { options: string[], val
             <div className="flex flex-col items-center justify-center flex-1">
                 {value && (
                     <img 
-                        src={`/tyres/${value}.gif`} 
+                        // Garante que "Pipirelli" vire "pipirelli" e remove espaços extras
+                        src={`/tyres/${value?.toString().trim().toLowerCase()}.gif`} 
                         alt={value} 
                         className="h-6 object-contain mb-1 drop-shadow-md"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+                        // REMOVA OU COMENTE TEMPORARIAMENTE O ONERROR PARA VER O ERRO SE PERSISTIR
+                        // onError={(e) => { e.currentTarget.style.display = 'none'; }} 
                     />
                 )}
                 <span className="font-black text-[9px] text-indigo-400 uppercase tracking-widest truncate max-w-[120px] text-center">{value || "Selecione"}</span>
