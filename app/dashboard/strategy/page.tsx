@@ -60,6 +60,7 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
     );
 }
 
+// SIMPLIFICADO: Sem setas, input full width para não quebrar no mobile
 function ConfigInput({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) {
     return (
         <div className="bg-black/40 p-3 rounded-lg border border-white/5">
@@ -77,14 +78,11 @@ function ConfigInput({ label, value, onChange }: { label: string, value: number,
     );
 }
 
+// CORRIGIDO: Fallback para texto e .toLowerCase() para produção
 function SupplierCarousel({ options, value, onChange }: { options: string[], value: string, onChange: (val: string) => void }) {
-    // Adicione um estado para controlar erro de imagem
     const [imgError, setImgError] = useState(false);
 
-    // Reseta o estado de erro sempre que o valor (fornecedor) mudar
-    useEffect(() => {
-        setImgError(false);
-    }, [value]);
+    useEffect(() => { setImgError(false); }, [value]);
 
     if (!options || options.length === 0) return <div className="bg-black/40 p-3 rounded-lg border border-white/5 text-[9px] text-slate-500">Sem Opções</div>;
     
@@ -95,15 +93,12 @@ function SupplierCarousel({ options, value, onChange }: { options: string[], val
     return (
         <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-white/5 select-none h-[60px]">
             <button onClick={handlePrev} className="text-slate-500 hover:text-white transition-colors p-2"><ChevronLeft size={16}/></button>
-            
             <div className="flex items-center justify-center flex-1 h-full">
-                {/* LÓGICA: Se tem valor e não deu erro, mostra IMAGEM. Senão, mostra TEXTO. */}
                 {value && !imgError ? (
                     <img 
-                        // .toLowerCase() resolve o problema da imagem não aparecer em produção (Linux)
                         src={`/tyres/${value.toString().toLowerCase().trim()}.gif`} 
                         alt={value} 
-                        className="h-10 w-auto object-contain drop-shadow-md transition-all" // Aumentei para h-10 para preencher melhor o espaço
+                        className="h-10 w-auto object-contain drop-shadow-md transition-all"
                         onError={() => setImgError(true)} 
                     />
                 ) : (
@@ -112,7 +107,6 @@ function SupplierCarousel({ options, value, onChange }: { options: string[], val
                     </span>
                 )}
             </div>
-
             <button onClick={handleNext} className="text-slate-500 hover:text-white transition-colors p-2"><ChevronRight size={16}/></button>
         </div>
     )
@@ -205,7 +199,7 @@ export default function StrategyPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('Gerente'); 
 
-  // 1. Auth Check
+  // Auth Check
   useEffect(() => {
     async function checkSession() {
         try {
@@ -218,11 +212,10 @@ export default function StrategyPage() {
     checkSession();
   }, [router]);
 
-  // 2. Load State
+  // Load State
   useEffect(() => {
     async function loadState() {
       if (!userId) return;
-
       try {
         const res = await fetch('/api/python?action=get_state', { headers: { 'user-id': userId } });
         const json = await res.json();
@@ -234,7 +227,6 @@ export default function StrategyPage() {
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           
-          // --- CORREÇÃO DE TEMPERATURA ---
           let dbCalcAvg = 0;
           if (d.weather) {
              updateWeather(d.weather);
@@ -251,7 +243,6 @@ export default function StrategyPage() {
               ...prev, 
               boost_laps: d.race_options?.boost_laps ?? prev.boost_laps,
               personal_stint_voltas: d.race_options?.personal_stint_voltas ?? prev.personal_stint_voltas,
-
               race_options: { 
                   ...prev.race_options, 
                   desgaste_pneu_percent: d.race_options?.desgaste_pneu_percent ?? prev.race_options.desgaste_pneu_percent,
@@ -270,7 +261,7 @@ export default function StrategyPage() {
     loadState();
   }, [userId, updateTrack, updateWeather, updateDriver, updateCar]); 
 
-  // 3. Calculation Logic
+  // Calculation Logic
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
     if (!userId || !currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
     
@@ -303,7 +294,7 @@ export default function StrategyPage() {
     }
   }, [inputs, track, fetchStrategy, isSyncing, userId]);
 
-  // 4. Persistence Logic
+  // Persistence Logic
   const persistStrategyState = useCallback(async () => {
       if (!userId || isSyncing) return;
       try {
@@ -324,7 +315,6 @@ export default function StrategyPage() {
       } catch(e) { console.error("Erro save:", e); }
   }, [userId, isSyncing, track, inputs.race_options, inputs.boost_laps, inputs.personal_stint_voltas]); 
 
-  // Trigger Persistence
   useEffect(() => {
       if (!isSyncing && userId) {
           const timer = setTimeout(() => persistStrategyState(), 2000);
@@ -348,6 +338,35 @@ export default function StrategyPage() {
     if (isNaN(n)) return v;
     return n.toFixed(d).replace('.', ',') + s;
   };
+
+  // --- LÓGICA DE COLUNAS DINÂMICAS (STINTS) ---
+  const visibleStints = useMemo(() => {
+      const totalVoltas = outputs?.race_calculated_data?.voltas 
+          ? Number(String(outputs.race_calculated_data.voltas).replace(',', '.')) 
+          : 999; 
+
+      if (activeTab === 'auto') {
+          // MODO AUTO: Conta stints com valor > 0
+          if (!outputs?.stints_predefined?.voltas) return 1;
+          let count = 0;
+          for (let i = 1; i <= 8; i++) {
+              const val = outputs.stints_predefined.voltas[`stint${i}`];
+              if (val && val !== '-' && Number(val) > 0) count++;
+          }
+          return Math.max(1, count);
+      } else {
+          // MODO MANUAL: Lógica progressiva
+          let count = 1;
+          let currentSum = 0;
+          for (let i = 1; i < 8; i++) {
+              const val = Number(inputs.personal_stint_voltas[`stint${i}`]) || 0;
+              currentSum += val;
+              if (currentSum < totalVoltas && val > 0) count++;
+              else break;
+          }
+          return count;
+      }
+  }, [activeTab, outputs, inputs.personal_stint_voltas]);
 
   if (isSyncing || !userId) return (
     <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-indigo-400 gap-4">
@@ -401,12 +420,12 @@ export default function StrategyPage() {
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise da Performance</h3></div>
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-xs min-w-[350px]"> {/* Ajustei o min-w para caber melhor no mobile sem scroll */}
+                    {/* TABELA LIMPA: SEM COLUNAS FORÇAR E COM SCROLL SUAVE NO MOBILE */}
+                    <table className="w-full text-xs min-w-[350px]">
                         <thead>
                             <tr className="bg-black/20 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-white/5">
                                 <th className="p-4 text-left">Pneu</th>
                                 <th className="p-4 text-center">Paradas</th>
-                                {/* Colunas Forçar removidas daqui */}
                                 <th className="p-4 text-center">Comb.</th>
                                 <th className="p-4 text-center">Desg.</th>
                                 <th className="p-4 text-center">Gap</th>
@@ -416,76 +435,65 @@ export default function StrategyPage() {
                             {["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(c => {
                                 if(inputs.race_options.condicao === "Dry" && c === "Rain") return null;
                                 if(inputs.race_options.condicao === "Wet" && c !== "Rain") return null;
-
                                 const d = outputs?.compound_details_outputs?.[c];
                                 const isBest = d?.total?.toString().toLowerCase() === "best" || d?.total === 0;
-
-                                return (
+                                return ( 
                                     <tr key={c} className={`transition-colors hover:bg-white/[0.02] ${isBest ? 'bg-emerald-500/[0.03]' : ''}`}>
-                                        {/* Coluna Pneu */}
-                                        <td className="p-4 font-black text-white flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] shrink-0 ${c==='Extra Soft'?'bg-rose-500 shadow-rose-500':c==='Soft'?'bg-amber-400 shadow-amber-400':c==='Medium'?'bg-white shadow-white':c==='Hard'?'bg-sky-400 shadow-sky-400':'bg-blue-500 shadow-blue-500'}`}></div>
-                                            {c.replace("Extra Soft", "Ex. Soft")}
-                                        </td>
-
-                                        {/* Coluna Paradas */}
-                                        <td className="p-4 text-center font-black text-slate-400">
-                                            {fmt(d?.req_stops, 0)}
-                                        </td>
-
-                                        {/* REMOVIDO: Inputs de Forçar Pits e CT */}
-
-                                        {/* Coluna Combustível */}
-                                        <td className="p-4 text-center text-indigo-400 font-bold">
-                                            {fmt(d?.fuel_load, 0, 'L')}
-                                        </td>
-
-                                        {/* Coluna Desgaste */}
-                                        <td className="p-4 text-center text-slate-500 font-bold">
-                                            {fmt(d?.tyre_wear, 1, '%')}
-                                        </td>
-
-                                        {/* Coluna Gap/Ideal */}
-                                        <td className="p-4 text-center font-black">
-                                            {isBest ? 
-                                                <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20 text-[9px]">Ideal</span> : 
-                                                <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                )
+                                        <td className="p-4 font-black text-white flex items-center gap-3"><div className={`w-2 h-2 rounded-full shadow-[0_0_8px] shrink-0 ${c==='Extra Soft'?'bg-rose-500 shadow-rose-500':c==='Soft'?'bg-amber-400 shadow-amber-400':c==='Medium'?'bg-white shadow-white':c==='Hard'?'bg-sky-400 shadow-sky-400':'bg-blue-500 shadow-blue-500'}`}></div>{c.replace("Extra Soft", "Ex. Soft")}</td>
+                                        <td className="p-4 text-center font-black text-slate-400">{fmt(d?.req_stops, 0)}</td>
+                                        <td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, 'L')}</td>
+                                        <td className="p-4 text-center text-slate-500 font-bold">{fmt(d?.tyre_wear, 1, '%')}</td>
+                                        <td className="p-4 text-center font-black">{isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20 text-[9px]">Ideal</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}</td>
+                                    </tr> 
+                                ) 
                             })}
                         </tbody>
                     </table>
                 </div>
             </section>
+            
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-3 flex flex-col md:flex-row items-stretch md:items-center gap-2 border-b border-white/5 px-4"><button onClick={() => setActiveTab('auto')} className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}><Sparkles size={14}/> Automático</button><button onClick={() => setActiveTab('manual')} className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}><HardHat size={14}/> Manual</button></div>
+                
                 <div className="overflow-x-auto p-4 custom-scrollbar">
-                    <table className="w-full text-[10px] border-separate border-spacing-y-1 min-w-[700px]">
+                    {/* TABELA DINÂMICA: GERA APENAS COLUNAS NECESSÁRIAS */}
+                    <table className="w-full text-[10px] border-separate border-spacing-y-1">
                         <thead>
                             <tr className="text-slate-600 uppercase font-black text-[8px] tracking-widest">
-                                <th className="text-left p-3 w-32 sticky left-0 bg-[#0F0F13] z-10">Stints</th>
-                                {Array.from({length:8}).map((_,i)=><th key={i} className="p-2 text-center min-w-[50px]">S{i+1}</th>)}
-                                <th className="p-3 text-right bg-white/5 rounded-t-lg">Total</th>
+                                <th className="text-left p-3 w-24 sticky left-0 bg-[#0F0F13] z-10">Stints</th>
+                                {Array.from({length: visibleStints}).map((_, i) => (
+                                    <th key={i} className="p-2 text-center min-w-[50px] animate-fadeIn">S{i+1}</th>
+                                ))}
+                                <th className="p-3 text-right bg-white/5 rounded-t-lg min-w-[60px]">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr className="bg-white/5">
                                 <td className="p-4 font-black text-indigo-400 uppercase sticky left-0 bg-[#16161a] z-10 border-r border-white/5">Voltas</td>
-                                {Array.from({length:8}).map((_,i) => { 
+                                {Array.from({length: visibleStints}).map((_, i) => { 
                                     const st = `stint${i+1}`; 
                                     return ( 
                                         <td key={st} className="p-2 text-center">
                                             {activeTab === 'manual' ? ( 
-                                                <input type="number" value={inputs.personal_stint_voltas[st] ?? ''} onChange={e => handleInput('personal_stint_voltas', st, e.target.value)} className="w-10 bg-black/40 border border-white/10 rounded p-1 text-center font-black text-white focus:border-amber-500 outline-none" /> 
+                                                <input 
+                                                    type="number" 
+                                                    value={inputs.personal_stint_voltas[st] ?? ''} 
+                                                    onChange={e => handleInput('personal_stint_voltas', st, e.target.value)} 
+                                                    autoFocus={i === visibleStints - 1 && i > 0}
+                                                    className="w-12 bg-black/40 border border-white/10 rounded p-2 text-center font-black text-white focus:border-amber-500 outline-none transition-all focus:scale-110" 
+                                                /> 
                                             ) : ( 
-                                                <span className="font-black text-white">{fmt(currentStintData?.voltas?.[st], 0)}</span> 
+                                                <span className="font-black text-white block animate-fadeIn">{fmt(currentStintData?.voltas?.[st], 0)}</span> 
                                             )}
                                         </td> 
                                     ) 
                                 })}
-                                <td className="p-4 text-right font-black text-white bg-indigo-500/20">{fmt(currentStintData?.voltas?.total, 0)}</td>
+                                <td className="p-4 text-right font-black text-white bg-indigo-500/20 rounded-b-lg">
+                                    {activeTab === 'manual' 
+                                        ? Object.values(inputs.personal_stint_voltas).reduce((a:any, b:any) => Number(a||0) + Number(b||0), 0)
+                                        : fmt(currentStintData?.voltas?.total, 0)
+                                    }
+                                </td>
                             </tr>
                             {[ 
                                 {k: 'desg_final_pneu', l: 'Desgaste Final', u: '%', c: 'text-slate-400'}, 
@@ -493,9 +501,9 @@ export default function StrategyPage() {
                                 {k: 'est_tempo_pit', l: 'Tempo Pit', u: 's', c: 'text-slate-500'}, 
                                 {k: 'voltas_em_bad', l: 'Voltas Ruins', u: '', c: 'text-rose-500'} 
                             ].map(row => ( 
-                                <tr key={row.k} className="hover:bg-white/[0.01]">
-                                    <td className="p-4 font-bold text-slate-500 uppercase sticky left-0 bg-[#0F0F13] z-10 border-r border-white/5 shadow-lg">{row.l}</td>
-                                    {Array.from({length:8}).map((_,i) => ( 
+                                <tr key={row.k} className="hover:bg-white/[0.01] transition-colors">
+                                    <td className="p-4 font-bold text-slate-500 uppercase sticky left-0 bg-[#0F0F13] z-10 border-r border-white/5 shadow-lg whitespace-nowrap">{row.l}</td>
+                                    {Array.from({length: visibleStints}).map((_, i) => ( 
                                         <td key={i} className={`p-2 text-center font-bold ${row.c}`}>{fmt(currentStintData?.[row.k]?.[`stint${i+1}`], 1, row.u)}</td> 
                                     ))}
                                     <td className={`p-4 text-right font-black bg-white/5 ${row.k === 'voltas_em_bad' ? 'text-rose-500' : 'text-white'}`}>{fmt(currentStintData?.[row.k]?.total, 1, row.u)}</td>
