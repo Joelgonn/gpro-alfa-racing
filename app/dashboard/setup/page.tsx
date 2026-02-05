@@ -8,31 +8,24 @@ import { useGame } from '../../context/GameContext';
 import {
   Loader2, Settings, ShieldAlert,
   MapPin, ChevronDown, Search, X, ShieldCheck, 
-  CloudSun, Thermometer, Sun, CloudRain // <<< ÍCONES NOVOS IMPORTADOS AQUI
+  CloudSun, Thermometer, Sun, CloudRain, Save, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- MAPEAMENTO DE BANDEIRAS (Mantido igual) ---
+// --- (MAPEAMENTOS MANTIDOS) ---
 const TRACK_FLAGS: { [key: string]: string } = { "A1-Ring": "at", "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar", "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp", "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt", "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa", "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it", "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at", "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl", "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar", "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk", "Valencia": "es", "Vallelunga": "it", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be" };
-
 const COMPONENTS = [ { id: 'chassi', label: 'Chassi' }, { id: 'motor', label: 'Motor' }, { id: 'asaDianteira', label: 'Asa Dianteira' }, { id: 'asaTraseira', label: 'Asa Traseira' }, { id: 'assoalho', label: 'Assoalho' }, { id: 'laterais', label: 'Laterais' }, { id: 'radiador', label: 'Radiador' }, { id: 'cambio', label: 'Câmbio' }, { id: 'freios', label: 'Freios' }, { id: 'suspensao', label: 'Suspensão' }, { id: 'eletronicos', label: 'Eletrônicos' } ];
 
-// --- SELETOR DE PISTA CUSTOMIZADO (Mantido igual) ---
+// --- SELETOR DE PISTA (Mantido) ---
 function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        function handleClickOutside(event: MouseEvent) { if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false); }
+        document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dropdownRef]);
-
     const filteredTracks = useMemo(() => tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
-
     return (
         <div className="relative z-50" ref={dropdownRef}>
             <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-3 text-2xl text-white font-black tracking-tighter hover:text-indigo-400 transition-colors outline-none group">
@@ -41,28 +34,9 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
             </button>
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-full left-0 mt-2 w-80 max-w-xs bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl">
-                        <div className="p-3 border-b border-white/5 bg-white/[0.02]">
-                            <div className="relative">
-                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase" />
-                                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}
-                            </div>
-                        </div>
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">
-                            {filteredTracks.map(track => (
-                                <button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }}
-                                    className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
-                                    <div className="flex items-center gap-3">
-                                        {TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-5 h-3 object-cover rounded-sm shadow-sm" /> : <div className="w-5 h-3 bg-white/10 rounded-sm"></div>}
-                                        {track}
-                                    </div>
-                                    {currentTrack === track && <ShieldCheck size={12} />}
-                                </button>
-                            ))}
-                        </div>
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-80 max-w-xs bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl">
+                        <div className="p-3 border-b border-white/5 bg-white/[0.02]"><div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" /><input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase" />{search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}</div></div>
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">{filteredTracks.map(track => (<button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }} className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><div className="flex items-center gap-3">{TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-5 h-3 object-cover rounded-sm shadow-sm" /> : <div className="w-5 h-3 bg-white/10 rounded-sm"></div>}{track}</div>{currentTrack === track && <ShieldCheck size={12} />}</button>))}</div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -72,15 +46,18 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 
 export default function SetupPage() {
   const router = useRouter(); 
-  const { track, updateTrack, driver, car, weather, updateWeather, desgasteModifier, updateDesgasteModifier, raceAvgTemp, updateDriver, updateCar } = useGame();
+  const { track, updateTrack, driver, updateDriver, car, updateCar, weather, updateWeather, desgasteModifier, updateDesgasteModifier, raceAvgTemp } = useGame();
+  
   const [loading, setLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false); // <<< NOVO: Estado de salvamento
   const [resultado, setResultado] = useState<any>(null);
   const [tracks, setTracks] = useState<string[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [initialHydrationDone, setInitialHydrationDone] = useState(false); 
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('Gerente'); 
 
-  // --- HOOKS DE AUTENTICAÇÃO E DADOS (Lógica mantida) ---
+  // 1. Auth Check
   useEffect(() => {
     async function checkSession() {
       try {
@@ -88,28 +65,13 @@ export default function SetupPage() {
         if (!session) { router.push('/login'); return; }
         setUserId(session.user.id);
         if(session.user.email) setUserEmail(session.user.email);
-      } catch (error) { console.error("Erro na autenticação:", error); router.push('/login'); } 
+      } catch (error) { console.error("Auth error:", error); router.push('/login'); } 
       finally { setIsAuthLoading(false); }
     }
     checkSession();
   }, [router]);
   
-  const handleCalcular = useCallback(async () => { 
-    if (!userId || !track || track === "Selecionar Pista" || isAuthLoading) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/python?action=setup_calculate', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'user-id': userId },
-        body: JSON.stringify({ pista: track, driver, car, tempQ1: weather.tempQ1, tempQ2: weather.tempQ2, weatherQ1: weather.weatherQ1, weatherQ2: weather.weatherQ2, weatherRace: weather.weatherRace, raceAvgTemp, desgasteModifier })
-      });
-      const data = await res.json();
-      if (data.sucesso) setResultado(data.data);
-      else console.error("Erro no cálculo do setup:", data.error);
-    } catch (error) { console.error("Erro de rede ao calcular setup:", error); }
-    finally { setLoading(false); }
-  }, [userId, track, driver, car, weather, raceAvgTemp, desgasteModifier, isAuthLoading]);
-
+  // 2. Hydrate (Load from DB)
   useEffect(() => {
     async function hydrate() {
       if (!userId || isAuthLoading) return;
@@ -120,43 +82,106 @@ export default function SetupPage() {
         ]);
         const dTracks = await resT.json();
         const dState = await resS.json();
+        
         if (dTracks.tracks) setTracks(dTracks.tracks);
         if (dState.sucesso && dState.data) {
           const d = dState.data;
+          // Preenche o contexto com o que veio do banco
           if (d.current_track) updateTrack(d.current_track);
           if (d.weather) updateWeather(d.weather);
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           if (d.desgasteModifier !== undefined) updateDesgasteModifier(Number(d.desgasteModifier));
         }
-      } catch (e) { console.error("Erro na hidratação inicial:", e); }
+      } catch (e) { console.error("Hydrate error:", e); }
+      finally { setInitialHydrationDone(true); } 
     }
     hydrate();
   }, [userId, isAuthLoading, updateTrack, updateWeather, updateDriver, updateCar, updateDesgasteModifier]); 
 
+  // --- 3. AUTO-SAVE LOGIC (NOVO!) ---
+  const persistChanges = useCallback(async () => {
+      if (!initialHydrationDone || !userId) return;
+      setIsSyncing(true);
+      try {
+          // Salva apenas o que é pertinente desta página (Track, Weather, Desgaste)
+          // Mas como a API espera o objeto completo para garantir integridade, mandamos o que temos.
+          // O backend faz o merge.
+          await fetch('/api/python?action=update_state', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'user-id': userId },
+              body: JSON.stringify({ 
+                  track, 
+                  weather, 
+                  desgasteModifier,
+                  // Mandamos driver e car apenas para garantir que o backend não zere se for um replace completo,
+                  // mas a lógica do backend deve tratar isso.
+                  driver,
+                  car
+              })
+          });
+      } catch (e) {
+          console.error("Erro ao salvar:", e);
+      } finally {
+          setIsSyncing(false);
+      }
+  }, [track, weather, desgasteModifier, driver, car, initialHydrationDone, userId]);
+
+  // Gatilho do Auto-Save (Espera 2s após parar de digitar)
   useEffect(() => {
-    if (!isAuthLoading && userId && track && track !== "Selecionar Pista") {
-      const timer = setTimeout(() => { handleCalcular(); }, 1000);
+      if (!initialHydrationDone || !userId) return;
+      const timer = setTimeout(() => { persistChanges(); }, 2000);
+      return () => clearTimeout(timer);
+  }, [track, weather, desgasteModifier, persistChanges, initialHydrationDone, userId]);
+
+  // --- 4. CALCULATION LOGIC ---
+  const handleCalcular = useCallback(async () => { 
+    if (!userId || !track || track === "Selecionar Pista" || !initialHydrationDone) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/python?action=setup_calculate', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'user-id': userId },
+        body: JSON.stringify({ 
+            pista: track, 
+            driver, car, 
+            tempQ1: weather.tempQ1, tempQ2: weather.tempQ2, 
+            weatherQ1: weather.weatherQ1, weatherQ2: weather.weatherQ2, 
+            weatherRace: weather.weatherRace, 
+            raceAvgTemp, desgasteModifier 
+        })
+      });
+      const data = await res.json();
+      if (data.sucesso) setResultado(data.data);
+    } catch (error) { console.error("Calc error:", error); }
+    finally { setLoading(false); }
+  }, [userId, track, driver, car, weather, raceAvgTemp, desgasteModifier, initialHydrationDone]);
+
+  // Gatilho do Cálculo (Espera 0.8s para calcular, é mais rápido que o save)
+  useEffect(() => {
+    if (initialHydrationDone && userId && track && track !== "Selecionar Pista") {
+      const timer = setTimeout(() => { handleCalcular(); }, 800);
       return () => clearTimeout(timer);
     }
-  }, [weather, track, desgasteModifier, handleCalcular, userId, isAuthLoading]);
+  }, [weather, track, desgasteModifier, handleCalcular, initialHydrationDone, userId]);
+
 
   const handleWeatherChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const isText = name.includes('weather');
     updateWeather({ [name]: isText ? value : Number(value) });
   };
-  // --- FIM DOS HOOKS ---
 
   const safeRender = (val: any) => (val === null || val === undefined || typeof val === 'object') ? '-' : val;
   const safeNumber = (val: any) => (typeof val === 'number') ? val : (isNaN(parseFloat(val)) ? 0 : parseFloat(val));
-  
-  if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-[#050507]"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>;
+
+  if (isAuthLoading || !initialHydrationDone) return <div className="flex h-screen items-center justify-center bg-[#050507]"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>;
   if (!userId) return null;
 
   return (
     <div className="p-4 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
-      {/* HEADER BAR (Mantido igual) */}
+      
+      {/* HEADER */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 backdrop-blur-xl">
           <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
@@ -171,8 +196,20 @@ export default function SetupPage() {
               <TrackSelector currentTrack={track} tracksList={tracks} onSelect={updateTrack} />
             </div>
           </div>
-          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-            <div className="text-left md:text-right border-r border-white/10 pr-4 md:mr-2">
+          
+          <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+            {/* STATUS DE SINCRONIZAÇÃO */}
+            <div className="flex flex-col items-end border-r border-white/10 pr-6 mr-2">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Status</span>
+                <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'}`}></div>
+                    <span className={`text-[10px] font-bold ${isSyncing ? 'text-amber-500' : 'text-emerald-400'}`}>
+                        {isSyncing ? 'SALVANDO...' : 'SALVO'}
+                    </span>
+                </div>
+            </div>
+
+            <div className="text-left md:text-right border-r border-white/10 pr-4 md:mr-2 hidden md:block">
               <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">Logado como</span>
               <span className="text-[10px] font-bold text-indigo-300 truncate max-w-[100px] md:max-w-none">{userEmail}</span>
             </div>
@@ -185,7 +222,7 @@ export default function SetupPage() {
       </motion.div>
 
       <main className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
-        {/* COLUNA ESQUERDA: INPUTS (Mantido igual) */}
+        {/* INPUTS DE CLIMA */}
         <div className="xl:col-span-7 space-y-6">
           <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 md:p-8 backdrop-blur-sm">
             <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
@@ -214,7 +251,7 @@ export default function SetupPage() {
           </section>
         </div>
 
-        {/* COLUNA DIREITA: RESULTADOS (Mantido igual) */}
+        {/* RESULTADOS */}
         <div className="xl:col-span-5 space-y-6">
           <AnimatePresence mode='wait'>
             {resultado && (
@@ -287,27 +324,7 @@ export default function SetupPage() {
   );
 }
 
-// --- Componentes Auxiliares ---
-function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) {
-  return <div className="space-y-4"><h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">{title}</h3><div className="space-y-4">{children}</div></div>
-}
-function HUDInput({ value, name, onChange, label }: any) {
-  return <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all"><label className="block text-[8px] font-black text-slate-600 uppercase mb-2 tracking-widest">{label}</label><div className="flex items-center justify-between"><Thermometer size={16} className="text-indigo-400/50" /><input type="number" name={name} value={value || ''} onChange={onChange} className="bg-transparent text-right text-white font-black text-xl outline-none w-full" /><span className="text-sm text-slate-600 font-bold ml-2">°C</span></div></div>
-}
-
-// <<< COMPONENTE ATUALIZADO COM OS NOVOS ÍCONES >>>
-function WeatherSwitch({ name, value, onChange }: any) {
-  const isDry = value === 'Dry';
-  return (
-    <div className="flex bg-black p-1 rounded-lg border border-white/5">
-      <button onClick={() => onChange({ target: { name, value: 'Dry' } })}
-        className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>
-        <Sun size={14} /> Seco
-      </button>
-      <button onClick={() => onChange({ target: { name, value: 'Wet' } })}
-        className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${!isDry ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>
-        <CloudRain size={14} /> Chuva
-      </button>
-    </div>
-  )
-}
+// --- Componentes Auxiliares (Mantidos) ---
+function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) { return <div className="space-y-4"><h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">{title}</h3><div className="space-y-4">{children}</div></div> }
+function HUDInput({ value, name, onChange, label }: any) { return <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all"><label className="block text-[8px] font-black text-slate-600 uppercase mb-2 tracking-widest">{label}</label><div className="flex items-center justify-between"><Thermometer size={16} className="text-indigo-400/50" /><input type="number" name={name} value={value || ''} onChange={onChange} className="bg-transparent text-right text-white font-black text-xl outline-none w-full" /><span className="text-sm text-slate-600 font-bold ml-2">°C</span></div></div> }
+function WeatherSwitch({ name, value, onChange }: any) { const isDry = value === 'Dry'; return (<div className="flex bg-black p-1 rounded-lg border border-white/5"><button onClick={() => onChange({ target: { name, value: 'Dry' } })} className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}><Sun size={14} /> Seco</button><button onClick={() => onChange({ target: { name, value: 'Wet' } })} className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${!isDry ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}><CloudRain size={14} /> Chuva</button></div>) }
