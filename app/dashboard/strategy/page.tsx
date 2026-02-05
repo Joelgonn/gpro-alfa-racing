@@ -478,8 +478,7 @@ export default function StrategyPage() {
                                                 <input 
                                                     type="number" 
                                                     value={inputs.personal_stint_voltas[st] ?? ''} 
-                                                    onChange={e => handleInput('personal_stint_voltas', st, e.target.value)} 
-                                                    autoFocus={i === visibleStints - 1 && i > 0}
+                                                    onChange={e => handleInput('personal_stint_voltas', st, e.target.value)}                                                                                                                                                             
                                                     className="w-12 bg-black/40 border border-white/10 rounded p-2 text-center font-black text-white focus:border-amber-500 outline-none transition-all focus:scale-110" 
                                                 /> 
                                             ) : ( 
