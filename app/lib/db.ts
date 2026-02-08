@@ -23,6 +23,8 @@ export interface UserState {
   race_options: any;
   weather: WeatherData;
   desgasteModifier: number;
+  // NOVO CAMPO: Banco de dados de patrocinadores salvos
+  sponsors_database: any[]; 
 }
 
 // --- VALORES PADRÃO (FALLBACKS) ---
@@ -55,8 +57,7 @@ const DEFAULT_WEATHER: WeatherData = {
 };
 
 /**
- * Busca o estado completo do usuário. 
- * Mapeia os nomes das colunas do banco (snake_case) para o objeto do App.
+ * Busca o estado completo do usuário no Supabase.
  */
 export async function getUserState(userId: string): Promise<UserState> {
     if (!userId) throw new Error("UserID é obrigatório");
@@ -67,7 +68,6 @@ export async function getUserState(userId: string): Promise<UserState> {
         .eq('user_id', userId)
         .single();
 
-    // Se não encontrar (PGRST116) ou erro, retorna o estado inicial padrão
     if (error || !data) {
         return {
             role: 'user',
@@ -80,10 +80,10 @@ export async function getUserState(userId: string): Promise<UserState> {
             race_options: {},
             weather: DEFAULT_WEATHER,
             desgasteModifier: 0,
+            sponsors_database: [] // Inicializa vazio
         };
     }
 
-    // Mapeamento: Colunas do Supabase -> Interface UserState
     return {
         role: data.role || 'user',
         track: data.track || 'Interlagos',
@@ -95,23 +95,23 @@ export async function getUserState(userId: string): Promise<UserState> {
         race_options: data.race_options_json || {},
         weather: data.weather_data || DEFAULT_WEATHER,
         desgasteModifier: data.desgaste_modifier || 0,
+        // Mapeia a coluna do banco para a propriedade do código
+        sponsors_database: data.sponsors_database_json || [],
     };
 }
 
 /**
- * Salva ou atualiza os dados do usuário.
- * Aceita um Partial<UserState>, permitindo atualizar apenas campos específicos.
+ * Salva ou atualiza os dados do usuário no Supabase.
  */
 export async function saveUserState(userId: string, data: Partial<UserState>) {
     if (!userId) throw new Error("UserID é obrigatório para salvar");
 
-    // Construção do payload para o Supabase
-    // Mapeamos as chaves do objeto para as colunas da tabela
     const payload: any = {
         user_id: userId,
         updated_at: new Date().toISOString()
     };
 
+    // Mapeamento manual para colunas do Banco de Dados
     if (data.track !== undefined) payload.track = data.track;
     if (data.driver) payload.driver_json = data.driver;
     if (data.car) payload.car_json = data.car;
@@ -121,6 +121,11 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
     if (data.race_options) payload.race_options_json = data.race_options;
     if (data.weather) payload.weather_data = data.weather;
     if (data.desgasteModifier !== undefined) payload.desgaste_modifier = data.desgasteModifier;
+    
+    // Sincroniza o banco de patrocinadores com a coluna correta no Supabase
+    if (data.sponsors_database) {
+        payload.sponsors_database_json = data.sponsors_database;
+    }
 
     const { error } = await supabase
         .from('user_state')
