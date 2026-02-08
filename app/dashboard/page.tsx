@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- 1. MAPEAMENTO DE BANDEIRAS (MANTIDO) ---
+// --- 1. MAPEAMENTO DE BANDEIRAS ---
 const TRACK_FLAGS: { [key: string]: string } = {
   "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
   "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
@@ -280,9 +280,35 @@ export default function DashboardHome() {
                     </div>
                 </div>
                 
-                {/* BOTÃO DE SEGURANÇA E STATUS */}
+                {/* BOTÕES DE AÇÃO E STATUS */}
                 <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 border-t border-white/5 pt-4 md:pt-0 md:border-t-0">
                      
+                     {/* Botão Salvar (Manual) */}
+                     <button 
+                        onClick={persistState} 
+                        className="group flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                        title="Sincronizar Manualmente"
+                     >
+                         <div className={`p-2 rounded-lg border bg-white/5 border-white/10 group-hover:bg-indigo-500/20 group-hover:border-indigo-500/50 transition-colors ${isSyncing ? 'animate-spin border-amber-500/50 text-amber-500' : 'text-slate-400 group-hover:text-indigo-400'}`}>
+                            <RefreshCw size={18} />
+                         </div>
+                         <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Salvar</span>
+                     </button>
+
+                     {/* Botão Sair */}
+                     <button 
+                        onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} 
+                        className="group flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                        title="Sair"
+                     >
+                         <div className="p-2 rounded-lg border bg-white/5 border-white/10 text-slate-400 group-hover:bg-red-500/20 group-hover:border-red-500/50 group-hover:text-red-400 transition-colors">
+                            <LogOut size={18} />
+                         </div>
+                         <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Sair</span>
+                     </button>
+
+                     <div className="h-8 w-[1px] bg-white/10 mx-2"></div>
+
                      {/* Botão de Trava (Safety Lock) */}
                      <button 
                         onClick={() => setIsEditMode(!isEditMode)}
@@ -308,49 +334,11 @@ export default function DashboardHome() {
             </div>
         </motion.div>
 
-        {/* MAIN GRID */}
-        <div className="flex flex-col xl:grid xl:grid-cols-12 gap-6 relative z-0">
+        {/* MAIN GRID - 3 COLUNAS */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-0">
             
-            {/* COLUNA 1: INFO GERENTE */}
-            <div className="order-3 xl:order-1 xl:col-span-3 space-y-6">
-                <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col h-full backdrop-blur-sm shadow-xl">
-                    <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                        <div className="flex items-center gap-2">
-                            <User size={14} className="text-indigo-400"/>
-                            <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white">Gerente</h3>
-                        </div>
-                        <div className="p-1 px-2 bg-indigo-500/10 rounded border border-indigo-500/20 text-[8px] font-black text-indigo-400 uppercase">Pro</div>
-                    </div>
-                    
-                    <div className="p-6 md:p-8 flex flex-col gap-6">
-                        <div className="flex items-center gap-4 xl:flex-col xl:text-center">
-                            <div className="w-16 h-16 xl:w-24 xl:h-24 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl flex items-center justify-center text-3xl xl:text-4xl shadow-lg border border-white/10 shrink-0">
-                                👨‍🚀
-                            </div>
-                            <div className="space-y-2 w-full">
-                                <DetailRow label="Grupo" value="Elite - 01" color="text-indigo-400" />
-                                <DetailRow label="Rank" value="#1" />
-                                <DetailRow label="Caixa" value="$ 120M" color="text-emerald-400 font-bold" />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 xl:grid-cols-1 gap-3 mt-auto">
-                            <button onClick={persistState} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 px-4 rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-[0.98]">
-                                <RefreshCw size={14} className={`${isSyncing ? "animate-spin" : ""}`} />
-                                <span className="hidden md:inline">Sincronizar</span>
-                                <span className="md:hidden">Salvar</span>
-                            </button>
-                            <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 py-3 px-4 rounded-xl border border-red-500/20 transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-[0.98]">
-                                <LogOut size={14} />
-                                Sair
-                            </button>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            {/* COLUNA 2: DADOS PILOTO */}
-            <div className={`order-1 xl:order-2 xl:col-span-5 border rounded-2xl p-5 md:p-8 backdrop-blur-sm relative overflow-hidden shadow-xl transition-all duration-300 ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
+            {/* COLUNA 1: DADOS PILOTO */}
+            <div className={`border rounded-2xl p-4 md:p-5 backdrop-blur-sm relative overflow-hidden shadow-xl transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
                 {/* Indicador visual de travado */}
                 {!isEditMode && (
                     <div className="absolute top-2 right-2 text-slate-700 opacity-20 pointer-events-none">
@@ -358,11 +346,11 @@ export default function DashboardHome() {
                     </div>
                 )}
 
-                <div className="flex justify-between items-center mb-6 md:mb-8 relative z-10">
+                <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
                     <div className="flex items-center gap-3">
                         {isEditMode ? <Edit3 size={18} className="text-yellow-400 animate-pulse"/> : <Cpu size={18} className="text-slate-600"/>}
                         <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isEditMode ? 'text-yellow-400' : 'text-white'}`}>
-                            {isEditMode ? 'Editando Piloto' : 'Piloto (Leitura)'}
+                            {isEditMode ? 'Editando Piloto' : 'Piloto'}
                         </h3>
                     </div>
                     <div className="flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
@@ -371,34 +359,16 @@ export default function DashboardHome() {
                     </div>
                 </div>
 
-                {/* Energia Bar */}
-                <div className={`mb-8 p-4 rounded-xl border transition-colors ${isEditMode ? 'bg-black/40 border-white/10' : 'bg-black/20 border-white/5 opacity-80'}`}>
-                    <div className="flex justify-between items-end mb-3">
-                        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                            <Zap size={14} className={isEditMode ? "text-amber-500" : "text-slate-600"}/> Energia
-                        </span>
-                        {/* INPUT NUMÉRICO DIRETO */}
-                        <div className="flex items-center gap-2">
-                             <input 
-                                disabled={!isEditMode}
-                                type="number" 
-                                min={0} 
-                                max={100}
-                                value={driver.energia} 
-                                onChange={(e)=>updateDriver('energia', Math.min(100, Math.max(0, Number(e.target.value))))} 
-                                className={`w-16 h-10 bg-black/50 text-center text-sm font-black text-white rounded border focus:outline-none transition-all ${isEditMode ? 'border-yellow-500/50 focus:border-yellow-400' : 'border-white/10 text-slate-500'}`}
-                             />
-                             <span className="text-xs font-bold text-slate-500">%</span>
-                        </div>
-                    </div>
-                    {/* BARRA APENAS VISUAL (SEM SLIDER) */}
-                    <div className="h-4 bg-white/5 rounded-full overflow-hidden flex relative">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${driver.energia}%` }} transition={{ duration: 1 }} className={`h-full bg-gradient-to-r shadow-[0_0_15px_#6366f1] ${isEditMode ? 'from-indigo-600 to-cyan-500' : 'from-slate-700 to-slate-600 grayscale'}`} />
-                    </div>
-                </div>
+                <div className="flex flex-col gap-1">
+                    <TelemetryInput 
+                        label="Energia" 
+                        value={driver.energia} 
+                        max={100} 
+                        onChange={(e:any)=>updateDriver('energia', Number(e.target.value))} 
+                        disabled={!isEditMode}
+                        isEnergy={true}
+                    />
 
-                {/* Inputs de Skill */}
-                <div className="space-y-5 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar relative z-10">
                     {['concentracao', 'talento', 'agressividade', 'experiencia', 'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao'].map((skill) => (
                         <TelemetryInput 
                             key={skill} 
@@ -409,20 +379,24 @@ export default function DashboardHome() {
                             disabled={!isEditMode}
                         />
                     ))}
-                    
-                    <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-white/5">
-                        <TelemetryInput label="Peso" value={driver.peso} max={250} onChange={(e:any)=>updateDriver('peso', Number(e.target.value))} isSmall disabled={!isEditMode} />
-                        <TelemetryInput label="Idade" value={driver.idade} max={99} onChange={(e:any)=>updateDriver('idade', Number(e.target.value))} isSmall disabled={!isEditMode} />
+
+                    <div className="flex items-center gap-3 h-7 mt-0.5">
+                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5">
+                            <span className="text-[9px] font-black uppercase text-slate-500">Peso</span>
+                            <input disabled={!isEditMode} type="number" value={driver.peso} onChange={(e)=>updateDriver('peso', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" />
+                         </div>
+                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5">
+                            <span className="text-[9px] font-black uppercase text-slate-500">Idade</span>
+                            <input disabled={!isEditMode} type="number" value={driver.idade} onChange={(e)=>updateDriver('idade', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" />
+                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* COLUNA 3: CARRO & PERFORMANCE */}
-            <div className="order-2 xl:order-3 xl:col-span-4 space-y-6">
-                
-                {/* CARRO */}
-                <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-xl">
-                    <div className="bg-white/[0.02] p-4 border-b border-white/5 flex justify-between items-center">
+            {/* COLUNA 2: CARRO */}
+            <div className="space-y-6 h-full">
+                <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-xl h-full">
+                    <div className="bg-white/[0.02] p-4 border-b border-white/5 flex justify-between items-center mb-1">
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2">
                             <Car size={14} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/> Carro
                         </h3>
@@ -431,8 +405,8 @@ export default function DashboardHome() {
                             <span className="text-[8px] font-black text-slate-500 w-12 text-center">DSG%</span>
                         </div>
                     </div>
-                    <div className="overflow-y-auto custom-scrollbar p-3 md:p-4 max-h-[400px] md:max-h-none">
-                        <div className="space-y-3 md:space-y-1">
+                    <div className="p-4 pt-1">
+                        <div className="flex flex-col gap-1">
                             {car.map((part, idx) => (
                                 <CarRow key={idx} part={part} 
                                     onLvl={(val: number)=>updateCar(idx, 'lvl', val)}
@@ -443,9 +417,11 @@ export default function DashboardHome() {
                         </div>
                     </div>
                 </section>
+            </div>
 
-                {/* PERFORMANCE TEST */}
-                <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl">
+            {/* COLUNA 3: TELEMETRIA */}
+            <div className="space-y-6 h-full">
+                <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl h-full">
                     <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-4">
                         <Activity size={16} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/>
                         <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Telemetria</h3>
@@ -481,7 +457,7 @@ export default function DashboardHome() {
   );
 }
 
-// --- SUBCOMPONENTES REFATORADOS (SEM SLIDERS) ---
+// --- SUBCOMPONENTES ---
 
 function DetailRow({ label, value, color = "text-slate-300" }: any) {
     return (
@@ -492,34 +468,35 @@ function DetailRow({ label, value, color = "text-slate-300" }: any) {
     )
 }
 
-function TelemetryInput({ label, value, max, onChange, isSmall, disabled }: any) {
+function TelemetryInput({ label, value, max, onChange, isSmall, disabled, isEnergy }: any) {
     const pct = Math.min(100, (value / max) * 100);
     return (
-        <div className={`space-y-2 group ${isSmall ? 'flex-1' : ''} ${disabled ? 'opacity-50' : ''}`}>
-            <div className="flex justify-between items-end">
-                <label className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
-                    {label}
-                </label>
-                <div className="flex items-center gap-2">
-                    {/* INPUT NUMÉRICO GRANDE E CLICÁVEL */}
-                    <input 
-                        disabled={disabled}
-                        type="number" 
-                        min="0" 
-                        max={max}
-                        value={value} 
-                        onChange={onChange}
-                        // Aumentei a altura (h-10) e a fonte para facilitar o toque
-                        className={`w-16 h-10 bg-black/40 text-center text-sm font-black rounded border focus:outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500 focus:bg-white/10'}`}
-                    />
-                    <span className="text-[9px] font-mono text-slate-600 hidden md:inline">/ {max}</span>
-                </div>
-            </div>
+        <div className={`flex items-center justify-between h-7 group ${disabled ? 'opacity-50' : 'hover:bg-white/[0.02]'}`}>
+            {/* Label à esquerda */}
+            <label className={`text-[10px] font-black uppercase tracking-tighter truncate w-24 flex items-center gap-2 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
+                {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}
+                {label}
+            </label>
             
-            {/* BARRA VISUAL (SEM SLIDER DENTRO) */}
-            <div className={`h-3 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>
-                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : 'bg-indigo-500'}`} />
+            {/* Barra no meio */}
+            <div className={`flex-1 mx-3 h-1.5 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>
+                <motion.div 
+                    initial={{ width: 0 }} 
+                    animate={{ width: `${pct}%` }} 
+                    className={`h-full transition-colors ${disabled ? 'bg-slate-700' : (isEnergy ? 'bg-gradient-to-r from-indigo-500 to-cyan-400' : 'bg-indigo-500')}`} 
+                />
             </div>
+
+            {/* Input à direita */}
+            <input 
+                disabled={disabled}
+                type="number" 
+                min="0" 
+                max={max}
+                value={value} 
+                onChange={onChange}
+                className={`w-12 h-6 bg-black/40 text-center text-xs font-black rounded border focus:outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500 focus:bg-white/10'}`}
+            />
         </div>
     )
 }
@@ -535,12 +512,12 @@ function CarRow({ part, onLvl, onWear, disabled }: any) {
         onWear(Math.max(0, Math.min(100, val)));
     };
     return (
-        <div className={`flex items-center justify-between py-3 md:py-2 rounded px-2 transition-colors border-b border-white/5 md:border-0 last:border-0 ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
+        <div className={`flex items-center justify-between h-7 rounded px-2 transition-colors border-b border-white/5 md:border-0 last:border-0 ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter w-24 truncate">{part.name}</span>
             <div className="flex items-center gap-3 md:gap-4">
-                <input disabled={disabled} type="number" value={part.lvl} onChange={handleLvlChange} className={`w-12 h-10 md:h-8 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500'}`} />
+                <input disabled={disabled} type="number" value={part.lvl} onChange={handleLvlChange} className={`w-12 h-6 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500'}`} />
                 <div className="relative">
-                    <input disabled={disabled} type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-10 md:h-8 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : (isCritical ? 'border-rose-500/30 text-rose-500' : 'border-white/10 text-emerald-400 focus:border-yellow-500')}`} />
+                    <input disabled={disabled} type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-6 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : (isCritical ? 'border-rose-500/30 text-rose-500' : 'border-white/10 text-emerald-400 focus:border-yellow-500')}`} />
                     {isCritical && !disabled && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>}
                 </div>
             </div>
