@@ -545,7 +545,9 @@ export async function POST(request: Request, context: any) {
                     ultrapassagem: safeVal(hf.getCellValue({ sheet: tfSid, col: 3, row: 16 })),
                     voltas: safeVal(hf.getCellValue({ sheet: tfSid, col: 3, row: 17 })),
                     pit_io: safeVal(hf.getCellValue({ sheet: tfSid, col: 3, row: 18 })),
-                    tcd_corrida: safeVal(hf.getCellValue({ sheet: tfSid, col: 3, row: 20 })), 
+                    tcd_corrida: safeVal(hf.getCellValue({ sheet: tfSid, col: 3, row: 20 })),
+                    ganho_ctr_total: safeVal(hf.getCellValue({ sheet: tfSid, col: 3, row: 3 })), 
+                    ganho_ctr_volta: safeVal(hf.getCellValue({ sheet: tfSid, col: 3, row: 5 })),  
                 },
                 compound_details_outputs: {}, stints_predefined: {}, stints_personal: {}, boost_laps_outputs: {}, boost_mini_stints_outputs: {}
             };

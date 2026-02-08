@@ -146,20 +146,33 @@ function BoostSection({ inputs, handleInput, outputs, className }: { inputs: Inp
 }
 
 function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Function, className?: string }) {
+    // Adicionamos o CTR à lista de itens
+    const items = [
+        { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
+        { l: "Combustível", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
+        { l: "Desgaste", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
+        { l: "Tempo Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
+        { l: "TCD Total", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <TrendingUp size={14}/> },
+        // NOVO CARD: GANHO CTR
+        { 
+            l: "Ganho CTR", 
+            v: outputs?.race_calculated_data?.ganho_ctr_total, 
+            unit: "s", 
+            i: <Sparkles size={14} className="text-emerald-400"/>,
+            isCtr: true 
+        },
+    ];
+
     return (
-        <div className={`grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 ${className}`}>
-            {[
-                { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
-                { l: "Combustível", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
-                { l: "Desgaste", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
-                { l: "Tempo Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
-                { l: "TCD Total", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <TrendingUp size={14}/> },
-            ].map((item, idx) => (
-                <div key={idx} className={`bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm ${idx === 4 ? 'col-span-2 md:col-span-1' : ''}`}>
-                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+        <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 ${className}`}>
+            {items.map((item, idx) => (
+                <div key={idx} className={`bg-white/[0.02] border ${item.isCtr ? 'border-emerald-500/20' : 'border-white/5'} p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm`}>
+                    <span className={`text-[8px] font-black uppercase tracking-widest mb-2 flex items-center gap-1.5 ${item.isCtr ? 'text-emerald-500' : 'text-slate-600'}`}>
                         {item.i} {item.l}
                     </span>
-                    <span className="text-lg md:text-xl font-black text-white">{fmt(item.v, 2, item.unit)}</span>
+                    <span className={`text-lg md:text-xl font-black ${item.isCtr ? 'text-emerald-400' : 'text-white'}`}>
+                        {item.isCtr && item.v > 0 ? '-' : ''}{fmt(item.v, 3, item.unit)}
+                    </span>
                 </div>
             ))}
         </div>
@@ -417,8 +430,43 @@ export default function StrategyPage() {
             <div className="p-4 md:p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">{["Dry", "Wet"].map(c => (<button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c? (c === 'Dry' ? 'bg-orange-500 text-white shadow-lg' : 'bg-indigo-600 text-white shadow-lg'): 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}</button>))}</div>
                 <div className="grid grid-cols-3 gap-3 md:gap-4">
-                    <div className="bg-black/40 p-3 rounded-lg border border-white/5"><label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp.</label><div className="flex items-center justify-between"><input type="number" value={inputs.race_options.avg_temp ?? ''} onChange={(e) => handleInput('race_options', 'avg_temp', Number(e.target.value))} className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0" /><span className="text-[10px] text-indigo-500 font-bold ml-1">°C</span></div></div>
-                    <ConfigInput label="Risco" value={inputs.race_options.ct_valor} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
+                    {/* Temperatura */}
+                    <div className="bg-black/40 p-3 rounded-lg border border-white/5">
+                        <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp.</label>
+                        <div className="flex items-center justify-between">
+                            <input 
+                                type="number" 
+                                value={inputs.race_options.avg_temp ?? ''} 
+                                onChange={(e) => handleInput('race_options', 'avg_temp', Number(e.target.value))} 
+                                className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0" 
+                            />
+                            <span className="text-[10px] text-indigo-500 font-bold ml-1">°C</span>
+                        </div>
+                    </div>
+
+                    {/* Risco com Feedback CTR Volta */}
+                    <div className="relative group">
+                        <ConfigInput label="Risco" value={inputs.race_options.ct_valor} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
+                        
+                        <AnimatePresence>
+                            {outputs?.race_calculated_data?.ganho_ctr_volta > 0 && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    className="absolute -bottom-5 left-0 w-full"
+                                >
+                                    <span className="text-[9px] font-black text-emerald-500 flex items-center gap-1 px-1">
+                                        <Sparkles size={8} className="animate-pulse" /> 
+                                        -{fmt(outputs.race_calculated_data.ganho_ctr_volta, 3)}s 
+                                        <span className="text-[7px] opacity-60 uppercase tracking-tighter">/ volta</span>
+                                    </span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Pits */}
                     <ConfigInput label="Pits" value={inputs.race_options.pitstops_num} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
                 </div>
                 <div><label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Fornecedor de Pneus</label><SupplierCarousel options={tyreSuppliers} value={inputs.race_options.pneus_fornecedor} onChange={(val: string) => handleInput('race_options', 'pneus_fornecedor', val)} /></div>
