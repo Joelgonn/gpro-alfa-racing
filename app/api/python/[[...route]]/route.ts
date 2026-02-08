@@ -3,7 +3,7 @@ import path from 'path';
 import { HyperFormula } from 'hyperformula';
 import ExcelJS from 'exceljs';
 import { Mutex } from 'async-mutex';
-import { getUserState, saveUserState } from '../../../lib/db';
+import { getUserState, saveUserState } from '@/app/lib/db';
 
 // --- CONFIGURAÇÃO DE COORDENADAS ---
 const CELLS = {
@@ -12,7 +12,7 @@ const CELLS = {
     INPUT_DRIVER_COL: 4, INPUT_DRIVER_START_ROW: 6, 
     INPUT_CAR_LVL_COL: 8, START_ROW_CAR: 6,      
     INPUT_CAR_WEAR_COL: 9, 
-    OUTPUT_COL_WEAR: 10,
+    OUTPUT_COL_WEAR: 10, // Coluna K (Índice 10)
 
     INPUT_TEMP_Q1: 'R7', 
     INPUT_TEMP_Q2: 'R8', 
@@ -296,7 +296,7 @@ export async function POST(request: Request, context: any) {
             return NextResponse.json({ sucesso: true, oa });
         }
 
-        // 3. SETUP CALCULATE
+        // 3. SETUP CALCULATE (MODIFICADO PARA INCLUIR K6:K16)
         if (action.includes('setup_calculate')) {
             const savedState = await getUserState(userId);
             const combinedState = {
@@ -339,11 +339,17 @@ export async function POST(request: Request, context: any) {
                 console.warn(`Aba '${CELLS.INPUT_RISCO_PISTA_LIVRE_SHEET}' não encontrada para injetar desgasteModifier.`);
             }
             
+            // --- CAPTURA DE DESGASTE ---
             const wearResults: any[] = [];
+            // Loop vai da linha 5 (Excel 6) até 15 (Excel 16)
             for (let r = 5; r <= 15; r++) {
+                const startVal = safeVal(hf.getCellValue({ sheet: mainSheetId, col: 9, row: r })); // Coluna J (Início)
+                const finalVal = safeVal(hf.getCellValue({ sheet: mainSheetId, col: 10, row: r })); // Coluna K (Final - K6:K16)
+
                 wearResults.push({
-                    start: safeVal(hf.getCellValue({ sheet: mainSheetId, col: 9, row: r })),
-                    end: safeVal(hf.getCellValue({ sheet: mainSheetId, col: 10, row: r }))
+                    start: startVal,
+                    end: finalVal, // Mantém compatibilidade com frontend antigo
+                    desgasteFinal: finalVal // Adiciona chave explícita para K6:K16
                 });
             }
             

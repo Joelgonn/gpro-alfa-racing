@@ -5,30 +5,21 @@ import { useRouter } from 'next/navigation';
 import { useGame } from '../context/GameContext'; 
 import { supabase } from '../lib/supabase';
 import { 
-  Settings, User, Car, Zap, Activity, Trophy, MapPin, 
-  RefreshCw, Loader2, ChevronDown, ShieldCheck, Gauge, Cpu, Search, X, LogOut,
+  User, Car, Zap, Activity, MapPin, 
+  RefreshCw, Loader2, ChevronDown, ShieldCheck, Cpu, Search, X, LogOut,
   Lock, Unlock, Edit3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- 1. MAPEAMENTO DE BANDEIRAS ---
+// --- MAPEAMENTO DE BANDEIRAS ---
 const TRACK_FLAGS: { [key: string]: string } = {
   "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
   "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
-  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", 
-  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
-  "Grobnik": "hr",
-  "Hockenheim": "de", "Hungaroring": "hu",
-  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in",
-  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
-  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
-  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
-  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
-  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
-  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
-  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
-  "Valencia": "es", "Vallelunga": "it",
-  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
+  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
+  "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis": "us", "Interlagos": "br", 
+  "Istanbul": "tr", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Laguna Seca": "us", "Las Vegas": "us", 
+  "Le Mans": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Monza": "it", "Nurburgring": "de", 
+  "Red Bull Ring": "at", "Silverstone": "gb", "Singapore": "sg", "Spa": "be", "Suzuka": "jp", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
 const MOCK_PERFORMANCE_DATA = {
@@ -46,17 +37,13 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
         }
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [dropdownRef]);
+    }, []);
 
-    const filteredTracks = useMemo(() => {
-        return tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase()));
-    }, [tracksList, search]);
+    const filteredTracks = useMemo(() => tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
 
     return (
         <div className="relative w-full md:w-auto" ref={dropdownRef}>
@@ -69,65 +56,26 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
                 </span>
                 <ChevronDown className={`transition-transform duration-300 text-slate-500 group-hover:text-indigo-400 ${isOpen ? 'rotate-180' : ''}`} size={20} />
             </button>
-
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute top-full left-0 mt-2 w-full md:w-[350px] bg-[#0F0F13] border border-white/20 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl z-[9999]"
-                    >
+                    <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full left-0 mt-2 w-full md:w-[350px] bg-[#0F0F13] border border-white/20 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-xl z-[9999]">
                         <div className="p-3 border-b border-white/10 bg-white/[0.05]">
                             <div className="relative">
                                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input 
-                                    autoFocus
-                                    type="text" 
-                                    placeholder="BUSCAR PISTA..." 
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-3 h-10 text-sm text-white placeholder-slate-500 focus:border-indigo-500/50 outline-none font-bold uppercase"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                                {search && (
-                                    <button onClick={()=>setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-2">
-                                        <X size={14} />
-                                    </button>
-                                )}
+                                <input autoFocus type="text" placeholder="BUSCAR PISTA..." className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-3 h-10 text-sm text-white placeholder-slate-500 focus:border-indigo-500/50 outline-none font-bold uppercase" value={search} onChange={(e) => setSearch(e.target.value)} />
+                                {search && <button onClick={()=>setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-2"><X size={14} /></button>}
                             </div>
                         </div>
-
-                        <div className="max-h-[250px] md:max-h-[350px] overflow-y-auto custom-scrollbar p-2 space-y-1">
-                            {filteredTracks.length > 0 ? (
-                                filteredTracks.map((track) => (
-                                    <button
-                                        key={track}
-                                        onClick={() => {
-                                            onSelect(track);
-                                            setIsOpen(false);
-                                            setSearch("");
-                                        }}
-                                        className={`w-full text-left px-4 py-3 rounded-lg text-xs md:text-sm font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            {TRACK_FLAGS[track] ? (
-                                                <img 
-                                                    src={`/flags/${TRACK_FLAGS[track]}.png`} 
-                                                    alt={track} 
-                                                    className="w-6 h-4 object-cover rounded shadow-sm" 
-                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                />
-                                            ) : <div className="w-6 h-4 bg-white/10 rounded"></div>}
-                                            {track}
-                                        </div>
-                                        {currentTrack === track && <ShieldCheck size={14} />}
-                                    </button>
-                                ))
-                            ) : (
-                                <div className="p-6 text-center text-xs text-slate-500 font-bold uppercase">
-                                    Nenhuma pista encontrada
-                                </div>
-                            )}
+                        <div className="max-h-[250px] overflow-y-auto custom-scrollbar p-2 space-y-1">
+                            {filteredTracks.map((track) => (
+                                <button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }} className={`w-full text-left px-4 py-3 rounded-lg text-xs md:text-sm font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10'}`}>
+                                    <div className="flex items-center gap-4">
+                                        {TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-6 h-4 object-cover rounded shadow-sm" /> : <div className="w-6 h-4 bg-white/10 rounded"></div>}
+                                        {track}
+                                    </div>
+                                    {currentTrack === track && <ShieldCheck size={14} />}
+                                </button>
+                            ))}
                         </div>
                     </motion.div>
                 )}
@@ -143,21 +91,18 @@ export default function DashboardHome() {
   
   const [testPoints, setTestPoints] = useState({ power: 0, handling: 0, accel: 0 });
   const [performanceData, setPerformanceData] = useState(MOCK_PERFORMANCE_DATA);
+  const [calculatedWear, setCalculatedWear] = useState<number[]>([]);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string>('');
-
-  // ESTADO DE EDIÇÃO (Começa falso para segurança)
   const [isEditMode, setIsEditMode] = useState(false);
 
   // 1. Check Session
   useEffect(() => {
     async function checkSession() {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { router.push('/login'); } 
-        else { setUserId(session.user.id); setUserEmail(session.user.email || 'Gerente'); }
+        if (!session) router.push('/login'); else setUserId(session.user.id);
     }
     checkSession();
   }, [router]);
@@ -184,7 +129,7 @@ export default function DashboardHome() {
     hydrate();
   }, [userId, updateTrack, updateDriver, updateCar, updateWeather, updateDesgasteModifier]);
 
-  // 3. Auto-save
+  // 3. Auto-save (Debounced)
   const persistState = useCallback(async () => {
     if (!initialLoaded || !userId) return; 
     setIsSyncing(true);
@@ -206,130 +151,93 @@ export default function DashboardHome() {
     return () => clearTimeout(timer);
   }, [driver, car, testPoints, track, weather, desgasteModifier, persistState, initialLoaded, userId]);
 
-  // 4. Performance Calc
-  const fetchPerformance = useCallback(async () => {
+  // 4. Calculations (Performance + Wear)
+  const fetchCalculations = useCallback(async () => {
     if (!track || track === "Selecionar Pista" || !userId || !initialLoaded) return;
     setIsPerformanceLoading(true);
     try {
-        const res = await fetch('/api/python?action=performance', {
+        // PERFORMANCE
+        const resPerf = await fetch('/api/python?action=performance', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'user-id': userId }, 
-            body: JSON.stringify({ pista: track, driver, car, test_points: testPoints, test_power: testPoints.power, test_handling: testPoints.handling, test_accel: testPoints.accel }) 
+            body: JSON.stringify({ pista: track, driver, car, test_points: testPoints }) 
         });
-        const data = await res.json();
-        if (data.sucesso && data.data) setPerformanceData(data.data);
-    } catch (e) { console.error("Performance calc error:", e); } finally { setIsPerformanceLoading(false); }
-  }, [track, driver, car, testPoints, userId, initialLoaded]);
+        const dataPerf = await resPerf.json();
+        if (dataPerf.sucesso && dataPerf.data) setPerformanceData(dataPerf.data);
+
+        // SETUP & WEAR (K6:K16)
+        const resSetup = await fetch('/api/python?action=setup_calculate', {
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'user-id': userId }, 
+            body: JSON.stringify({ pista: track, driver, car, desgasteModifier }) 
+        });
+        const dataSetup = await resSetup.json();
+        if (dataSetup.sucesso && dataSetup.data) {
+            const wears = [
+                dataSetup.data.chassi.wear.desgasteFinal,
+                dataSetup.data.motor.wear.desgasteFinal,
+                dataSetup.data.asaDianteira.wear.desgasteFinal,
+                dataSetup.data.asaTraseira.wear.desgasteFinal,
+                dataSetup.data.assoalho.wear.desgasteFinal,
+                dataSetup.data.laterais.wear.desgasteFinal,
+                dataSetup.data.radiador.wear.desgasteFinal,
+                dataSetup.data.cambio.wear.desgasteFinal,
+                dataSetup.data.freios.wear.desgasteFinal,
+                dataSetup.data.suspensao.wear.desgasteFinal,
+                dataSetup.data.eletronicos.wear.desgasteFinal,
+            ].map(v => Math.round(Number(v) || 0));
+            setCalculatedWear(wears);
+        }
+    } catch (e) { console.error("Calc error:", e); } 
+    finally { setIsPerformanceLoading(false); }
+  }, [track, driver, car, testPoints, desgasteModifier, userId, initialLoaded]);
 
   useEffect(() => {
     if (track && track !== "Selecionar Pista" && initialLoaded && userId) {
-        const timer = setTimeout(() => fetchPerformance(), 500); 
+        const timer = setTimeout(() => fetchCalculations(), 600); 
         return () => clearTimeout(timer);
     }
-  }, [track, fetchPerformance, initialLoaded, userId]);
+  }, [track, driver, car, testPoints, desgasteModifier, fetchCalculations, initialLoaded, userId]);
 
   if (!initialLoaded) return (
     <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#050507] text-indigo-500 font-mono text-xs gap-4">
         <Loader2 className="animate-spin w-8 h-8" />
-        <span className="animate-pulse tracking-widest">BRIEFING... REUNIÃO TÉCNICA</span>
+        <span className="animate-pulse tracking-widest">SINCRONIZANDO TELEMETRIA...</span>
     </div>
   );
 
   return (
     <div className="min-h-screen pb-32 md:pb-12 bg-[#050507] text-slate-300 font-mono selection:bg-indigo-500/30">
-      
-      {/* BACKGROUND EFFECTS */}
-      <div className="fixed inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-10 pointer-events-none"></div>
+      <div className="fixed inset-0 bg-[url('/grid.svg')] bg-center opacity-10 pointer-events-none"></div>
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 md:space-y-8 relative z-10">
         
         {/* HEADER BAR */}
-        <motion.div 
-            initial={{ opacity: 0, y: -20 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            className="bg-gray-900/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 md:p-1 shadow-2xl sticky top-4 z-50"
-        >
-            <div className="md:bg-black/40 md:rounded-xl md:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                
-                {/* Track Info */}
-                <div className="w-full md:w-auto flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-                    <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className="relative group shrink-0">
-                            <div className="absolute -inset-2 bg-indigo-500/20 blur-xl rounded-full group-hover:bg-indigo-500/40 transition-all hidden md:block"></div>
-                            <div className="w-16 h-10 md:w-20 md:h-12 bg-zinc-900 border border-white/10 rounded flex items-center justify-center overflow-hidden relative z-10 shadow-lg">
-                                {track && TRACK_FLAGS[track] ? (
-                                    <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" />
-                                ) : <span className="text-xl">🏁</span>}
-                            </div>
-                        </div>
-                        <div className="md:hidden flex flex-col">
-                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Circuito Atual</span>
-                             <span className="text-sm font-bold text-white truncate max-w-[150px]">{track}</span>
-                        </div>
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-gray-900/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-2xl sticky top-4 z-50">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-8">
+                    <div className="w-20 h-12 bg-zinc-900 border border-white/10 rounded flex items-center justify-center overflow-hidden shadow-lg">
+                        {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" /> : <span className="text-xl">🏁</span>}
                     </div>
-                    
-                    <div className="w-full md:w-auto">
-                        <h2 className="hidden md:flex text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1 items-center gap-2">
-                            <MapPin size={10} className="text-indigo-400"/> Seleção de Circuito
-                        </h2>
-                        <TrackSelector 
-                            currentTrack={track} 
-                            tracksList={tracksList} 
-                            onSelect={updateTrack} 
-                        />
+                    <div>
+                        <h2 className="text-slate-500 text-[9px] font-black uppercase tracking-widest mb-1 flex items-center gap-2"><MapPin size={10} className="text-indigo-400"/> Circuito Selecionado</h2>
+                        <TrackSelector currentTrack={track} tracksList={tracksList} onSelect={updateTrack} />
                     </div>
                 </div>
                 
-                {/* BOTÕES DE AÇÃO E STATUS */}
-                <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-6 border-t border-white/5 pt-4 md:pt-0 md:border-t-0">
-                     
-                     {/* Botão Salvar (Manual) */}
-                     <button 
-                        onClick={persistState} 
-                        className="group flex flex-col items-center gap-1 active:scale-95 transition-transform"
-                        title="Sincronizar Manualmente"
-                     >
-                         <div className={`p-2 rounded-lg border bg-white/5 border-white/10 group-hover:bg-indigo-500/20 group-hover:border-indigo-500/50 transition-colors ${isSyncing ? 'animate-spin border-amber-500/50 text-amber-500' : 'text-slate-400 group-hover:text-indigo-400'}`}>
-                            <RefreshCw size={18} />
-                         </div>
+                <div className="flex items-center gap-6">
+                    <button onClick={persistState} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform">
+                         <div className={`p-2 rounded-lg border bg-white/5 border-white/10 ${isSyncing ? 'animate-spin border-amber-500 text-amber-500' : 'text-slate-400 group-hover:text-indigo-400'}`}><RefreshCw size={18} /></div>
                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Salvar</span>
-                     </button>
-
-                     {/* Botão Sair */}
-                     <button 
-                        onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} 
-                        className="group flex flex-col items-center gap-1 active:scale-95 transition-transform"
-                        title="Sair"
-                     >
-                         <div className="p-2 rounded-lg border bg-white/5 border-white/10 text-slate-400 group-hover:bg-red-500/20 group-hover:border-red-500/50 group-hover:text-red-400 transition-colors">
-                            <LogOut size={18} />
-                         </div>
+                    </button>
+                    <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="group flex flex-col items-center gap-1 active:scale-95">
+                         <div className="p-2 rounded-lg border bg-white/5 border-white/10 text-slate-400 group-hover:text-red-400 transition-colors"><LogOut size={18} /></div>
                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Sair</span>
-                     </button>
-
-                     <div className="h-8 w-[1px] bg-white/10 mx-2"></div>
-
-                     {/* Botão de Trava (Safety Lock) */}
-                     <button 
-                        onClick={() => setIsEditMode(!isEditMode)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${isEditMode 
-                            ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20' 
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
-                     >
+                    </button>
+                    <button onClick={() => setIsEditMode(!isEditMode)} className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${isEditMode ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400' : 'bg-white/5 border-white/10 text-slate-400'}`}>
                         {isEditMode ? <Unlock size={14} /> : <Lock size={14} />}
-                        <div className="flex flex-col text-left">
-                            <span className="text-[8px] font-black uppercase tracking-widest">Modo Edição</span>
-                            <span className="text-[10px] font-bold">{isEditMode ? 'DESBLOQUEADO' : 'BLOQUEADO'}</span>
-                        </div>
-                     </button>
-
-                     <div className="flex flex-col items-end">
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Rede</span>
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 md:w-1.5 md:h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'}`}></div>
-                            <span className={`text-[10px] font-bold ${isSyncing ? 'text-amber-500' : 'text-emerald-400'}`}>{isSyncing ? 'SYNC...' : 'ONLINE'}</span>
-                        </div>
-                     </div>
+                        <div className="flex flex-col text-left"><span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Modo Edição</span><span className="text-[10px] font-bold">{isEditMode ? 'DESBLOQUEADO' : 'BLOQUEADO'}</span></div>
+                    </button>
                 </div>
             </div>
         </motion.div>
@@ -337,120 +245,49 @@ export default function DashboardHome() {
         {/* MAIN GRID - 3 COLUNAS */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-0">
             
-            {/* COLUNA 1: DADOS PILOTO */}
-            <div className={`border rounded-2xl p-4 md:p-5 backdrop-blur-sm relative overflow-hidden shadow-xl transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
-                {/* Indicador visual de travado */}
-                {!isEditMode && (
-                    <div className="absolute top-2 right-2 text-slate-700 opacity-20 pointer-events-none">
-                        <Lock size={100} />
-                    </div>
-                )}
-
+            {/* COLUNA 1: PILOTO */}
+            <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
+                {!isEditMode && <div className="absolute top-2 right-2 text-slate-700 opacity-20 pointer-events-none"><Lock size={80} /></div>}
                 <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
-                    <div className="flex items-center gap-3">
-                        {isEditMode ? <Edit3 size={18} className="text-yellow-400 animate-pulse"/> : <Cpu size={18} className="text-slate-600"/>}
-                        <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isEditMode ? 'text-yellow-400' : 'text-white'}`}>
-                            {isEditMode ? 'Editando Piloto' : 'Piloto'}
-                        </h3>
-                    </div>
-                    <div className="flex items-center gap-2 bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20">
-                        <span className="text-[8px] font-black text-indigo-300 uppercase mr-1">OA</span>
-                        <div className="text-lg font-black text-white tracking-tighter">{Number(driver.total).toFixed(1)}</div>
-                    </div>
+                    <div className="flex items-center gap-3">{isEditMode ? <Edit3 size={18} className="text-yellow-400 animate-pulse"/> : <Cpu size={18} className="text-slate-600"/>}<h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Piloto</h3></div>
+                    <div className="bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20 text-lg font-black text-white">{Number(driver.total).toFixed(1)}</div>
                 </div>
-
                 <div className="flex flex-col gap-1">
-                    <TelemetryInput 
-                        label="Energia" 
-                        value={driver.energia} 
-                        max={100} 
-                        onChange={(e:any)=>updateDriver('energia', Number(e.target.value))} 
-                        disabled={!isEditMode}
-                        isEnergy={true}
-                    />
-
+                    <TelemetryInput label="Energia" value={driver.energia} max={100} onChange={(e:any)=>updateDriver('energia', Number(e.target.value))} disabled={!isEditMode} isEnergy />
                     {['concentracao', 'talento', 'agressividade', 'experiencia', 'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao'].map((skill) => (
-                        <TelemetryInput 
-                            key={skill} 
-                            label={skill} 
-                            value={(driver as any)[skill]} 
-                            max={skill === 'experiencia' ? 300 : 250} 
-                            onChange={(e:any)=>updateDriver(skill as any, Number(e.target.value))} 
-                            disabled={!isEditMode}
-                        />
+                        <TelemetryInput key={skill} label={skill} value={(driver as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e:any)=>updateDriver(skill as any, Number(e.target.value))} disabled={!isEditMode} />
                     ))}
-
-                    <div className="flex items-center gap-3 h-7 mt-0.5">
-                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5">
-                            <span className="text-[9px] font-black uppercase text-slate-500">Peso</span>
-                            <input disabled={!isEditMode} type="number" value={driver.peso} onChange={(e)=>updateDriver('peso', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" />
-                         </div>
-                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5">
-                            <span className="text-[9px] font-black uppercase text-slate-500">Idade</span>
-                            <input disabled={!isEditMode} type="number" value={driver.idade} onChange={(e)=>updateDriver('idade', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" />
-                         </div>
+                    <div className="flex items-center gap-3 h-7 mt-2 border-t border-white/5 pt-2">
+                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5"><span className="text-[9px] font-black text-slate-500 uppercase">Peso</span><input disabled={!isEditMode} type="number" value={driver.peso} onChange={(e)=>updateDriver('peso', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" /></div>
+                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5"><span className="text-[9px] font-black text-slate-500 uppercase">Idade</span><input disabled={!isEditMode} type="number" value={driver.idade} onChange={(e)=>updateDriver('idade', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" /></div>
                     </div>
                 </div>
             </div>
 
             {/* COLUNA 2: CARRO */}
-            <div className="space-y-6 h-full">
-                <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-xl h-full">
-                    <div className="bg-white/[0.02] p-4 border-b border-white/5 flex justify-between items-center mb-1">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2">
-                            <Car size={14} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/> Carro
-                        </h3>
-                        <div className="flex gap-3 pr-1">
-                            <span className="text-[8px] font-black text-slate-500 w-12 text-center">NVL</span>
-                            <span className="text-[8px] font-black text-slate-500 w-12 text-center">DSG%</span>
-                        </div>
+            <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-xl h-full">
+                <div className="bg-white/[0.02] p-4 border-b border-white/5 flex justify-between items-center mb-1">
+                    <h3 className="text-[10px] font-black uppercase text-white flex items-center gap-2"><Car size={14} className="text-slate-400"/> Carro</h3>
+                    <div className="flex gap-4 pr-1 text-[8px] font-black text-slate-500 uppercase">
+                        <span className="w-10 text-center">NVL</span>
+                        <span className="w-10 text-center">DSG%</span>
+                        <span className="w-10 text-center text-indigo-400">FIM%</span>
                     </div>
-                    <div className="p-4 pt-1">
-                        <div className="flex flex-col gap-1">
-                            {car.map((part, idx) => (
-                                <CarRow key={idx} part={part} 
-                                    onLvl={(val: number)=>updateCar(idx, 'lvl', val)}
-                                    onWear={(val: number)=>updateCar(idx, 'wear', val)}
-                                    disabled={!isEditMode}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                </section>
-            </div>
+                </div>
+                <div className="p-4 pt-1 flex flex-col gap-1">
+                    {car.map((part, idx) => (
+                        <CarRow key={idx} part={part} finalWear={calculatedWear[idx]} onLvl={(val: number)=>updateCar(idx, 'lvl', val)} onWear={(val: number)=>updateCar(idx, 'wear', val)} disabled={!isEditMode} />
+                    ))}
+                </div>
+            </section>
 
             {/* COLUNA 3: TELEMETRIA */}
-            <div className="space-y-6 h-full">
-                <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl h-full">
-                    <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-4">
-                        <Activity size={16} className={isEditMode ? "text-indigo-400" : "text-slate-600"}/>
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Telemetria</h3>
-                    </div>
-                    <div className="space-y-8">
-                        <PerformanceMetric 
-                            label="Power" 
-                            data={performanceData.power} 
-                            test={testPoints.power} 
-                            onTest={(v: number) => setTestPoints(p => ({...p, power: v}))}
-                            disabled={!isEditMode}
-                        />
-                        <PerformanceMetric 
-                            label="Handling" 
-                            data={performanceData.handling} 
-                            test={testPoints.handling} 
-                            onTest={(v: number) => setTestPoints(p => ({...p, handling: v}))}
-                            disabled={!isEditMode}
-                        />
-                        <PerformanceMetric 
-                            label="Accel" 
-                            data={performanceData.accel} 
-                            test={testPoints.accel} 
-                            onTest={(v: number) => setTestPoints(p => ({...p, accel: v}))}
-                            disabled={!isEditMode}
-                        />
-                    </div>
-                </section>
-            </div>
+            <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl h-full space-y-8">
+                <div className="flex items-center gap-3 border-b border-white/5 pb-4"><Activity size={16} className="text-indigo-400"/><h3 className="text-[10px] font-black uppercase text-white tracking-widest">Telemetria de Performance</h3></div>
+                {['power', 'handling', 'accel'].map((key) => (
+                    <PerformanceMetric key={key} label={key} data={(performanceData as any)[key]} test={(testPoints as any)[key]} onTest={(v: number) => setTestPoints(p => ({...p, [key]: v}))} disabled={!isEditMode} />
+                ))}
+            </section>
         </div>
       </div>
     </div>
@@ -459,66 +296,31 @@ export default function DashboardHome() {
 
 // --- SUBCOMPONENTES ---
 
-function DetailRow({ label, value, color = "text-slate-300" }: any) {
-    return (
-        <div className="flex justify-between items-center text-[11px] border-b border-white/5 pb-3 last:border-0">
-            <span className="text-slate-500 font-bold uppercase tracking-wider">{label}</span>
-            <span className={`font-black ${color} text-xs`}>{value}</span>
-        </div>
-    )
-}
-
-function TelemetryInput({ label, value, max, onChange, isSmall, disabled, isEnergy }: any) {
+function TelemetryInput({ label, value, max, onChange, disabled, isEnergy }: any) {
     const pct = Math.min(100, (value / max) * 100);
     return (
-        <div className={`flex items-center justify-between h-7 group ${disabled ? 'opacity-50' : 'hover:bg-white/[0.02]'}`}>
-            {/* Label à esquerda */}
+        <div className={`flex items-center justify-between h-7 group transition-colors ${disabled ? 'opacity-50' : 'hover:bg-white/[0.02]'}`}>
             <label className={`text-[10px] font-black uppercase tracking-tighter truncate w-24 flex items-center gap-2 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
-                {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}
-                {label}
+                {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}{label}
             </label>
-            
-            {/* Barra no meio */}
             <div className={`flex-1 mx-3 h-1.5 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>
-                <motion.div 
-                    initial={{ width: 0 }} 
-                    animate={{ width: `${pct}%` }} 
-                    className={`h-full transition-colors ${disabled ? 'bg-slate-700' : (isEnergy ? 'bg-gradient-to-r from-indigo-500 to-cyan-400' : 'bg-indigo-500')}`} 
-                />
+                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : (isEnergy ? 'bg-gradient-to-r from-indigo-500 to-cyan-400' : 'bg-indigo-500')}`} />
             </div>
-
-            {/* Input à direita */}
-            <input 
-                disabled={disabled}
-                type="number" 
-                min="0" 
-                max={max}
-                value={value} 
-                onChange={onChange}
-                className={`w-12 h-6 bg-black/40 text-center text-xs font-black rounded border focus:outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500 focus:bg-white/10'}`}
-            />
+            <input disabled={disabled} type="number" value={value} onChange={onChange} className="w-12 h-6 bg-black/40 text-center text-xs font-black rounded border border-white/10 text-white outline-none focus:border-yellow-500" />
         </div>
     )
 }
 
-function CarRow({ part, onLvl, onWear, disabled }: any) {
-    const isCritical = part.wear > 85;
-    const handleLvlChange = (e: ChangeEvent<HTMLInputElement>) => {
-        let val = parseInt(e.target.value); if(isNaN(val)) val = 1;
-        onLvl(Math.max(1, Math.min(9, val)));
-    };
-    const handleWearChange = (e: ChangeEvent<HTMLInputElement>) => {
-        let val = parseInt(e.target.value); if(isNaN(val)) val = 0;
-        onWear(Math.max(0, Math.min(100, val)));
-    };
+function CarRow({ part, finalWear, onLvl, onWear, disabled }: any) {
+    const isCritical = part.wear > 85 || (finalWear !== undefined && finalWear > 95);
     return (
-        <div className={`flex items-center justify-between h-7 rounded px-2 transition-colors border-b border-white/5 md:border-0 last:border-0 ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
+        <div className={`flex items-center justify-between h-7 rounded px-2 transition-colors ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter w-24 truncate">{part.name}</span>
-            <div className="flex items-center gap-3 md:gap-4">
-                <input disabled={disabled} type="number" value={part.lvl} onChange={handleLvlChange} className={`w-12 h-6 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-white focus:border-yellow-500'}`} />
-                <div className="relative">
-                    <input disabled={disabled} type="number" value={part.wear} onChange={handleWearChange} className={`w-12 h-6 bg-black/40 border rounded text-center text-xs font-black outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : (isCritical ? 'border-rose-500/30 text-rose-500' : 'border-white/10 text-emerald-400 focus:border-yellow-500')}`} />
-                    {isCritical && !disabled && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>}
+            <div className="flex items-center gap-4">
+                <input disabled={disabled} type="number" value={part.lvl} onChange={(e)=>onLvl(Number(e.target.value))} className="w-10 h-6 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-white" />
+                <input disabled={disabled} type="number" value={part.wear} onChange={(e)=>onWear(Number(e.target.value))} className={`w-10 h-6 bg-black/40 border border-white/10 rounded text-center text-xs font-black ${part.wear > 80 ? 'text-rose-500' : 'text-emerald-400'}`} />
+                <div className={`w-10 h-6 rounded flex items-center justify-center border font-black text-[10px] ${isCritical ? 'bg-rose-500/10 border-rose-500/50 text-rose-500' : 'bg-indigo-500/20 border-indigo-500/50 text-white shadow-[0_0_10px_rgba(99,102,241,0.2)]'}`}>
+                    {finalWear !== undefined ? finalWear : '--'}
                 </div>
             </div>
         </div>
@@ -526,35 +328,28 @@ function CarRow({ part, onLvl, onWear, disabled }: any) {
 }
 
 function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
-    const diff = data.carro - data.pista;
+    const diff = (data?.carro || 0) - (data?.pista || 0);
     const isOk = diff >= 0;
-    const barPart = Math.min(100, (data.part / 200) * 100);
-    const barTest = Math.min(100 - barPart, (test / 200) * 100);
-    const reqPos = Math.min(100, (data.pista / 200) * 100);
+    const pctPista = Math.min(100, ((data?.pista || 0) / 200) * 100);
+    const pctPeça = Math.min(100, ((data?.part || 0) / 200) * 100);
+    const pctTeste = Math.min(100 - pctPeça, (test / 200) * 100);
 
     return (
         <div className={`space-y-3 ${disabled ? 'opacity-60' : ''}`}>
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-16">{label}</span>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded ${isOk ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}`}>
-                        {diff > 0 ? `+${diff}` : diff}
-                    </span>
-                </div>
+            <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                <span className="text-slate-500">{label} <span className={isOk ? 'text-emerald-400 ml-2' : 'text-rose-400 ml-2'}>{diff > 0 ? `+${diff}` : diff}</span></span>
                 <div className="flex items-center gap-2">
-                    <div className="hidden md:block text-center"><p className="text-[6px] text-slate-600 font-black uppercase">Peça</p><p className="text-[10px] font-black text-slate-400">{data.part}</p></div>
                     <div className="text-center flex flex-col items-center">
-                        <p className="text-[6px] text-indigo-400/80 font-black uppercase mb-0.5">Teste</p>
-                        <input disabled={disabled} type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className={`w-14 h-9 bg-black/40 border rounded text-center text-xs font-black outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${disabled ? 'border-white/5 text-slate-600' : 'border-white/10 text-indigo-400 focus:border-yellow-500'}`} />
+                        <p className="text-[6px] text-slate-600 mb-0.5">TESTE</p>
+                        <input disabled={disabled} type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-14 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-indigo-400 focus:border-yellow-500 outline-none" />
                     </div>
-                    <div className="text-center bg-white/5 px-2 py-1 rounded min-w-[30px] hidden md:block"><p className="text-[6px] text-slate-500 font-black uppercase">Req</p><p className="text-[10px] font-black text-white">{data.pista}</p></div>
+                    <div className="text-center bg-white/5 px-2 py-1 rounded min-w-[30px] ml-2"><p className="text-[6px] text-slate-500 mb-0.5">REQ</p><p className="text-[10px] text-white">{data?.pista || 0}</p></div>
                 </div>
             </div>
-            {/* Barra Visual */}
             <div className="h-3 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
-                <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${barPart}%` }} />
-                <div className={`h-full absolute top-0 ${isOk ? (disabled ? 'bg-indigo-900' : 'bg-indigo-500 shadow-[0_0_10px_#6366f1]') : (disabled ? 'bg-amber-900' : 'bg-amber-500 shadow-[0_0_10px_#f59e0b]')}`} style={{ left: `${barPart}%`, width: `${barTest}%` }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-1 h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full transition-all duration-500" style={{ left: `${reqPos}%` }} />
+                <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${pctPeça}%` }} />
+                <div className="h-full absolute top-0 bg-indigo-500 shadow-[0_0_10px_#6366f1]" style={{ left: `${pctPeça}%`, width: `${pctTeste}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-1 h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full transition-all duration-500" style={{ left: `${pctPista}%` }} />
             </div>
         </div>
     );
