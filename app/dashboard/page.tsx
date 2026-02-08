@@ -7,19 +7,28 @@ import { supabase } from '../lib/supabase';
 import { 
   User, Car, Zap, Activity, MapPin, 
   RefreshCw, Loader2, ChevronDown, ShieldCheck, Cpu, Search, X, LogOut,
-  Lock, Unlock, Edit3
+  Lock, Unlock, Edit3, Briefcase, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- MAPEAMENTO DE BANDEIRAS ---
+// --- 1. MAPEAMENTO DE BANDEIRAS (MANTIDO) ---
 const TRACK_FLAGS: { [key: string]: string } = {
   "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
   "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
-  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
-  "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis": "us", "Interlagos": "br", 
-  "Istanbul": "tr", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Laguna Seca": "us", "Las Vegas": "us", 
-  "Le Mans": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Monza": "it", "Nurburgring": "de", 
-  "Red Bull Ring": "at", "Silverstone": "gb", "Singapore": "sg", "Spa": "be", "Suzuka": "jp", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
+  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", 
+  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
+  "Grobnik": "hr",
+  "Hockenheim": "de", "Hungaroring": "hu",
+  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in",
+  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
+  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
+  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
+  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
+  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
+  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
+  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
+  "Valencia": "es", "Vallelunga": "it",
+  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
 const MOCK_PERFORMANCE_DATA = {
@@ -87,7 +96,18 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 // --- MAIN DASHBOARD COMPONENT ---
 export default function DashboardHome() {
   const router = useRouter();
-  const { driver, car, track, updateDriver, updateCar, updateTrack, weather, updateWeather, desgasteModifier, updateDesgasteModifier, tracksList } = useGame();
+  
+  // USANDO O CONTEXTO GLOBAL PARA TUDO (Inclusive Tech Director e Facilities)
+  const { 
+      driver, updateDriver, 
+      car, updateCar, 
+      track, updateTrack, 
+      weather, updateWeather, 
+      desgasteModifier, updateDesgasteModifier, 
+      tracksList,
+      techDirector, updateTechDirector,      // Contexto Global
+      staffFacilities, updateStaffFacilities // Contexto Global
+  } = useGame();
   
   const [testPoints, setTestPoints] = useState({ power: 0, handling: 0, accel: 0 });
   const [performanceData, setPerformanceData] = useState(MOCK_PERFORMANCE_DATA);
@@ -107,7 +127,7 @@ export default function DashboardHome() {
     checkSession();
   }, [router]);
 
-  // 2. Hydrate State
+  // 2. Hydrate State (Carrega do Banco e atualiza o Contexto)
   useEffect(() => {
     const hydrate = async () => {
         if (!userId) return;
@@ -120,6 +140,11 @@ export default function DashboardHome() {
                 if (d.driver) Object.entries(d.driver).forEach(([key, val]) => updateDriver(key as any, Number(val)));
                 if (d.car) d.car.forEach((part: any, idx: number) => { updateCar(idx, 'lvl', part.lvl); updateCar(idx, 'wear', part.wear); });
                 if (d.test_points) setTestPoints(d.test_points);
+                
+                // ATUALIZA O CONTEXTO COM DADOS DO BANCO
+                if (d.tech_director) updateTechDirector(d.tech_director);
+                if (d.staff_facilities) updateStaffFacilities(d.staff_facilities);
+                
                 if (d.weather) updateWeather(d.weather);
                 if (d.desgasteModifier !== undefined) updateDesgasteModifier(Number(d.desgasteModifier));
             }
@@ -127,9 +152,9 @@ export default function DashboardHome() {
         finally { setInitialLoaded(true); }
     }
     hydrate();
-  }, [userId, updateTrack, updateDriver, updateCar, updateWeather, updateDesgasteModifier]);
+  }, [userId, updateTrack, updateDriver, updateCar, updateWeather, updateDesgasteModifier, updateTechDirector, updateStaffFacilities]);
 
-  // 3. Auto-save (Debounced)
+  // 3. Auto-save (Debounced) - Lê do Contexto
   const persistState = useCallback(async () => {
     if (!initialLoaded || !userId) return; 
     setIsSyncing(true);
@@ -137,19 +162,25 @@ export default function DashboardHome() {
         const res = await fetch('/api/python?action=update_state', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'user-id': userId },
-            body: JSON.stringify({ track, driver, car, test_points: testPoints, weather, desgasteModifier })
+            body: JSON.stringify({ 
+                track, driver, car, 
+                test_points: testPoints, 
+                tech_director: techDirector, // Lê do Contexto
+                staff_facilities: staffFacilities, // Lê do Contexto
+                weather, desgasteModifier 
+            })
         });
         const data = await res.json();
         if (data.sucesso && data.oa !== undefined) updateDriver('total', Number(data.oa));
     } catch (e) { console.error("Persist error:", e); }
     finally { setIsSyncing(false); }
-  }, [driver, car, testPoints, track, weather, desgasteModifier, initialLoaded, userId, updateDriver]);
+  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, initialLoaded, userId, updateDriver]);
 
   useEffect(() => {
     if (!initialLoaded || !userId) return;
     const timer = setTimeout(() => persistState(), 2000);
     return () => clearTimeout(timer);
-  }, [driver, car, testPoints, track, weather, desgasteModifier, persistState, initialLoaded, userId]);
+  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, persistState, initialLoaded, userId]);
 
   // 4. Calculations (Performance + Wear)
   const fetchCalculations = useCallback(async () => {
@@ -160,16 +191,30 @@ export default function DashboardHome() {
         const resPerf = await fetch('/api/python?action=performance', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'user-id': userId }, 
-            body: JSON.stringify({ pista: track, driver, car, test_points: testPoints }) 
+            body: JSON.stringify({ 
+                pista: track, 
+                driver, 
+                car, 
+                test_points: testPoints,
+                tech_director: techDirector,     // Envia para calculo
+                staff_facilities: staffFacilities // Envia para calculo
+            }) 
         });
         const dataPerf = await resPerf.json();
         if (dataPerf.sucesso && dataPerf.data) setPerformanceData(dataPerf.data);
 
-        // SETUP & WEAR (K6:K16)
+        // SETUP & WEAR
         const resSetup = await fetch('/api/python?action=setup_calculate', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'user-id': userId }, 
-            body: JSON.stringify({ pista: track, driver, car, desgasteModifier }) 
+            body: JSON.stringify({ 
+                pista: track, 
+                driver, 
+                car, 
+                desgasteModifier,
+                tech_director: techDirector, // Envia para calculo
+                staff_facilities: staffFacilities // Envia para calculo
+            }) 
         });
         const dataSetup = await resSetup.json();
         if (dataSetup.sucesso && dataSetup.data) {
@@ -190,7 +235,7 @@ export default function DashboardHome() {
         }
     } catch (e) { console.error("Calc error:", e); } 
     finally { setIsPerformanceLoading(false); }
-  }, [track, driver, car, testPoints, desgasteModifier, userId, initialLoaded]);
+  }, [track, driver, car, testPoints, desgasteModifier, techDirector, staffFacilities, userId, initialLoaded]);
 
   useEffect(() => {
     if (track && track !== "Selecionar Pista" && initialLoaded && userId) {
@@ -289,6 +334,43 @@ export default function DashboardHome() {
                 ))}
             </section>
         </div>
+
+        {/* SECOND ROW: TECH & FACILITIES - USANDO CONTEXTO */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-0">
+            
+            {/* DIRETOR TÉCNICO */}
+            <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
+                 <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
+                    <div className="flex items-center gap-3">
+                        <Briefcase size={18} className={isEditMode ? "text-yellow-400" : "text-slate-600"}/>
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Diretor Técnico</h3>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                    <TelemetryInput label="R&D Mecânico" value={techDirector.rdMecanico} max={200} onChange={(e:any)=>updateTechDirector({ rdMecanico: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="R&D Eletrônico" value={techDirector.rdEletronico} max={200} onChange={(e:any)=>updateTechDirector({ rdEletronico: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="R&D Aerodinâmico" value={techDirector.rdAerodinamico} max={200} onChange={(e:any)=>updateTechDirector({ rdAerodinamico: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="Experiência" value={techDirector.experiencia} max={200} onChange={(e:any)=>updateTechDirector({ experiencia: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="Cord. de Pit" value={techDirector.pitCoord} max={200} onChange={(e:any)=>updateTechDirector({ pitCoord: Number(e.target.value) })} disabled={!isEditMode} />
+                </div>
+            </div>
+
+            {/* PESSOAL E INSTALAÇÕES */}
+            <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
+                 <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
+                    <div className="flex items-center gap-3">
+                        <Users size={18} className={isEditMode ? "text-yellow-400" : "text-slate-600"}/>
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Pessoal e Instalações</h3>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-1 mt-2">
+                     <TelemetryInput label="Tolerância a Pressão" value={staffFacilities.toleranciaPressao} max={200} onChange={(e:any)=>updateStaffFacilities({ toleranciaPressao: Number(e.target.value) })} disabled={!isEditMode} />
+                     <TelemetryInput label="Concentração" value={staffFacilities.concentracao} max={200} onChange={(e:any)=>updateStaffFacilities({ concentracao: Number(e.target.value) })} disabled={!isEditMode} />
+                </div>
+            </div>
+
+        </div>
+
       </div>
     </div>
   );
@@ -300,7 +382,7 @@ function TelemetryInput({ label, value, max, onChange, disabled, isEnergy }: any
     const pct = Math.min(100, (value / max) * 100);
     return (
         <div className={`flex items-center justify-between h-7 group transition-colors ${disabled ? 'opacity-50' : 'hover:bg-white/[0.02]'}`}>
-            <label className={`text-[10px] font-black uppercase tracking-tighter truncate w-24 flex items-center gap-2 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
+            <label className={`text-[10px] font-black uppercase tracking-tighter truncate w-32 flex items-center gap-2 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
                 {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}{label}
             </label>
             <div className={`flex-1 mx-3 h-1.5 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>

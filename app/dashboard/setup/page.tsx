@@ -1,3 +1,4 @@
+// --- START OF FILE app/setup/SetupPage.tsx ---
 'use client';
 
 import { useState, useEffect, ChangeEvent, useCallback, useRef, useMemo } from 'react';
@@ -8,13 +9,26 @@ import { useGame } from '../../context/GameContext';
 import {
   Loader2, Settings, ShieldAlert,
   MapPin, ChevronDown, Search, X, ShieldCheck, 
-  CloudSun, Thermometer, Sun, CloudRain, Save, RefreshCw
+  CloudSun, Thermometer, Sun, CloudRain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- (MAPEAMENTOS MANTIDOS) ---
 const TRACK_FLAGS: { [key: string]: string } = { "A1-Ring": "at", "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar", "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp", "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt", "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa", "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it", "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at", "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl", "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar", "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk", "Valencia": "es", "Vallelunga": "it", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be" };
-const COMPONENTS = [ { id: 'chassi', label: 'Chassi' }, { id: 'motor', label: 'Motor' }, { id: 'asaDianteira', label: 'Asa Dianteira' }, { id: 'asaTraseira', label: 'Asa Traseira' }, { id: 'assoalho', label: 'Assoalho' }, { id: 'laterais', label: 'Laterais' }, { id: 'radiador', label: 'Radiador' }, { id: 'cambio', label: 'Câmbio' }, { id: 'freios', label: 'Freios' }, { id: 'suspensao', label: 'Suspensão' }, { id: 'eletronicos', label: 'Eletrônicos' } ];
+
+const COMPONENTS = [ 
+    { id: 'chassi', label: 'Chassi' }, 
+    { id: 'motor', label: 'Motor' }, 
+    { id: 'asaDianteira', label: 'Asa Dianteira' }, 
+    { id: 'asaTraseira', label: 'Asa Traseira' }, 
+    { id: 'assoalho', label: 'Assoalho' }, 
+    { id: 'laterais', label: 'Laterais' }, 
+    { id: 'radiador', label: 'Radiador' }, 
+    { id: 'cambio', label: 'Câmbio' }, 
+    { id: 'freios', label: 'Freios' }, 
+    { id: 'suspensao', label: 'Suspensão' }, 
+    { id: 'eletronicos', label: 'Eletrônicos' } 
+];
 
 // --- SELETOR DE PISTA (Mantido) ---
 function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
@@ -46,10 +60,21 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 
 export default function SetupPage() {
   const router = useRouter(); 
-  const { track, updateTrack, driver, updateDriver, car, updateCar, weather, updateWeather, desgasteModifier, updateDesgasteModifier, raceAvgTemp } = useGame();
+  
+  // Extraímos techDirector e staffFacilities do Contexto
+  const { 
+      track, updateTrack, 
+      driver, updateDriver, 
+      car, updateCar, 
+      weather, updateWeather, 
+      desgasteModifier, updateDesgasteModifier, 
+      raceAvgTemp,
+      techDirector, updateTechDirector,      // NOVOS
+      staffFacilities, updateStaffFacilities // NOVOS
+  } = useGame();
   
   const [loading, setLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false); // <<< NOVO: Estado de salvamento
+  const [isSyncing, setIsSyncing] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [tracks, setTracks] = useState<string[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -91,22 +116,24 @@ export default function SetupPage() {
           if (d.weather) updateWeather(d.weather);
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
+          
+          // Hidratação dos novos campos
+          if (d.tech_director) updateTechDirector(d.tech_director);
+          if (d.staff_facilities) updateStaffFacilities(d.staff_facilities);
+
           if (d.desgasteModifier !== undefined) updateDesgasteModifier(Number(d.desgasteModifier));
         }
       } catch (e) { console.error("Hydrate error:", e); }
       finally { setInitialHydrationDone(true); } 
     }
     hydrate();
-  }, [userId, isAuthLoading, updateTrack, updateWeather, updateDriver, updateCar, updateDesgasteModifier]); 
+  }, [userId, isAuthLoading, updateTrack, updateWeather, updateDriver, updateCar, updateTechDirector, updateStaffFacilities, updateDesgasteModifier]); 
 
-  // --- 3. AUTO-SAVE LOGIC (NOVO!) ---
+  // --- 3. AUTO-SAVE LOGIC (ATUALIZADO COM NOVOS CAMPOS) ---
   const persistChanges = useCallback(async () => {
       if (!initialHydrationDone || !userId) return;
       setIsSyncing(true);
       try {
-          // Salva apenas o que é pertinente desta página (Track, Weather, Desgaste)
-          // Mas como a API espera o objeto completo para garantir integridade, mandamos o que temos.
-          // O backend faz o merge.
           await fetch('/api/python?action=update_state', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'user-id': userId },
@@ -114,10 +141,10 @@ export default function SetupPage() {
                   track, 
                   weather, 
                   desgasteModifier,
-                  // Mandamos driver e car apenas para garantir que o backend não zere se for um replace completo,
-                  // mas a lógica do backend deve tratar isso.
                   driver,
-                  car
+                  car,
+                  tech_director: techDirector,     // Adicionado
+                  staff_facilities: staffFacilities // Adicionado
               })
           });
       } catch (e) {
@@ -125,16 +152,16 @@ export default function SetupPage() {
       } finally {
           setIsSyncing(false);
       }
-  }, [track, weather, desgasteModifier, driver, car, initialHydrationDone, userId]);
+  }, [track, weather, desgasteModifier, driver, car, techDirector, staffFacilities, initialHydrationDone, userId]);
 
-  // Gatilho do Auto-Save (Espera 2s após parar de digitar)
+  // Gatilho do Auto-Save
   useEffect(() => {
       if (!initialHydrationDone || !userId) return;
       const timer = setTimeout(() => { persistChanges(); }, 2000);
       return () => clearTimeout(timer);
-  }, [track, weather, desgasteModifier, persistChanges, initialHydrationDone, userId]);
+  }, [track, weather, desgasteModifier, techDirector, staffFacilities, persistChanges, initialHydrationDone, userId]);
 
-  // --- 4. CALCULATION LOGIC ---
+  // --- 4. CALCULATION LOGIC (ATUALIZADO COM NOVOS CAMPOS) ---
   const handleCalcular = useCallback(async () => { 
     if (!userId || !track || track === "Selecionar Pista" || !initialHydrationDone) return;
     setLoading(true);
@@ -145,6 +172,8 @@ export default function SetupPage() {
         body: JSON.stringify({ 
             pista: track, 
             driver, car, 
+            tech_director: techDirector,       // Passando ao cálculo
+            staff_facilities: staffFacilities, // Passando ao cálculo
             tempQ1: weather.tempQ1, tempQ2: weather.tempQ2, 
             weatherQ1: weather.weatherQ1, weatherQ2: weather.weatherQ2, 
             weatherRace: weather.weatherRace, 
@@ -155,16 +184,15 @@ export default function SetupPage() {
       if (data.sucesso) setResultado(data.data);
     } catch (error) { console.error("Calc error:", error); }
     finally { setLoading(false); }
-  }, [userId, track, driver, car, weather, raceAvgTemp, desgasteModifier, initialHydrationDone]);
+  }, [userId, track, driver, car, techDirector, staffFacilities, weather, raceAvgTemp, desgasteModifier, initialHydrationDone]);
 
-  // Gatilho do Cálculo (Espera 0.8s para calcular, é mais rápido que o save)
+  // Gatilho do Cálculo
   useEffect(() => {
     if (initialHydrationDone && userId && track && track !== "Selecionar Pista") {
       const timer = setTimeout(() => { handleCalcular(); }, 800);
       return () => clearTimeout(timer);
     }
-  }, [weather, track, desgasteModifier, handleCalcular, initialHydrationDone, userId]);
-
+  }, [weather, track, desgasteModifier, techDirector, staffFacilities, handleCalcular, initialHydrationDone, userId]);
 
   const handleWeatherChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -331,7 +359,6 @@ function WeatherSwitch({ name, value, onChange }: any) {
     const isDry = value === 'Dry'; 
     return (
         <div className="flex bg-black p-1 rounded-lg border border-white/5">
-            {/* Botão Seco - Agora Laranja */}
             <button 
                 onClick={() => onChange({ target: { name, value: 'Dry' } })} 
                 className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${
@@ -341,7 +368,6 @@ function WeatherSwitch({ name, value, onChange }: any) {
                 <Sun size={14} /> Seco
             </button>
 
-            {/* Botão Chuva - Agora Indigo (Roxo/Azul) para combinar com a outra página */}
             <button 
                 onClick={() => onChange({ target: { name, value: 'Wet' } })} 
                 className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${

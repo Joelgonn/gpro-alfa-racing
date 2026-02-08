@@ -1,3 +1,4 @@
+// --- START OF FILE app/strategy/StrategyPage.tsx ---
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -179,9 +180,13 @@ function RainOverlay() {
 // --- PÁGINA PRINCIPAL ---
 export default function StrategyPage() {
   const router = useRouter(); 
+  
+  // Extraímos os novos campos do contexto
   const {
     track, updateTrack, tracksList, tyreSuppliers,
-    updateWeather, driver, updateDriver, car, updateCar
+    updateWeather, driver, updateDriver, car, updateCar,
+    techDirector, updateTechDirector,      // NOVOS
+    staffFacilities, updateStaffFacilities // NOVOS
   } = useGame();
 
   const [inputs, setInputs] = useState<InputsState>({
@@ -227,6 +232,10 @@ export default function StrategyPage() {
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           
+          // Hidratação dos novos campos
+          if (d.tech_director) updateTechDirector(d.tech_director);
+          if (d.staff_facilities) updateStaffFacilities(d.staff_facilities);
+          
           let dbCalcAvg = 0;
           if (d.weather) {
              updateWeather(d.weather);
@@ -259,9 +268,9 @@ export default function StrategyPage() {
       finally { setIsSyncing(false); }
     }
     loadState();
-  }, [userId, updateTrack, updateWeather, updateDriver, updateCar]); 
+  }, [userId, updateTrack, updateWeather, updateDriver, updateCar, updateTechDirector, updateStaffFacilities]); 
 
-  // Calculation Logic
+  // Calculation Logic (ATUALIZADO COM NOVOS CAMPOS)
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
     if (!userId || !currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
     
@@ -274,6 +283,8 @@ export default function StrategyPage() {
               pista: currentTrack, 
               driver: driver, 
               car: car, 
+              tech_director: techDirector,       // Passando ao cálculo
+              staff_facilities: staffFacilities, // Passando ao cálculo
               race_options: currInputs.race_options, 
               compound_options: currInputs.compound_options, 
               boost_laps: currInputs.boost_laps, 
@@ -284,7 +295,7 @@ export default function StrategyPage() {
       if (data.sucesso) setOutputs(data.data);
     } catch (e) { console.error("Erro calc:", e); }
     finally { setLoading(false); }
-  }, [userId, isSyncing, driver, car]);
+  }, [userId, isSyncing, driver, car, techDirector, staffFacilities]);
 
   // Trigger Calculation
   useEffect(() => {
@@ -294,7 +305,7 @@ export default function StrategyPage() {
     }
   }, [inputs, track, fetchStrategy, isSyncing, userId]);
 
-  // Persistence Logic
+  // Persistence Logic (ATUALIZADO COM NOVOS CAMPOS)
   const persistStrategyState = useCallback(async () => {
       if (!userId || isSyncing) return;
       try {
@@ -309,18 +320,20 @@ export default function StrategyPage() {
               headers: { 'Content-Type': 'application/json', 'user-id': userId },
               body: JSON.stringify({
                   track: track, 
-                  race_options: raceOptionsWithExtras, 
+                  race_options: raceOptionsWithExtras,
+                  tech_director: techDirector,     // Adicionado
+                  staff_facilities: staffFacilities // Adicionado 
               })
           });
       } catch(e) { console.error("Erro save:", e); }
-  }, [userId, isSyncing, track, inputs.race_options, inputs.boost_laps, inputs.personal_stint_voltas]); 
+  }, [userId, isSyncing, track, inputs.race_options, inputs.boost_laps, inputs.personal_stint_voltas, techDirector, staffFacilities]); 
 
   useEffect(() => {
       if (!isSyncing && userId) {
           const timer = setTimeout(() => persistStrategyState(), 2000);
           return () => clearTimeout(timer);
       }
-  }, [inputs.race_options, inputs.boost_laps, inputs.personal_stint_voltas, track, persistStrategyState, isSyncing, userId]);
+  }, [inputs.race_options, inputs.boost_laps, inputs.personal_stint_voltas, track, techDirector, staffFacilities, persistStrategyState, isSyncing, userId]);
 
   const handleInput = (section: keyof InputsState, field: string, value: any, subKey?: string) => {
     setInputs(prev => {
@@ -431,7 +444,7 @@ export default function StrategyPage() {
                                 <th className="p-4 text-center">Gap</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/[0.03]">
+                        <tbody>
                             {["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(c => {
                                 if(inputs.race_options.condicao === "Dry" && c === "Rain") return null;
                                 if(inputs.race_options.condicao === "Wet" && c !== "Rain") return null;

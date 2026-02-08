@@ -1,3 +1,4 @@
+// --- START OF FILE app/context/GameContext.tsx ---
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
@@ -16,6 +17,21 @@ export type CarPart = {
   name: string; lvl: number; wear: number;
 };
 
+// NOVO TIPO: Diretor Técnico (Baseado no Excel)
+export type TechDirector = {
+  rdMecanico: number; 
+  rdEletronico: number; 
+  rdAerodinamico: number;
+  experiencia: number; 
+  pitCoord: number;
+};
+
+// NOVO TIPO: Pessoal e Instalações (Baseado no Excel)
+export type StaffFacilities = {
+  toleranciaPressao: number; 
+  concentracao: number;
+};
+
 export type WeatherData = {
   tempQ1: number; weatherQ1: string; tempQ2: number; weatherQ2: string;
   weatherRace: string; r1_temp_min: number; r1_temp_max: number;
@@ -26,21 +42,31 @@ export type WeatherData = {
 // Interface do Contexto (O que fica visível para os componentes)
 interface GameContextType {
   // Estados
-  role: 'admin' | 'user'; // <<< ADICIONADO: Cargo do usuário
+  role: 'admin' | 'user';
   track: string;
   tracksList: string[];
   tyreSuppliers: string[];
   driver: Driver;
   car: CarPart[];
+  
+  // Novos Estados no Contexto
+  techDirector: TechDirector;
+  staffFacilities: StaffFacilities;
+
   weather: WeatherData;
   raceAvgTemp: number; 
   desgasteModifier: number;
 
   // Ações / Setters
-  updateRole: (newRole: 'admin' | 'user') => void; // <<< ADICIONADO: Função para atualizar o cargo
+  updateRole: (newRole: 'admin' | 'user') => void;
   updateTrack: (t: string) => void;
   updateDriver: (field: keyof Driver, value: number) => void;
   updateCar: (index: number, field: 'lvl' | 'wear', value: number) => void;
+  
+  // Novas Ações
+  updateTechDirector: (data: Partial<TechDirector>) => void;
+  updateStaffFacilities: (data: Partial<StaffFacilities>) => void;
+
   updateWeather: (data: Partial<WeatherData>) => void;
   updateDesgasteModifier: (val: number) => void;
 }
@@ -64,6 +90,14 @@ const INITIAL_CAR: CarPart[] = [
   { name: "Eletrônicos", lvl: 1, wear: 0 },
 ];
 
+const INITIAL_TECH_DIRECTOR: TechDirector = {
+  rdMecanico: 0, rdEletronico: 0, rdAerodinamico: 0, experiencia: 0, pitCoord: 0
+};
+
+const INITIAL_STAFF_FACILITIES: StaffFacilities = {
+  toleranciaPressao: 0, concentracao: 0
+};
+
 const INITIAL_WEATHER: WeatherData = {
   tempQ1: 0, weatherQ1: 'Dry', tempQ2: 0, weatherQ2: 'Dry', weatherRace: 'Dry',
   r1_temp_min: 0, r1_temp_max: 0, r2_temp_min: 0, r2_temp_max: 0,
@@ -78,13 +112,18 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   // --- States ---
-  const [role, setRole] = useState<'admin' | 'user'>('user'); // <<< ADICIONADO: Estado para o cargo, default 'user'
+  const [role, setRole] = useState<'admin' | 'user'>('user');
   const [track, setTrack] = useState<string>('Selecionar Pista');
   const [tracksList, setTracksList] = useState<string[]>([]);
   const [tyreSuppliers, setTyreSuppliers] = useState<string[]>([]);
   
   const [driver, setDriver] = useState<Driver>(INITIAL_DRIVER);
   const [car, setCar] = useState<CarPart[]>(INITIAL_CAR);
+  
+  // Novos Estados
+  const [techDirector, setTechDirector] = useState<TechDirector>(INITIAL_TECH_DIRECTOR);
+  const [staffFacilities, setStaffFacilities] = useState<StaffFacilities>(INITIAL_STAFF_FACILITIES);
+
   const [weather, setWeather] = useState<WeatherData>(INITIAL_WEATHER);
   const [desgasteModifier, setDesgasteModifier] = useState<number>(0);
 
@@ -115,9 +154,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [weather]);
 
   // --- Callbacks (Actions) ---
-  const updateRole = useCallback((newRole: 'admin' | 'user') => { // <<< ADICIONADO: Função para setar o cargo
-    setRole(newRole);
-  }, []);
+  const updateRole = useCallback((newRole: 'admin' | 'user') => { setRole(newRole); }, []);
 
   const updateTrack = useCallback((t: string) => { setTrack(t); }, []);
   const updateDriver = useCallback((field: keyof Driver, value: number) => { setDriver(prev => ({ ...prev, [field]: value })); }, []);
@@ -128,25 +165,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  // Novas Actions
+  const updateTechDirector = useCallback((data: Partial<TechDirector>) => {
+    setTechDirector(prev => ({ ...prev, ...data }));
+  }, []);
+
+  const updateStaffFacilities = useCallback((data: Partial<StaffFacilities>) => {
+    setStaffFacilities(prev => ({ ...prev, ...data }));
+  }, []);
+
   const updateWeather = useCallback((data: Partial<WeatherData>) => { setWeather(prev => ({ ...prev, ...data })); }, []);
   const updateDesgasteModifier = useCallback((val: number) => { setDesgasteModifier(val); }, []);
 
   // --- Render ---
   return (
     <GameContext.Provider value={{ 
-      role, // <<< ADICIONADO: Expõe o cargo
+      role,
       track, 
       tracksList, 
       tyreSuppliers, 
       driver, 
-      car, 
+      car,
+      techDirector,      // Expondo
+      staffFacilities,   // Expondo
       weather, 
       raceAvgTemp,
       desgasteModifier,
-      updateRole, // <<< ADICIONADO: Expõe a função de update
+      updateRole,
       updateTrack, 
       updateDriver, 
-      updateCar, 
+      updateCar,
+      updateTechDirector,    // Expondo
+      updateStaffFacilities, // Expondo
       updateWeather,
       updateDesgasteModifier
     }}>
