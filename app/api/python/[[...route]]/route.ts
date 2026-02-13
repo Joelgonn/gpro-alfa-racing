@@ -4,8 +4,8 @@ import path from 'path';
 import { HyperFormula } from 'hyperformula';
 import ExcelJS from 'exceljs';
 import { Mutex } from 'async-mutex';
-import { getUserState, saveUserState, UserState } from '@/app/lib/db'; // Importe UserState
-import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData } from '@/app/context/GameContext'; // Importe os tipos necessários
+import { getUserState, saveUserState, UserState } from '@/app/lib/db'; 
+import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData } from '@/app/context/GameContext'; 
 
 // --- CONFIGURAÇÃO DE COORDENADAS ---
 const CELLS = {
@@ -325,7 +325,6 @@ export async function POST(request: Request, context: any) {
                 hf.setCellContents({ sheet: mainSheetId, col: 4, row: 5 }, dVals);
             }
             
-            // Garante escrita para cálculo do OA se necessário
             if (saved.tech_director || saved.staff_facilities) {
                 writeTechAndFacilities(saved.tech_director, saved.staff_facilities);
             }
@@ -340,11 +339,10 @@ export async function POST(request: Request, context: any) {
             const combinedState = {
                 track: body.pista || savedState.track,
                 driver: { ...savedState.driver, ...(body.driver || {}) },
-                car: { ...savedState.car, ...(body.car || {}) }, // Usar spread para car
+                car: { ...savedState.car, ...(body.car || {}) }, 
                 tech_director: { ...savedState.tech_director, ...(body.tech_director || {}) },
                 staff_facilities: { ...savedState.staff_facilities, ...(body.staff_facilities || {}) },
                 
-                // CORREÇÃO AQUI: Não acessar raceAvgTemp de savedState.weather
                 avgTemp: body.raceAvgTemp !== undefined ? Number(body.raceAvgTemp) : (body.avgTemp !== undefined ? Number(body.avgTemp) : 20),
                 tempQ1: body.tempQ1 !== undefined ? Number(body.tempQ1) : savedState.weather?.tempQ1 || 0,
                 tempQ2: body.tempQ2 !== undefined ? Number(body.tempQ2) : savedState.weather?.tempQ2 || 0,
@@ -365,7 +363,6 @@ export async function POST(request: Request, context: any) {
             writeTechAndFacilities(combinedState.tech_director, combinedState.staff_facilities);
 
             if (combinedState.car) {
-                // Certifique-se de que combinedState.car é um array
                 const carArray: CarPart[] = Array.isArray(combinedState.car) ? combinedState.car : (savedState.car || []);
                 const carLvl = carArray.map((c: CarPart) => [Number(c.lvl) || 1]);
                 const carWear = carArray.map((c: CarPart) => [Number(c.wear) || 0]);
@@ -384,7 +381,6 @@ export async function POST(request: Request, context: any) {
                 write(tyreFuelSid, CELLS.INPUT_RISCO_PISTA_LIVRE_COL, CELLS.INPUT_RISCO_PISTA_LIVRE_ROW, Number(combinedState.desgasteModifier) || 0);
             }
             
-            // --- CAPTURA DE DESGASTE ---
             const wearResults: any[] = [];
             for (let r = 5; r <= 15; r++) {
                 const startVal = safeVal(hf.getCellValue({ sheet: mainSheetId, col: 9, row: r })); 
@@ -423,13 +419,77 @@ export async function POST(request: Request, context: any) {
             return NextResponse.json({ sucesso: true, data: resultado });
         }
 
+        // --- NOVO BLOCO: TEST CALCULATE ---
+        if (action.includes('test_calculate')) {
+            const savedState = await getUserState(userId);
+            const combinedState = {
+                // Aqui usamos o estado salvo para garantir que temos as peças e settings corretos
+                driver: { ...savedState.driver, ...(body.driver || {}) },
+                car: { ...savedState.car, ...(body.car || {}) },
+                tech_director: { ...savedState.tech_director, ...(body.tech_director || {}) },
+                staff_facilities: { ...savedState.staff_facilities, ...(body.staff_facilities || {}) },
+                desgasteModifier: body.desgasteModifier !== undefined ? Number(body.desgasteModifier) : (savedState.desgasteModifier !== undefined ? Number(savedState.desgasteModifier) : 0)
+            };
+            
+            const testTrack = body.test_track;
+            const testLaps = body.test_laps || 0;
+            
+            // 1. Escrever Estado Geral em Setup&WS para garantir cálculos base corretos
+            writeTechAndFacilities(combinedState.tech_director, combinedState.staff_facilities);
+
+            if (combinedState.car) {
+                const carArray: CarPart[] = Array.isArray(combinedState.car) ? combinedState.car : (savedState.car || []);
+                const carLvl = carArray.map((c: CarPart) => [Number(c.lvl) || 1]);
+                const carWear = carArray.map((c: CarPart) => [Number(c.wear) || 0]);
+                hf.setCellContents({ sheet: mainSheetId, col: 8, row: 5 }, carLvl);
+                hf.setCellContents({ sheet: mainSheetId, col: 9, row: 5 }, carWear);
+            }
+            if (combinedState.driver) {
+                const d = combinedState.driver;
+                const driverKeys: (keyof Driver)[] = ["concentracao", "talento", "agressividade", "experiencia", "tecnica", "resistencia", "carisma", "motivacao", "reputacao", "peso", "idade", "energia"];
+                const dVals = driverKeys.map(k => [Number(d[k]) || 0]);
+                hf.setCellContents({ sheet: mainSheetId, col: 4, row: 5 }, dVals);
+            }
+
+            const tfSid = sheetIdMap['Tyre&Fuel'];
+            if (tfSid === undefined) {
+                 return NextResponse.json({ sucesso: false, error: "Aba Tyre&Fuel não encontrada" }, { status: 500 });
+            }
+
+            // 2. Escrever Risco (Desgaste Modifier)
+            write(tfSid, CELLS.INPUT_RISCO_PISTA_LIVRE_COL, CELLS.INPUT_RISCO_PISTA_LIVRE_ROW, Number(combinedState.desgasteModifier) || 0);
+
+            // 3. Escrever Dados de Teste
+            // Pista em D28 (Merged D28:E28) - Coluna D é index 3, Row 28
+            if (testTrack && testTrack !== "Selecionar Pista") {
+                write(tfSid, 3, 28, testTrack);
+            }
+            // Voltas em L27 - Coluna L é index 11, Row 27
+            write(tfSid, 11, 27, Number(testLaps));
+
+            // 4. Ler Resultados
+            // Coluna J (9) = Desgaste Teste | Coluna L (11) = Pré Corrida
+            // Linhas 29 a 39 do Excel correspondem aos Índices 28 a 38 no HyperFormula
+            const partsOrder = ['chassi', 'motor', 'asaDianteira', 'asaTraseira', 'assoalho', 'laterais', 'radiador', 'cambio', 'freios', 'suspensao', 'eletronicos'];
+            const results: any = {};
+
+            partsOrder.forEach((partId, index) => {
+                const row = 28 + index; // CORRIGIDO: Index 28 = Excel Row 29
+                const testWearVal = safeVal(hf.getCellValue({ sheet: tfSid, col: 9, row: row }));
+                const preRaceVal = safeVal(hf.getCellValue({ sheet: tfSid, col: 11, row: row }));
+                results[partId] = { test_wear: testWearVal, pre_race: preRaceVal };
+            });
+
+            return NextResponse.json({ sucesso: true, data: results });
+        }
+
         // 4. PERFORMANCE
         if (action.includes('performance')) {
             const savedState = await getUserState(userId);
             const combinedState = {
                 track: body.pista || savedState.track,
                 driver: { ...savedState.driver, ...(body.driver || {}) },
-                car: { ...savedState.car, ...(body.car || {}) }, // Usar spread para car
+                car: { ...savedState.car, ...(body.car || {}) }, 
                 test_points: { ...savedState.test_points, ...(body.test_points || {}) },
                 tech_director: { ...savedState.tech_director, ...(body.tech_director || {}) },
                 staff_facilities: { ...savedState.staff_facilities, ...(body.staff_facilities || {}) },
@@ -450,7 +510,6 @@ export async function POST(request: Request, context: any) {
             }
 
             if (combinedState.car) {
-                // Certifique-se de que combinedState.car é um array
                 const carArray: CarPart[] = Array.isArray(combinedState.car) ? combinedState.car : (savedState.car || []);
                 const carLvl = carArray.map((c: CarPart) => [Number(c.lvl) || 1]);
                 const carWear = carArray.map((c: CarPart) => [Number(c.wear) || 0]);
@@ -506,7 +565,6 @@ export async function POST(request: Request, context: any) {
                 hf.setCellContents({ sheet: mainSheetId, col: 4, row: 5 }, dVals);
             }
             if (body.car) {
-                // Certifique-se de que body.car é um array
                 const carArray: CarPart[] = Array.isArray(body.car) ? body.car : (savedState.car || []);
                 const carLvl = carArray.map((c: CarPart) => [Number(c.lvl) || 1]);
                 const carWear = carArray.map((c: CarPart) => [Number(c.wear) || 0]);

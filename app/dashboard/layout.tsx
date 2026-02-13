@@ -7,7 +7,7 @@ import { GameProvider, useGame } from '../context/GameContext';
 import { supabase } from '../lib/supabase';
 import AdminInviteButton from '../components/AdminInviteButton';
 
-// --- ÍCONES (Mantidos iguais, pois já são ótimos) ---
+// --- ÍCONES ---
 const Icons = {
   Chart: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>,
   Car: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.126-.504 1.126-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-6 0h1.125a1.125 1.125 0 011.125 1.125v1.5a3.375 3.375 0 01-3.375 3.375H9.75" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>,
@@ -16,10 +16,10 @@ const Icons = {
   Money: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Users: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>,
   Logout: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>,
+  Beaker: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.252 0 .487.02.718.057l.25.029c.26.03.515.07.764.124m5.24 7.812a2.25 2.25 0 00-.659-1.591l-4.091-4.091a2.25 2.25 0 01-.659-1.591V3.104m3.668 12.392V3.104c0-.261.023-.515.068-.764l.048-.276c.045-.252.098-.497.16-.732M9.75 15.75l-3.32-3.32a1.405 1.405 0 00-2.022.288 1.405 1.405 0 00.288 2.022l3.32 3.32M9.75 15.75V18m0 0l3.32-3.32a1.405 1.405 0 012.022.288 1.405 1.405 0 01-.288 2.022l-3.32 3.32m0 0V21m-3.32-5.25a1.405 1.405 0 00-2.022-.288 1.405 1.405 0 00.288 2.022l3.32-3.32" /></svg>, // <-- NOVO ÍCONE
 };
 
 // --- COMPONENTE DA SIDEBAR ADAPTÁVEL ---
-// Recebe props para controlar sua visibilidade e fechar no mobile
 function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) {
   const pathname = usePathname();
   const { role, updateRole } = useGame();
@@ -45,7 +45,6 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
     fetchUserData();
   }, [updateRole]);
 
-  // Efeito para fechar o menu se clicar fora dele no mobile
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (isOpen && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
@@ -58,17 +57,16 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
     };
   }, [isOpen, onClose]);
 
-
   const menuItems = [
     { name: 'Visão Geral', path: '/dashboard', icon: <Icons.Chart /> },
     { name: 'Setup Calculadora', path: '/dashboard/setup', icon: <Icons.Car /> },
     { name: 'Setup Manual', path: '/dashboard/manual', icon: <Icons.Wrench /> },
+    { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> }, // <-- NOVO ITEM DE MENU
     { name: 'Estratégia', path: '/dashboard/strategy', icon: <Icons.Strategy /> },
     { name: 'Patrocinadores', path: '/dashboard/sponsors', icon: <Icons.Money /> },
     { name: 'Mercado de Pilotos', path: '/dashboard/market', icon: <Icons.Users /> },
   ];
 
-  // Lógica para adaptar a sidebar para mobile e desktop com classes condicionais
   const sidebarClasses = `
     fixed inset-y-0 left-0 z-50 flex flex-col w-72 
     border-r border-white/5 bg-slate-900/80 backdrop-blur-xl
@@ -97,7 +95,6 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
         {menuItems.map((item) => {
           const isActive = pathname === item.path;
           return (
-            // Adicionado onClick={onClose} para fechar o menu ao navegar
             <Link key={item.path} href={item.path} onClick={onClose} className={`relative flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 group overflow-hidden ${isActive ? 'text-white shadow-[0_0_20px_-5px_rgba(234,179,8,0.15)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'}`}>
               {isActive && <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 to-transparent border border-white/5 rounded-xl pointer-events-none" />}
               {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(250,204,21,0.5)]" />}
@@ -136,23 +133,19 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 
 // --- LAYOUT PRINCIPAL ---
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // ESTADO PARA CONTROLAR O MENU MOBILE
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // EFEITO COLATERAL: Fechar o menu ao navegar para uma nova página
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  // EFEITO COLATERAL: Bloquear scroll do body quando o menu estiver aberto
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
-    // Cleanup function para garantir que o scroll volte ao normal se o componente for desmontado
     return () => {
       document.body.style.overflow = 'auto';
     };
@@ -162,7 +155,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <GameProvider>
       <div className="flex min-h-screen bg-[#020617] text-slate-200 font-sans antialiased selection:bg-yellow-500/30 selection:text-yellow-200">
         
-        {/* Overlay que aparece atrás da sidebar no mobile */}
         {isMobileMenuOpen && (
           <div 
             onClick={() => setIsMobileMenuOpen(false)}
@@ -177,14 +169,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
         
         <div className="flex-1 flex flex-col min-h-screen">
-          {/* Backgrounds decorativos (mantidos) */}
           <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
              <div className="absolute top-[-20%] left-[10%] w-[800px] h-[800px] bg-emerald-900/10 blur-[120px] rounded-full mix-blend-screen"></div>
              <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-yellow-900/5 blur-[100px] rounded-full mix-blend-screen"></div>
              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] brightness-100 contrast-150"></div>
           </div>
           
-          {/* Header Mobile com botão de menu interativo */}
           <header className="md:hidden bg-slate-950/80 backdrop-blur-md px-4 h-16 border-b border-white/5 flex justify-between items-center sticky top-0 z-30">
               <Link href="/dashboard" className="font-bold text-white tracking-tight flex gap-1 items-center">
                 ALFA <span className="text-yellow-400">RACING</span>
