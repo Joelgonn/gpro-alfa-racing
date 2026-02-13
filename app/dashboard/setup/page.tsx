@@ -434,132 +434,135 @@ export default function SetupPage() {
                     </section>
                 )}
 
-                {/* 3. NOVA SEÇÃO: DESGASTE ESTIMADO COM TESTES */}
-                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
-                    <div className="flex flex-col gap-4 mb-6 border-b border-white/5 pb-4">
-                        <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
-                            <FlaskConical size={14} className="text-amber-500" /> Desgaste Estimado com Testes
-                        </h2>
-                        
-                        {/* Controles: Pista e Voltas */}
-                        <div className="flex flex-wrap items-center gap-3 w-full">
-                             <TrackSelector 
-                                currentTrack={testTrack} 
-                                tracksList={tracks} 
-                                onSelect={setTestTrack} 
-                                placeholder="TESTAR NESTA PISTA"
-                             />
+                {/* 3. NOVA SEÇÃO: DESGASTE ESTIMADO COM TESTES (REFATORADO PARA TABELA SCROLLÁVEL) */}
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-0 overflow-hidden backdrop-blur-sm">
+                    {/* HEADER DA SEÇÃO */}
+                    <div className="p-6 border-b border-white/5">
+                        <div className="flex flex-col gap-4 mb-2">
+                            <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
+                                <FlaskConical size={14} className="text-amber-500" /> Desgaste Estimado com Testes
+                            </h2>
+                            
+                            {/* Controles: Pista e Voltas */}
+                            <div className="flex flex-wrap items-center gap-3 w-full">
+                                <TrackSelector 
+                                    currentTrack={testTrack} 
+                                    tracksList={tracks} 
+                                    onSelect={setTestTrack} 
+                                    placeholder="TESTAR NESTA PISTA"
+                                />
 
-                             {isTestActive && (
-                                 <div className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded-lg border border-white/10">
-                                     <Timer size={14} className="text-slate-500" />
-                                     <div className="flex flex-col">
-                                         <span className="text-[7px] font-black text-slate-500 uppercase leading-none">Voltas (Max 100)</span>
-                                         <input 
-                                            type="number" 
-                                            value={testLaps}
-                                            onChange={handleTestLapsChange}
-                                            className="bg-transparent text-[10px] font-bold text-white outline-none w-16"
-                                            placeholder="0"
-                                            min="0"
-                                            max="100"
-                                         />
-                                     </div>
-                                     {(testLaps > 0 && testLaps < 5) && (
-                                         <span className="text-[7px] text-rose-500 font-bold ml-1 animate-pulse">MIN 5!</span>
-                                     )}
-                                 </div>
-                             )}
+                                {isTestActive && (
+                                    <div className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded-lg border border-white/10">
+                                        <Timer size={14} className="text-slate-500" />
+                                        <div className="flex flex-col">
+                                            <span className="text-[7px] font-black text-slate-500 uppercase leading-none">Voltas (Max 100)</span>
+                                            <input 
+                                                type="number" 
+                                                value={testLaps}
+                                                onChange={handleTestLapsChange}
+                                                className="bg-transparent text-[10px] font-bold text-white outline-none w-16"
+                                                placeholder="0"
+                                                min="0"
+                                                max="100"
+                                            />
+                                        </div>
+                                        {(testLaps > 0 && testLaps < 5) && (
+                                            <span className="text-[7px] text-rose-500 font-bold ml-1 animate-pulse">MIN 5!</span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Cabeçalho da Tabela */}
-                    <div className={`grid ${isTestActive ? 'grid-cols-[1.2fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr]' : 'grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr]'} items-center px-2 mb-3 gap-1`}>
-                         <div className="text-[8px] font-black text-slate-500 uppercase">Peça</div>
-                         <div className="text-[8px] font-black text-slate-500 uppercase text-center">Nvl</div>
-                         <div className="text-[8px] font-black text-slate-500 uppercase text-center">Início</div>
-                         
-                         {isTestActive && (
-                             <>
-                                <div className="text-[8px] font-black text-amber-500 uppercase text-center">Teste</div>
-                                <div className="text-[8px] font-black text-indigo-400 uppercase text-center">Pré-Cor</div>
-                             </>
-                         )}
-                         
-                         <div className="text-[8px] font-black text-rose-500 uppercase text-center">Fim</div>
-                    </div>
-
-                    {/* Lista de Componentes */}
-                    <div className="space-y-2">
-                        {COMPONENTS.map((part, index) => {
-                             // Valores do Contexto (Origem Verdadeira)
-                             const lvl = car[index]?.lvl || 1;
-                             const startWear = car[index]?.wear || 0;
-                             
-                             // Valores vindos da API de Teste
-                             const testWearVal = testResults ? testResults[part.id]?.test_wear : 0;
-                             const preRaceVal = testResults ? testResults[part.id]?.pre_race : startWear; 
-
-                             // Lógica para o Desgaste Final
-                             let calculatedFinalWear = 0;
-
-                             if (resultado && resultado[part.id]?.wear) {
-                                 // 1. Descobrimos quanto a peça gasta SÓ na corrida (Final Original - Inicio Original)
-                                 const originalStart = safeNumber(resultado[part.id].wear.start);
-                                 const originalEnd = safeNumber(resultado[part.id].wear.end);
-                                 const raceDegradation = Math.max(0, originalEnd - originalStart);
-
-                                 // 2. Somamos esse desgaste ao novo ponto de partida (Pré-Corrida)
-                                 // Se tiver teste, usa o preRaceVal, se não, usa o startWear normal
-                                 const baseForRace = (isTestActive && typeof preRaceVal === 'number') ? preRaceVal : startWear;
-                                 
-                                 calculatedFinalWear = baseForRace + raceDegradation;
-                             }
-
-                             return (
-                                <div key={part.id} className={`grid ${isTestActive ? 'grid-cols-[1.2fr_0.6fr_0.6fr_0.6fr_0.6fr_0.6fr]' : 'grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr]'} items-center bg-black/20 p-2 rounded-lg border border-white/5 hover:border-white/10 transition-colors gap-1`}>
+                    {/* TABELA COM SCROLL HORIZONTAL E COLUNA FIXA */}
+                    <div className="overflow-x-auto custom-scrollbar pb-2">
+                        <table className="w-full text-xs min-w-[500px] border-separate border-spacing-y-1 px-2">
+                            <thead>
+                                <tr className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                                    {/* Coluna Fixa: PEÇA */}
+                                    <th className="sticky left-0 bg-[#0F0F13] z-20 p-3 text-left border-b border-white/5 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
+                                        Peça
+                                    </th>
+                                    <th className="p-2 text-center border-b border-white/5">Nvl</th>
+                                    <th className="p-2 text-center border-b border-white/5">Início</th>
                                     
-                                    {/* Nome */}
-                                    <div className="text-[9px] font-black uppercase text-slate-300 truncate pr-1">
-                                        {part.label}
-                                    </div>
-
-                                    {/* CAIXA SOMENTE LEITURA: Nível */}
-                                    <div className="flex justify-center">
-                                        <div className="w-10 bg-[#0F0F13] border border-white/5 rounded text-center text-[10px] font-bold text-slate-400 py-1 select-none">
-                                            {lvl}
-                                        </div>
-                                    </div>
-
-                                    {/* CAIXA SOMENTE LEITURA: Desgaste Inicial */}
-                                    <div className="flex justify-center">
-                                         <div className={`w-10 bg-[#0F0F13] border border-white/5 rounded text-center text-[10px] font-bold py-1 select-none ${getWearColor(startWear).split(' ')[0]}`}>
-                                            {startWear}%
-                                        </div>
-                                    </div>
-
-                                    {/* Colunas Extras (Teste Ativo) */}
                                     {isTestActive && (
                                         <>
-                                            <div className="text-center text-[10px] font-black text-amber-500">
-                                                +{typeof testWearVal === 'number' ? testWearVal.toFixed(1) : '0.0'}%
-                                            </div>
-                                            <div className="text-center text-[10px] font-black text-indigo-400">
-                                                {typeof preRaceVal === 'number' ? preRaceVal.toFixed(1) : '0.0'}%
-                                            </div>
+                                            <th className="p-2 text-center text-amber-500 border-b border-white/5">Teste</th>
+                                            <th className="p-2 text-center text-indigo-400 border-b border-white/5">Pré-Cor</th>
                                         </>
                                     )}
+                                    
+                                    <th className="p-2 text-center text-rose-500 border-b border-white/5">Fim</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {COMPONENTS.map((part, index) => {
+                                    // Valores do Contexto (Origem Verdadeira)
+                                    const lvl = car[index]?.lvl || 1;
+                                    const startWear = car[index]?.wear || 0;
+                                    
+                                    // Valores vindos da API de Teste
+                                    const testWearVal = testResults ? testResults[part.id]?.test_wear : 0;
+                                    const preRaceVal = testResults ? testResults[part.id]?.pre_race : startWear; 
 
-                                    {/* Desgaste Final (Agora calculado com base no teste) */}
-                                    <div className="flex justify-center">
-                                        <div className={`w-10 bg-[#0F0F13]/50 border border-white/5 rounded text-center text-[10px] font-bold py-1 ${getWearColor(calculatedFinalWear)}`}>
-                                            {calculatedFinalWear > 0 ? calculatedFinalWear.toFixed(1) + '%' : '-'}
-                                        </div>
-                                    </div>
+                                    // Lógica para o Desgaste Final
+                                    let calculatedFinalWear = 0;
 
-                                </div>
-                             )
-                        })}
+                                    if (resultado && resultado[part.id]?.wear) {
+                                        const originalStart = safeNumber(resultado[part.id].wear.start);
+                                        const originalEnd = safeNumber(resultado[part.id].wear.end);
+                                        const raceDegradation = Math.max(0, originalEnd - originalStart);
+                                        const baseForRace = (isTestActive && typeof preRaceVal === 'number') ? preRaceVal : startWear;
+                                        calculatedFinalWear = baseForRace + raceDegradation;
+                                    }
+
+                                    return (
+                                        <tr key={part.id} className="group hover:bg-white/[0.02] transition-colors">
+                                            {/* Coluna Fixa: NOME DA PEÇA */}
+                                            <td className="sticky left-0 bg-[#13131A] z-10 p-3 border-r border-white/5 font-black text-[9px] text-slate-300 uppercase shadow-[2px_0_5px_rgba(0,0,0,0.3)] whitespace-nowrap">
+                                                {part.label}
+                                            </td>
+
+                                            {/* Nível */}
+                                            <td className="p-2 text-center bg-black/20">
+                                                <div className="inline-block w-8 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold text-slate-400 py-1">
+                                                    {lvl}
+                                                </div>
+                                            </td>
+
+                                            {/* Início */}
+                                            <td className="p-2 text-center bg-black/20">
+                                                <div className={`inline-block w-10 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(startWear).split(' ')[0]}`}>
+                                                    {startWear}%
+                                                </div>
+                                            </td>
+
+                                            {/* Colunas Extras (Teste Ativo) */}
+                                            {isTestActive && (
+                                                <>
+                                                    <td className="p-2 text-center bg-black/20 text-[10px] font-black text-amber-500">
+                                                        +{typeof testWearVal === 'number' ? testWearVal.toFixed(1) : '0.0'}%
+                                                    </td>
+                                                    <td className="p-2 text-center bg-black/20 text-[10px] font-black text-indigo-400">
+                                                        {typeof preRaceVal === 'number' ? preRaceVal.toFixed(1) : '0.0'}%
+                                                    </td>
+                                                </>
+                                            )}
+
+                                            {/* Fim */}
+                                            <td className="p-2 text-center bg-black/20">
+                                                <div className={`inline-block w-10 bg-[#0F0F13]/50 border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(calculatedFinalWear)}`}>
+                                                    {calculatedFinalWear > 0 ? calculatedFinalWear.toFixed(1) + '%' : '-'}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
