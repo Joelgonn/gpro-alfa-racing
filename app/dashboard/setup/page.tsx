@@ -445,19 +445,36 @@ export default function SetupPage() {
                             
                             {/* Controles: Pista e Voltas */}
                             <div className="flex flex-wrap items-center gap-3 w-full">
-                                <TrackSelector 
-                                    currentTrack={testTrack} 
-                                    tracksList={tracks} 
-                                    onSelect={setTestTrack} 
-                                    placeholder="TESTAR NESTA PISTA"
-                                />
+                                <div className="flex items-center gap-2">
+                                     <TrackSelector 
+                                        currentTrack={testTrack} 
+                                        tracksList={tracks} 
+                                        onSelect={setTestTrack} 
+                                        placeholder="TESTAR NESTA PISTA"
+                                     />
 
-                                {isTestActive && (
-                                    <div className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded-lg border border-white/10">
-                                        <Timer size={14} className="text-slate-500" />
-                                        <div className="flex flex-col">
-                                            <span className="text-[7px] font-black text-slate-500 uppercase leading-none">Voltas (Max 100)</span>
-                                            <input 
+                                     {/* NOVO: Botão para limpar a seleção */}
+                                     {isTestActive && (
+                                         <button 
+                                            onClick={() => {
+                                                setTestTrack("Selecionar Pista");
+                                                setTestLaps(0); // Opcional: Reseta as voltas para 0
+                                                setTestResults(null); // Limpa os resultados visualmente na hora
+                                            }}
+                                            className="h-[34px] w-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 rounded-lg transition-all"
+                                            title="Cancelar Teste"
+                                         >
+                                             <X size={16} />
+                                         </button>
+                                     )}
+                                </div>
+
+                                 {isTestActive && (
+                                     <div className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded-lg border border-white/10">
+                                         <Timer size={14} className="text-slate-500" />
+                                         <div className="flex flex-col">
+                                             <span className="text-[7px] font-black text-slate-500 uppercase leading-none">Voltas (Max 100)</span>
+                                             <input 
                                                 type="number" 
                                                 value={testLaps}
                                                 onChange={handleTestLapsChange}
@@ -465,52 +482,48 @@ export default function SetupPage() {
                                                 placeholder="0"
                                                 min="0"
                                                 max="100"
-                                            />
-                                        </div>
-                                        {(testLaps > 0 && testLaps < 5) && (
-                                            <span className="text-[7px] text-rose-500 font-bold ml-1 animate-pulse">MIN 5!</span>
-                                        )}
-                                    </div>
-                                )}
+                                             />
+                                         </div>
+                                         {(testLaps > 0 && testLaps < 5) && (
+                                             <span className="text-[7px] text-rose-500 font-bold ml-1 animate-pulse">MIN 5!</span>
+                                         )}
+                                     </div>
+                                 )}
                             </div>
                         </div>
                     </div>
 
-                    {/* TABELA COM SCROLL HORIZONTAL E COLUNA FIXA */}
-                    <div className="overflow-x-auto custom-scrollbar pb-2">
-                        <table className="w-full text-xs min-w-[500px] border-separate border-spacing-y-1 px-2">
+                    {/* TABELA OTIMIZADA: SEM GAPS HORIZONTAIS */}
+                    <div className="overflow-x-auto custom-scrollbar pb-2 px-2">
+                        <table className="w-full text-xs border-separate border-spacing-y-1">
                             <thead>
                                 <tr className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                                    {/* Coluna Fixa: PEÇA */}
-                                    <th className="sticky left-0 bg-[#0F0F13] z-20 p-3 text-left border-b border-white/5 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
+                                    {/* Coluna Fixa: PEÇA (Padding reduzido para pl-3 pr-2) */}
+                                    <th className="sticky left-0 bg-[#0F0F13] z-20 pl-3 pr-2 py-2 text-left border-b border-white/5 shadow-[2px_0_5px_rgba(0,0,0,0.3)] w-auto whitespace-nowrap">
                                         Peça
                                     </th>
-                                    <th className="p-2 text-center border-b border-white/5">Nvl</th>
-                                    <th className="p-2 text-center border-b border-white/5">Início</th>
+                                    {/* Colunas de Dados: Padding reduzido para px-1 */}
+                                    <th className="px-1 py-2 text-center border-b border-white/5 whitespace-nowrap w-min">Nvl</th>
+                                    <th className="px-1 py-2 text-center border-b border-white/5 whitespace-nowrap">Início</th>
                                     
                                     {isTestActive && (
                                         <>
-                                            <th className="p-2 text-center text-amber-500 border-b border-white/5">Teste</th>
-                                            <th className="p-2 text-center text-indigo-400 border-b border-white/5">Pré-Cor</th>
+                                            <th className="px-1 py-2 text-center text-amber-500 border-b border-white/5 whitespace-nowrap">Teste</th>
+                                            <th className="px-1 py-2 text-center text-indigo-400 border-b border-white/5 whitespace-nowrap">Pré-Cor</th>
                                         </>
                                     )}
                                     
-                                    <th className="p-2 text-center text-rose-500 border-b border-white/5">Fim</th>
+                                    <th className="px-1 py-2 text-center text-rose-500 border-b border-white/5 whitespace-nowrap">Fim</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {COMPONENTS.map((part, index) => {
-                                    // Valores do Contexto (Origem Verdadeira)
                                     const lvl = car[index]?.lvl || 1;
                                     const startWear = car[index]?.wear || 0;
-                                    
-                                    // Valores vindos da API de Teste
                                     const testWearVal = testResults ? testResults[part.id]?.test_wear : 0;
                                     const preRaceVal = testResults ? testResults[part.id]?.pre_race : startWear; 
 
-                                    // Lógica para o Desgaste Final
                                     let calculatedFinalWear = 0;
-
                                     if (resultado && resultado[part.id]?.wear) {
                                         const originalStart = safeNumber(resultado[part.id].wear.start);
                                         const originalEnd = safeNumber(resultado[part.id].wear.end);
@@ -521,21 +534,21 @@ export default function SetupPage() {
 
                                     return (
                                         <tr key={part.id} className="group hover:bg-white/[0.02] transition-colors">
-                                            {/* Coluna Fixa: NOME DA PEÇA */}
-                                            <td className="sticky left-0 bg-[#13131A] z-10 p-3 border-r border-white/5 font-black text-[9px] text-slate-300 uppercase shadow-[2px_0_5px_rgba(0,0,0,0.3)] whitespace-nowrap">
+                                            {/* Coluna Fixa: PEÇA */}
+                                            <td className="sticky left-0 bg-[#13131A] z-10 pl-3 pr-2 py-2 border-r border-white/5 font-black text-[9px] text-slate-300 uppercase shadow-[2px_0_5px_rgba(0,0,0,0.3)] whitespace-nowrap">
                                                 {part.label}
                                             </td>
 
-                                            {/* Nível */}
-                                            <td className="p-2 text-center bg-black/20">
-                                                <div className="inline-block w-8 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold text-slate-400 py-1">
+                                            {/* Nível (Largura mínima) */}
+                                            <td className="px-1 py-1 text-center bg-black/20 w-min">
+                                                <div className="mx-auto w-6 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold text-slate-400 py-1">
                                                     {lvl}
                                                 </div>
                                             </td>
 
                                             {/* Início */}
-                                            <td className="p-2 text-center bg-black/20">
-                                                <div className={`inline-block w-10 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(startWear).split(' ')[0]}`}>
+                                            <td className="px-1 py-1 text-center bg-black/20">
+                                                <div className={`mx-auto w-10 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(startWear).split(' ')[0]}`}>
                                                     {startWear}%
                                                 </div>
                                             </td>
@@ -543,18 +556,18 @@ export default function SetupPage() {
                                             {/* Colunas Extras (Teste Ativo) */}
                                             {isTestActive && (
                                                 <>
-                                                    <td className="p-2 text-center bg-black/20 text-[10px] font-black text-amber-500">
+                                                    <td className="px-1 py-1 text-center bg-black/20 text-[10px] font-black text-amber-500 whitespace-nowrap">
                                                         +{typeof testWearVal === 'number' ? testWearVal.toFixed(1) : '0.0'}%
                                                     </td>
-                                                    <td className="p-2 text-center bg-black/20 text-[10px] font-black text-indigo-400">
+                                                    <td className="px-1 py-1 text-center bg-black/20 text-[10px] font-black text-indigo-400 whitespace-nowrap">
                                                         {typeof preRaceVal === 'number' ? preRaceVal.toFixed(1) : '0.0'}%
                                                     </td>
                                                 </>
                                             )}
 
                                             {/* Fim */}
-                                            <td className="p-2 text-center bg-black/20">
-                                                <div className={`inline-block w-10 bg-[#0F0F13]/50 border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(calculatedFinalWear)}`}>
+                                            <td className="px-1 py-1 text-center bg-black/20">
+                                                <div className={`mx-auto w-10 bg-[#0F0F13]/50 border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(calculatedFinalWear)}`}>
                                                     {calculatedFinalWear > 0 ? calculatedFinalWear.toFixed(1) + '%' : '-'}
                                                 </div>
                                             </td>
