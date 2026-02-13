@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- (MAPEAMENTOS MANTIDOS) ---
+// --- MAPEAMENTOS ---
 const TRACK_FLAGS: { [key: string]: string } = { "A1-Ring": "at", "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar", "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp", "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt", "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa", "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it", "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at", "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl", "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar", "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk", "Valencia": "es", "Vallelunga": "it", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be" };
 
 const COMPONENTS = [ 
@@ -30,7 +30,7 @@ const COMPONENTS = [
     { id: 'eletronicos', label: 'Eletrônicos' } 
 ];
 
-// --- SELETOR DE PISTA (Mantido) ---
+// --- SELETOR DE PISTA ---
 function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void, placeholder?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -58,7 +58,7 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
     );
 }
 
-// --- COMPONENTES AUXILIARES (Definidos antes ou depois, mas precisam estar no arquivo) ---
+// --- COMPONENTES AUXILIARES ---
 function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) { return <div className="space-y-4"><h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">{title}</h3><div className="space-y-4">{children}</div></div> }
 
 function HUDInput({ value, name, onChange, label }: any) { return <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all"><label className="block text-[8px] font-black text-slate-600 uppercase mb-2 tracking-widest">{label}</label><div className="flex items-center justify-between"><Thermometer size={16} className="text-indigo-400/50" /><input type="number" name={name} value={value || ''} onChange={onChange} className="bg-transparent text-right text-white font-black text-xl outline-none w-full" /><span className="text-sm text-slate-600 font-bold ml-2">°C</span></div></div> }
@@ -114,7 +114,15 @@ export default function SetupPage() {
   // --- NOVO ESTADO: Pista de Teste e Voltas ---
   const [testTrack, setTestTrack] = useState<string>("Selecionar Pista");
   const [testLaps, setTestLaps] = useState<number>(0);
-  const [testResults, setTestResults] = useState<any>(null); // Armazenará { testWear: [], preRaceWear: [] }
+  const [testResults, setTestResults] = useState<any>(null);
+
+  // --- LÓGICA DE AVISO (LIMIT 90%) ---
+  const hasTestingLimitWarning = useMemo(() => {
+      if (!testResults) return false;
+      return Object.values(testResults).some((part: any) => {
+          return part.pre_race && part.pre_race > 90;
+      });
+  }, [testResults]);
 
   // 1. Auth Check
   useEffect(() => {
@@ -130,7 +138,7 @@ export default function SetupPage() {
     checkSession();
   }, [router]);
   
-  // 2. Hydrate (Load from DB)
+  // 2. Hydrate
   useEffect(() => {
     async function hydrate() {
       if (!userId || isAuthLoading) return;
@@ -190,7 +198,7 @@ export default function SetupPage() {
       return () => clearTimeout(timer);
   }, [track, weather, desgasteModifier, techDirector, staffFacilities, persistChanges, initialHydrationDone, userId]);
 
-  // 4. CALCULATION LOGIC (Principal)
+  // 4. CALCULATION LOGIC
   const handleCalcular = useCallback(async () => { 
     if (!userId || !track || track === "Selecionar Pista" || !initialHydrationDone) return;
     setLoading(true);
@@ -222,15 +230,12 @@ export default function SetupPage() {
     }
   }, [weather, track, desgasteModifier, techDirector, staffFacilities, handleCalcular, initialHydrationDone, userId]);
 
-
-  // --- 5. LOGICA DE TESTES (NOVA) ---
+  // 5. LOGICA DE TESTES
   const handleCalculateTest = useCallback(async () => {
-    // Só calcula se tiver pista selecionada e usuario logado
     if (!userId || !testTrack || testTrack === "Selecionar Pista" || !initialHydrationDone) {
         setTestResults(null);
         return;
     }
-
     try {
         const res = await fetch('/api/python?action=test_calculate', {
             method: 'POST',
@@ -242,27 +247,17 @@ export default function SetupPage() {
                 car, 
                 tech_director: techDirector,
                 staff_facilities: staffFacilities,
-                desgasteModifier // Importante passar o risco também
+                desgasteModifier
             })
         });
-        
         const data = await res.json();
-        
-        if (data.sucesso) {
-            setTestResults(data.data);
-        } else {
-            console.error("Erro no cálculo de testes:", data.error);
-        }
-        
-    } catch (error) {
-        console.error("Test Calc Error:", error);
-    }
+        if (data.sucesso) setTestResults(data.data);
+    } catch (error) { console.error("Test Calc Error:", error); }
   }, [userId, testTrack, testLaps, driver, car, techDirector, staffFacilities, desgasteModifier, initialHydrationDone]);
 
-  // Gatilho para calculo de testes (Reativo)
   useEffect(() => {
       if(testTrack !== "Selecionar Pista") {
-          const timer = setTimeout(() => { handleCalculateTest(); }, 500); // Debounce de 500ms
+          const timer = setTimeout(() => { handleCalculateTest(); }, 500);
           return () => clearTimeout(timer);
       } else {
           setTestResults(null);
@@ -302,7 +297,7 @@ export default function SetupPage() {
   return (
     <div className="p-4 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
       
-      {/* HEADER (Mantido) */}
+      {/* HEADER */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 backdrop-blur-xl">
           <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
@@ -341,45 +336,44 @@ export default function SetupPage() {
         </div>
       </motion.div>
 
-      <main className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
+      <main className="space-y-6">
         
-        {/* INPUTS DE CLIMA (Mantido) */}
-        <div className="xl:col-span-7 space-y-6">
-          <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 md:p-8 backdrop-blur-sm">
-            <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
-              <CloudSun className="text-indigo-400" size={16} /> Previsão Metereológica
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
-              <div className="space-y-8">
-                <SessionGroup title="Qualificação - 1"><WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} /><HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura (Q1)" /></SessionGroup>
-                <SessionGroup title="Qualificação - 2"><WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} /><HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura (Q2)" /></SessionGroup>
-              </div>
-              <div className="bg-black/20 rounded-xl p-6 border border-white/5">
-                <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-6">Previsão para a Corrida</h3>
-                <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
-                <div className="mt-6 space-y-3">
-                  {[1, 2, 3, 4].map(num => (
-                    <div key={num} className="grid grid-cols-5 items-center bg-black/40 p-2 rounded-lg border border-white/5">
-                      <span className="col-span-2 text-[9px] font-bold text-slate-500 uppercase pl-1">Quad: {num}</span>
-                      <span className='text-slate-600 text-[10px] text-center'>MIN</span>
-                      <input type="number" name={`r${num}_temp_min`} value={(weather as any)[`r${num}_temp_min`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-indigo-300 outline-none w-full" />
-                      <input type="number" name={`r${num}_temp_max`} value={(weather as any)[`r${num}_temp_max`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-rose-300 outline-none w-full" />
+        {/* === LINHA SUPERIOR: Clima (Esquerda) e Setup Ideal (Direita) === */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
+            {/* CLIMA */}
+            <div className="xl:col-span-7">
+              <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 md:p-8 backdrop-blur-sm h-full">
+                <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
+                  <CloudSun className="text-indigo-400" size={16} /> Previsão Metereológica
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+                  <div className="space-y-8">
+                    <SessionGroup title="Qualificação - 1"><WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} /><HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura (Q1)" /></SessionGroup>
+                    <SessionGroup title="Qualificação - 2"><WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} /><HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura (Q2)" /></SessionGroup>
+                  </div>
+                  <div className="bg-black/20 rounded-xl p-6 border border-white/5">
+                    <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-6">Previsão para a Corrida</h3>
+                    <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
+                    <div className="mt-6 space-y-3">
+                      {[1, 2, 3, 4].map(num => (
+                        <div key={num} className="grid grid-cols-5 items-center bg-black/40 p-2 rounded-lg border border-white/5">
+                          <span className="col-span-2 text-[9px] font-bold text-slate-500 uppercase pl-1">Quad: {num}</span>
+                          <span className='text-slate-600 text-[10px] text-center'>MIN</span>
+                          <input type="number" name={`r${num}_temp_min`} value={(weather as any)[`r${num}_temp_min`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-indigo-300 outline-none w-full" />
+                          <input type="number" name={`r${num}_temp_max`} value={(weather as any)[`r${num}_temp_max`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-rose-300 outline-none w-full" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
+              </section>
             </div>
-          </section>
-        </div>
 
-        {/* COLUNA DA DIREITA: RESULTADOS E DESGASTE */}
-        <div className="xl:col-span-5 space-y-6">
-          <AnimatePresence mode='wait'>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                
-                {/* 1. SETUP IDEAL */}
+            {/* SETUP IDEAL */}
+            <div className="xl:col-span-5">
+              <AnimatePresence mode='wait'>
                 {resultado && (
-                    <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm h-full">
                         <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
                             <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2"><Settings size={14} className="text-indigo-400" /> Setup Ideal</h2>
                             {loading && <Loader2 className="animate-spin text-white" size={14} />}
@@ -399,12 +393,24 @@ export default function SetupPage() {
                                 </div>
                             ))}
                         </div>
-                    </section>
+                    </motion.div>
                 )}
+                {!resultado && (
+                    <div className="h-full bg-white/[0.01] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-600 gap-4 border-dashed">
+                        <Settings size={32} className="opacity-20" />
+                        <p className="text-xs uppercase font-black tracking-widest text-center">Aguardando Cálculo...</p>
+                    </div>
+                )}
+              </AnimatePresence>
+            </div>
+        </div>
 
-                {/* 2. DESGASTE ESTIMADO (Original - Mantido) */}
-                {resultado && (
-                    <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm">
+        {/* === LINHA INFERIOR: Tabelas de Desgaste (Lado a Lado no Desktop) === */}
+        {resultado && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
+                
+                {/* 1. DESGASTE ESTIMADO (ORIGINAL) */}
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm h-full">
                     <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
                         <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2"><ShieldAlert size={14} className="text-rose-500" /> Desgaste Estimado</h2>
                         <div className="flex items-center gap-2">
@@ -412,7 +418,7 @@ export default function SetupPage() {
                         <input type="number" value={desgasteModifier} onChange={(e) => updateDesgasteModifier(Number(e.target.value))} className="w-10 bg-black/40 border border-white/10 rounded text-white text-center text-xs font-black outline-none focus:border-indigo-500" />
                         </div>
                     </div>
-                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-3 custom-scrollbar">
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-3 custom-scrollbar">
                         {COMPONENTS.map((part) => {
                         const d = resultado[part.id]?.wear;
                         if (!d) return null;
@@ -431,11 +437,10 @@ export default function SetupPage() {
                         )
                         })}
                     </div>
-                    </section>
-                )}
+                </section>
 
-                {/* 3. NOVA SEÇÃO: DESGASTE ESTIMADO COM TESTES (REFATORADO PARA TABELA SCROLLÁVEL) */}
-                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-0 overflow-hidden backdrop-blur-sm">
+                {/* 2. DESGASTE ESTIMADO COM TESTES (OTIMIZADA) */}
+                <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-0 overflow-hidden backdrop-blur-sm h-full flex flex-col">
                     {/* HEADER DA SEÇÃO */}
                     <div className="p-6 border-b border-white/5">
                         <div className="flex flex-col gap-4 mb-2">
@@ -453,13 +458,12 @@ export default function SetupPage() {
                                         placeholder="TESTAR NESTA PISTA"
                                      />
 
-                                     {/* NOVO: Botão para limpar a seleção */}
                                      {isTestActive && (
                                          <button 
                                             onClick={() => {
                                                 setTestTrack("Selecionar Pista");
-                                                setTestLaps(0); // Opcional: Reseta as voltas para 0
-                                                setTestResults(null); // Limpa os resultados visualmente na hora
+                                                setTestLaps(0);
+                                                setTestResults(null);
                                             }}
                                             className="h-[34px] w-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 rounded-lg transition-all"
                                             title="Cancelar Teste"
@@ -491,28 +495,42 @@ export default function SetupPage() {
                                  )}
                             </div>
                         </div>
+
+                        {/* AVISO GLOBAL DE LIMITE 90% */}
+                        <AnimatePresence>
+                            {hasTestingLimitWarning && (
+                                <motion.div 
+                                    initial={{ opacity: 0, height: 0 }} 
+                                    animate={{ opacity: 1, height: 'auto' }} 
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="mt-3 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2 flex items-start gap-3"
+                                >
+                                    <ShieldAlert className="text-rose-500 shrink-0 mt-0.5" size={14} />
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-black text-rose-400 uppercase">Atenção: Limite de Teste Excedido</span>
+                                        <p className="text-[9px] text-rose-200/80 leading-tight">
+                                            Uma ou mais peças ultrapassarão 90% de desgaste durante o teste. O GPRO impedirá a realização deste teste.
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
-                    {/* TABELA OTIMIZADA: SEM GAPS HORIZONTAIS */}
-                    <div className="overflow-x-auto custom-scrollbar pb-2 px-2">
+                    {/* TABELA OTIMIZADA */}
+                    <div className="overflow-x-auto custom-scrollbar pb-2 px-2 flex-grow">
                         <table className="w-full text-xs border-separate border-spacing-y-1">
                             <thead>
                                 <tr className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                                    {/* Coluna Fixa: PEÇA (Padding reduzido para pl-3 pr-2) */}
-                                    <th className="sticky left-0 bg-[#0F0F13] z-20 pl-3 pr-2 py-2 text-left border-b border-white/5 shadow-[2px_0_5px_rgba(0,0,0,0.3)] w-auto whitespace-nowrap">
-                                        Peça
-                                    </th>
-                                    {/* Colunas de Dados: Padding reduzido para px-1 */}
+                                    <th className="sticky left-0 bg-[#0F0F13] z-20 pl-3 pr-2 py-2 text-left border-b border-white/5 shadow-[2px_0_5px_rgba(0,0,0,0.3)] w-auto whitespace-nowrap">Peça</th>
                                     <th className="px-1 py-2 text-center border-b border-white/5 whitespace-nowrap w-min">Nvl</th>
                                     <th className="px-1 py-2 text-center border-b border-white/5 whitespace-nowrap">Início</th>
-                                    
                                     {isTestActive && (
                                         <>
                                             <th className="px-1 py-2 text-center text-amber-500 border-b border-white/5 whitespace-nowrap">Teste</th>
                                             <th className="px-1 py-2 text-center text-indigo-400 border-b border-white/5 whitespace-nowrap">Pré-Cor</th>
                                         </>
                                     )}
-                                    
                                     <th className="px-1 py-2 text-center text-rose-500 border-b border-white/5 whitespace-nowrap">Fim</th>
                                 </tr>
                             </thead>
@@ -522,6 +540,9 @@ export default function SetupPage() {
                                     const startWear = car[index]?.wear || 0;
                                     const testWearVal = testResults ? testResults[part.id]?.test_wear : 0;
                                     const preRaceVal = testResults ? testResults[part.id]?.pre_race : startWear; 
+
+                                    // Checa se ESSE componente estourou o limite
+                                    const isLimitBroken = isTestActive && typeof preRaceVal === 'number' && preRaceVal > 90;
 
                                     let calculatedFinalWear = 0;
                                     if (resultado && resultado[part.id]?.wear) {
@@ -533,13 +554,13 @@ export default function SetupPage() {
                                     }
 
                                     return (
-                                        <tr key={part.id} className="group hover:bg-white/[0.02] transition-colors">
-                                            {/* Coluna Fixa: PEÇA */}
+                                        <tr key={part.id} className={`group transition-colors ${isLimitBroken ? 'bg-rose-500/5' : 'hover:bg-white/[0.02]'}`}>
+                                            {/* Coluna Fixa */}
                                             <td className="sticky left-0 bg-[#13131A] z-10 pl-3 pr-2 py-2 border-r border-white/5 font-black text-[9px] text-slate-300 uppercase shadow-[2px_0_5px_rgba(0,0,0,0.3)] whitespace-nowrap">
                                                 {part.label}
                                             </td>
 
-                                            {/* Nível (Largura mínima) */}
+                                            {/* Nível */}
                                             <td className="px-1 py-1 text-center bg-black/20 w-min">
                                                 <div className="mx-auto w-6 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold text-slate-400 py-1">
                                                     {lvl}
@@ -559,8 +580,20 @@ export default function SetupPage() {
                                                     <td className="px-1 py-1 text-center bg-black/20 text-[10px] font-black text-amber-500 whitespace-nowrap">
                                                         +{typeof testWearVal === 'number' ? testWearVal.toFixed(1) : '0.0'}%
                                                     </td>
-                                                    <td className="px-1 py-1 text-center bg-black/20 text-[10px] font-black text-indigo-400 whitespace-nowrap">
-                                                        {typeof preRaceVal === 'number' ? preRaceVal.toFixed(1) : '0.0'}%
+                                                    
+                                                    {/* Célula PRÉ-COR com aviso condicional */}
+                                                    <td className="px-1 py-1 text-center bg-black/20 whitespace-nowrap relative">
+                                                        <div className={`text-[10px] font-black transition-all ${isLimitBroken ? 'text-rose-500 scale-110' : 'text-indigo-400'}`}>
+                                                            {typeof preRaceVal === 'number' ? preRaceVal.toFixed(1) : '0.0'}%
+                                                        </div>
+                                                        {isLimitBroken && (
+                                                            <div className="absolute top-0 right-0 -mr-1 -mt-1">
+                                                                <span className="flex h-2 w-2 relative">
+                                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 </>
                                             )}
@@ -578,10 +611,8 @@ export default function SetupPage() {
                         </table>
                     </div>
                 </section>
-
             </motion.div>
-          </AnimatePresence>
-        </div>
+        )}
       </main>
     </div>
   );
