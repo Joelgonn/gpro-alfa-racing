@@ -1,0 +1,75 @@
+Listagem de caminhos de pasta
+O número de série do volume é CEC6-976D
+C:.
+|   estrutura.txt
+|   favicon.ico
+|   globals.css
+|   layout.tsx
+|   page.tsx
+|   
++---actions
+|       admin.ts
+|       signup.ts
+|       
++---api
+|   +---calcular
+|   |       route.js
+|   |       
+|   +---manual
+|   |       route.ts
+|   |       
+|   +---market
+|   |   \---update
+|   |           route.ts
+|   |           
+|   +---performance
+|   |       route.js
+|   |       
+|   +---python
+|   |   \---[[...route]]
+|   |           route.ts
+|   |           
+|   +---sponsors
+|   |       route.js
+|   |       
+|   +---test-calculator
+|   |       route.ts
+|   |       
+|   \---tracks
+|           route.js
+|           
++---components
+|       AdminInviteButton.tsx
+|       
++---context
+|       GameContext.tsx
+|       
++---dashboard
+|   |   layout.tsx
+|   |   page.tsx
+|   |   
+|   +---manual
+|   |       page.tsx
+|   |       
+|   +---market
+|   |       page.tsx
+|   |       
+|   +---setup
+|   |       page.tsx
+|   |       
+|   +---sponsors
+|   |       page.tsx
+|   |       
+|   +---strategy
+|   |       page.tsx
+|   |       
+|   \---tests
+|           page.tsx
+|           
++---lib
+|       db.ts
+|       supabase.ts
+|       
+\---login
+        page.tsx
+        

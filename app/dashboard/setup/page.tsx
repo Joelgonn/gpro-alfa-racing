@@ -120,7 +120,7 @@ export default function SetupPage() {
   const hasTestingLimitWarning = useMemo(() => {
       if (!testResults) return false;
       return Object.values(testResults).some((part: any) => {
-          return part.pre_race && part.pre_race > 90;
+          return part.pre_race && part.pre_race > 90.4;
       });
   }, [testResults]);
 
@@ -542,7 +542,7 @@ export default function SetupPage() {
                                     const preRaceVal = testResults ? testResults[part.id]?.pre_race : startWear; 
 
                                     // Checa se ESSE componente estourou o limite
-                                    const isLimitBroken = isTestActive && typeof preRaceVal === 'number' && preRaceVal > 90;
+                                    const isLimitBroken = isTestActive && typeof preRaceVal === 'number' && preRaceVal > 90.4;
 
                                     let calculatedFinalWear = 0;
                                     if (resultado && resultado[part.id]?.wear) {
