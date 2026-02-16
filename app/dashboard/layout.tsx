@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import { GameProvider, useGame } from '../context/GameContext';
-import { supabase } from '../lib/supabase';
-import AdminInviteButton from '../components/AdminInviteButton';
+import { GameProvider, useGame } from '../context/GameContext'; // Ajuste o caminho se necessário (../context...)
+import { supabase } from '../lib/supabase'; // Ajuste o caminho se necessário
+import AdminInviteButton from '../components/AdminInviteButton'; // Ajuste o caminho se necessário
 
 // --- ÍCONES ---
 const Icons = {
@@ -16,7 +16,8 @@ const Icons = {
   Money: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Users: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>,
   Logout: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>,
-  Beaker: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.252 0 .487.02.718.057l.25.029c.26.03.515.07.764.124m5.24 7.812a2.25 2.25 0 00-.659-1.591l-4.091-4.091a2.25 2.25 0 01-.659-1.591V3.104m3.668 12.392V3.104c0-.261.023-.515.068-.764l.048-.276c.045-.252.098-.497.16-.732M9.75 15.75l-3.32-3.32a1.405 1.405 0 00-2.022.288 1.405 1.405 0 00.288 2.022l3.32 3.32M9.75 15.75V18m0 0l3.32-3.32a1.405 1.405 0 012.022.288 1.405 1.405 0 01-.288 2.022l-3.32 3.32m0 0V21m-3.32-5.25a1.405 1.405 0 00-2.022-.288 1.405 1.405 0 00.288 2.022l3.32-3.32" /></svg>, // <-- NOVO ÍCONE
+  Beaker: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.252 0 .487.02.718.057l.25.029c.26.03.515.07.764.124m5.24 7.812a2.25 2.25 0 00-.659-1.591l-4.091-4.091a2.25 2.25 0 01-.659-1.591V3.104m3.668 12.392V3.104c0-.261.023-.515.068-.764l.048-.276c.045-.252.098-.497.16-.732M9.75 15.75l-3.32-3.32a1.405 1.405 0 00-2.022.288 1.405 1.405 0 00.288 2.022l3.32 3.32M9.75 15.75V18m0 0l3.32-3.32a1.405 1.405 0 012.022.288 1.405 1.405 0 01-.288 2.022l-3.32 3.32m0 0V21m-3.32-5.25a1.405 1.405 0 00-2.022-.288 1.405 1.405 0 00.288 2.022l3.32-3.32" /></svg>,
+  Calendar: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>, // <-- NOVO ÍCONE ADICIONADO
 };
 
 // --- COMPONENTE DA SIDEBAR ADAPTÁVEL ---
@@ -59,9 +60,10 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 
   const menuItems = [
     { name: 'Visão Geral', path: '/dashboard', icon: <Icons.Chart /> },
+    { name: 'Calendário', path: '/dashboard/calendar', icon: <Icons.Calendar /> }, // <-- NOVO ITEM DE MENU
     { name: 'Setup Calculadora', path: '/dashboard/setup', icon: <Icons.Car /> },
     { name: 'Setup Manual', path: '/dashboard/manual', icon: <Icons.Wrench /> },
-    { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> }, // <-- NOVO ITEM DE MENU
+    { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> },
     { name: 'Estratégia', path: '/dashboard/strategy', icon: <Icons.Strategy /> },
     { name: 'Patrocinadores', path: '/dashboard/sponsors', icon: <Icons.Money /> },
     { name: 'Mercado de Pilotos', path: '/dashboard/market', icon: <Icons.Users /> },
@@ -80,13 +82,13 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       {/* Logo / Título */}
       <div className="h-24 flex items-center px-8 border-b border-white/5 relative overflow-hidden group shrink-0">
         <div className="absolute left-10 top-1/2 -translate-y-1/2 w-24 h-24 bg-emerald-500/10 blur-[50px] rounded-full group-hover:bg-emerald-500/20 transition-all duration-700"></div>
-        <h1 className="relative z-10 flex flex-col">
+        <div className="relative z-10 flex flex-col">
           <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em] ml-0.5 mb-1">Lair of Wolves</span>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-black tracking-tighter text-white">ALFA <span className="text-yellow-400">RACING</span></span>
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 text-white/50 border border-white/5">BR</span>
           </div>
-        </h1>
+        </div>
       </div>
       
       {/* Links de Navegação */}
