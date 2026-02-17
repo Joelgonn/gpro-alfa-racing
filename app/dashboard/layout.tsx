@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import { GameProvider, useGame } from '../context/GameContext'; // Ajuste o caminho se necessário (../context...)
-import { supabase } from '../lib/supabase'; // Ajuste o caminho se necessário
-import AdminInviteButton from '../components/AdminInviteButton'; // Ajuste o caminho se necessário
+import { GameProvider, useGame } from '../context/GameContext';
+import { supabase } from '../lib/supabase';
+import AdminInviteButton from '../components/AdminInviteButton';
 
-// --- ÍCONES ---
+// --- ÍCONES SVG PERSONALIZADOS ---
 const Icons = {
   Chart: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>,
   Car: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.126-.504 1.126-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-6 0h1.125a1.125 1.125 0 011.125 1.125v1.5a3.375 3.375 0 01-3.375 3.375H9.75" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>,
@@ -17,10 +17,55 @@ const Icons = {
   Users: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>,
   Logout: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>,
   Beaker: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.252 0 .487.02.718.057l.25.029c.26.03.515.07.764.124m5.24 7.812a2.25 2.25 0 00-.659-1.591l-4.091-4.091a2.25 2.25 0 01-.659-1.591V3.104m3.668 12.392V3.104c0-.261.023-.515.068-.764l.048-.276c.045-.252.098-.497.16-.732M9.75 15.75l-3.32-3.32a1.405 1.405 0 00-2.022.288 1.405 1.405 0 00.288 2.022l3.32 3.32M9.75 15.75V18m0 0l3.32-3.32a1.405 1.405 0 012.022.288 1.405 1.405 0 01-.288 2.022l-3.32 3.32m0 0V21m-3.32-5.25a1.405 1.405 0 00-2.022-.288 1.405 1.405 0 00.288 2.022l3.32-3.32" /></svg>,
-  Calendar: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>, // <-- NOVO ÍCONE ADICIONADO
+  Calendar: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>,
+  Wear: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>, // Ícone de Alerta/Gauge
 };
 
-// --- COMPONENTE DA SIDEBAR ADAPTÁVEL ---
+// --- ESTRUTURA DOS MENUS POR PRIORIDADE ---
+// CORREÇÃO: Renderizar os componentes (<Icons.Nome />) aqui dentro, e não apenas passar a função.
+const menuGroups = [
+  {
+    id: 'race_control',
+    title: 'Controle de Corrida',
+    color: 'text-amber-400',
+    bgHover: 'hover:bg-amber-500/10',
+    bgActive: 'bg-amber-500/10',
+    borderActive: 'border-amber-500/20',
+    items: [
+      { name: 'Visão Geral', path: '/dashboard', icon: <Icons.Chart /> },
+      { name: 'Setup Calculadora', path: '/dashboard/setup', icon: <Icons.Car /> },
+      { name: 'Estratégia', path: '/dashboard/strategy', icon: <Icons.Strategy /> },
+    ]
+  },
+  {
+    id: 'engineering',
+    title: 'Engenharia',
+    color: 'text-emerald-400',
+    bgHover: 'hover:bg-emerald-500/10',
+    bgActive: 'bg-emerald-500/10',
+    borderActive: 'border-emerald-500/20',
+    items: [
+      { name: 'Setup Manual', path: '/dashboard/manual', icon: <Icons.Wrench /> },
+      { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> },
+      { name: 'Desgastes', path: '/dashboard/wear', icon: <Icons.Wear /> },
+    ]
+  },
+  {
+    id: 'management',
+    title: 'Gerenciamento',
+    color: 'text-indigo-400',
+    bgHover: 'hover:bg-indigo-500/10',
+    bgActive: 'bg-indigo-500/10',
+    borderActive: 'border-indigo-500/20',
+    items: [
+      { name: 'Patrocinadores', path: '/dashboard/sponsors', icon: <Icons.Money /> },
+      { name: 'Mercado de Pilotos', path: '/dashboard/market', icon: <Icons.Users /> },
+      { name: 'Calendário', path: '/dashboard/calendar', icon: <Icons.Calendar /> },
+    ]
+  }
+];
+
+// --- SIDEBAR COMPONENT ---
 function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) {
   const pathname = usePathname();
   const { role, updateRole } = useGame();
@@ -32,12 +77,7 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserEmail(user.email || null);
-        const { data: userState } = await supabase
-          .from('user_state')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-        
+        const { data: userState } = await supabase.from('user_state').select('role').eq('user_id', user.id).single();
         if (userState && (userState.role === 'admin' || userState.role === 'user')) {
           updateRole(userState.role);
         }
@@ -53,150 +93,157 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
-
-  const menuItems = [
-    { name: 'Visão Geral', path: '/dashboard', icon: <Icons.Chart /> },
-    { name: 'Calendário', path: '/dashboard/calendar', icon: <Icons.Calendar /> }, // <-- NOVO ITEM DE MENU
-    { name: 'Setup Calculadora', path: '/dashboard/setup', icon: <Icons.Car /> },
-    { name: 'Setup Manual', path: '/dashboard/manual', icon: <Icons.Wrench /> },
-    { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> },
-    { name: 'Estratégia', path: '/dashboard/strategy', icon: <Icons.Strategy /> },
-    { name: 'Patrocinadores', path: '/dashboard/sponsors', icon: <Icons.Money /> },
-    { name: 'Mercado de Pilotos', path: '/dashboard/market', icon: <Icons.Users /> },
-  ];
 
   const sidebarClasses = `
     fixed inset-y-0 left-0 z-50 flex flex-col w-72 
-    border-r border-white/5 bg-slate-900/80 backdrop-blur-xl
-    transition-transform duration-300 ease-in-out
-    ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-    md:sticky md:translate-x-0 md:bg-slate-900/40
+    bg-[#050505]/95 backdrop-blur-2xl border-r border-white/5
+    transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1)
+    ${isOpen ? 'translate-x-0 shadow-2xl shadow-black' : '-translate-x-full'}
+    md:sticky md:translate-x-0 md:bg-transparent md:border-r md:border-white/5
   `;
 
   return (
     <aside ref={sidebarRef} className={sidebarClasses}>
-      {/* Logo / Título */}
-      <div className="h-24 flex items-center px-8 border-b border-white/5 relative overflow-hidden group shrink-0">
-        <div className="absolute left-10 top-1/2 -translate-y-1/2 w-24 h-24 bg-emerald-500/10 blur-[50px] rounded-full group-hover:bg-emerald-500/20 transition-all duration-700"></div>
-        <div className="relative z-10 flex flex-col">
-          <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em] ml-0.5 mb-1">Lair of Wolves</span>
+      {/* Logo Area */}
+      <div className="h-28 flex flex-col justify-center px-8 border-b border-white/5 relative overflow-hidden group shrink-0">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[60px] rounded-full"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-500/5 blur-[40px] rounded-full"></div>
+        
+        <div className="relative z-10">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-1 block">Team</span>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-black tracking-tighter text-white">ALFA <span className="text-yellow-400">RACING</span></span>
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 text-white/50 border border-white/5">BR</span>
+             <div className="w-1 h-8 bg-amber-400 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]"></div>
+             <div>
+                <h1 className="text-2xl font-black italic tracking-tighter text-white leading-none">
+                  ALFA <span className="text-amber-400">RACING</span>
+                </h1>
+                <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-500/20">Brasil - Lair of Wolves</span>
+             </div>
           </div>
         </div>
       </div>
       
-      {/* Links de Navegação */}
-      <nav className="flex-1 px-4 py-8 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
-        <p className="px-4 mb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-80">Console de Equipe</p>
-        {menuItems.map((item) => {
-          const isActive = pathname === item.path;
-          return (
-            <Link key={item.path} href={item.path} onClick={onClose} className={`relative flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 group overflow-hidden ${isActive ? 'text-white shadow-[0_0_20px_-5px_rgba(234,179,8,0.15)]' : 'text-slate-400 hover:text-white hover:bg-white/[0.03]'}`}>
-              {isActive && <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 to-transparent border border-white/5 rounded-xl pointer-events-none" />}
-              {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(250,204,21,0.5)]" />}
-              <span className={`relative z-10 transition-transform duration-300 ${isActive ? 'text-yellow-400 scale-110' : 'text-slate-500 group-hover:text-emerald-400'}`}>{item.icon}</span>
-              <span className="relative z-10 tracking-wide">{item.name}</span>
-              {!isActive && <span className="absolute right-4 text-slate-700 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">→</span>}
-            </Link>
-          );
-        })}
+      {/* Navigation */}
+      <nav className="flex-1 px-4 py-6 space-y-8 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+        {menuGroups.map((group) => (
+          <div key={group.id} className="space-y-1">
+            <h3 className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-2">{group.title}</h3>
+            {group.items.map((item) => {
+              const isActive = pathname === item.path;
+              return (
+                <Link 
+                  key={item.path} 
+                  href={item.path} 
+                  onClick={onClose} 
+                  className={`
+                    relative flex items-center gap-3.5 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all duration-300 group/item overflow-hidden
+                    ${isActive 
+                      ? `${group.bgActive} text-white ${group.borderActive} border shadow-[0_0_15px_-5px_rgba(0,0,0,0.5)]` 
+                      : `text-slate-400 hover:text-white ${group.bgHover} border border-transparent`
+                    }
+                  `}
+                >
+                  {/* Active Indicator Line */}
+                  {isActive && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full ${group.color.replace('text-', 'bg-')} shadow-[0_0_8px_currentColor]`} />}
+                  
+                  {/* Icon */}
+                  <span className={`relative z-10 transition-transform duration-300 ${isActive ? `${group.color} scale-110` : 'text-slate-500 group-hover/item:text-slate-300'}`}>
+                    {item.icon}
+                  </span>
+                  
+                  {/* Text */}
+                  <span className="relative z-10">{item.name}</span>
+
+                  {/* Hover Arrow */}
+                  {!isActive && <span className="absolute right-3 text-slate-600 opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-300">→</span>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
-      {/* Rodapé do Menu (User Profile) */}
-      <div className="p-4 border-t border-white/5 bg-black/20 backdrop-blur-sm shrink-0">
-        <div className="mb-2">
+      {/* User Profile */}
+      <div className="p-4 border-t border-white/5 bg-black/40 backdrop-blur-xl shrink-0">
+        <div className="mb-3">
             <AdminInviteButton userRole={role} />
         </div>
-        <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors group">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-white shadow-inner">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-800 to-black border border-white/10 flex items-center justify-center text-xs font-black text-amber-400 shadow-inner">
                 {userEmail ? userEmail.charAt(0).toUpperCase() : '?'}
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-slate-900 rounded-full"></span>
+              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-black rounded-full animate-pulse"></span>
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-white group-hover:text-yellow-400 transition-colors">Team Principal</span>
-              <span className="text-[10px] text-slate-500 truncate max-w-[120px]">{userEmail || 'Carregando...'}</span>
+              <span className="text-[11px] font-black uppercase text-white group-hover:text-amber-400 transition-colors">Team Principal</span>
+              <span className="text-[10px] text-slate-500 truncate max-w-[120px] font-mono">{userEmail || 'Loading...'}</span>
             </div>
           </div>
-          <Link href="/login" onClick={() => supabase.auth.signOut()} className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Sair"><Icons.Logout /></Link>
+          <Link href="/login" onClick={() => supabase.auth.signOut()} className="p-2 rounded-lg text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Logout"><Icons.Logout /></Link>
         </div>
       </div>
     </aside>
   );
 }
 
-// --- LAYOUT PRINCIPAL ---
+// --- LAYOUT ---
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [isMobileMenuOpen]);
+  useEffect(() => { setIsMobileMenuOpen(false); }, [pathname]);
+  useEffect(() => { document.body.style.overflow = isMobileMenuOpen ? 'hidden' : 'auto'; }, [isMobileMenuOpen]);
 
   return (
     <GameProvider>
-      <div className="flex min-h-screen bg-[#020617] text-slate-200 font-sans antialiased selection:bg-yellow-500/30 selection:text-yellow-200">
+      <div className="flex min-h-screen bg-[#020617] text-slate-200 font-sans antialiased selection:bg-amber-500/30 selection:text-amber-100">
         
-        {isMobileMenuOpen && (
-          <div 
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="fixed inset-0 bg-black/60 z-40 md:hidden"
-            aria-hidden="true"
-          />
-        )}
-        
-        <SidebarContent 
-          isOpen={isMobileMenuOpen}
-          onClose={() => setIsMobileMenuOpen(false)}
+        {/* Mobile Backdrop */}
+        <div 
+          onClick={() => setIsMobileMenuOpen(false)}
+          className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          aria-hidden="true"
         />
         
-        <div className="flex-1 flex flex-col min-h-screen">
+        <SidebarContent isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+        
+        <div className="flex-1 flex flex-col min-h-screen relative">
+          {/* Background Ambient Effects */}
           <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-             <div className="absolute top-[-20%] left-[10%] w-[800px] h-[800px] bg-emerald-900/10 blur-[120px] rounded-full mix-blend-screen"></div>
-             <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-yellow-900/5 blur-[100px] rounded-full mix-blend-screen"></div>
+             <div className="absolute top-[-20%] left-[10%] w-[800px] h-[800px] bg-emerald-900/10 blur-[150px] rounded-full mix-blend-screen opacity-60"></div>
+             <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-amber-900/10 blur-[150px] rounded-full mix-blend-screen opacity-60"></div>
              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] brightness-100 contrast-150"></div>
           </div>
           
-          <header className="md:hidden bg-slate-950/80 backdrop-blur-md px-4 h-16 border-b border-white/5 flex justify-between items-center sticky top-0 z-30">
-              <Link href="/dashboard" className="font-bold text-white tracking-tight flex gap-1 items-center">
-                ALFA <span className="text-yellow-400">RACING</span>
-              </Link>
+          {/* Mobile Header */}
+          <header className="md:hidden bg-[#050505]/80 backdrop-blur-xl px-5 h-16 border-b border-white/5 flex justify-between items-center sticky top-0 z-30 shadow-lg shadow-black/20">
+              <div className="flex items-center gap-2">
+                 <div className="w-1 h-5 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.5)]"></div>
+                 <Link href="/dashboard" className="font-black italic text-lg text-white tracking-tighter">
+                    ALFA <span className="text-amber-400">RACING</span>
+                 </Link>
+              </div>
               
               <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                className="relative z-50 h-10 w-10 flex items-center justify-center text-slate-300"
-                aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+                className="relative z-50 h-10 w-10 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                aria-label="Menu"
               >
                 <div className="space-y-1.5">
-                  <span className={`block w-6 h-0.5 bg-current transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
-                  <span className={`block w-6 h-0.5 bg-current transition-opacity duration-300 ease-in-out ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
-                  <span className={`block w-6 h-0.5 bg-current transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
+                  <span className={`block w-6 h-0.5 bg-current rounded-full transform transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2 bg-amber-400' : ''}`}></span>
+                  <span className={`block w-4 h-0.5 bg-current rounded-full transition-all duration-300 ml-auto ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
+                  <span className={`block w-6 h-0.5 bg-current rounded-full transform transition-all duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-2 bg-amber-400' : ''}`}></span>
                 </div>
               </button>
           </header>
 
-          <main className="flex-1 overflow-auto p-6 md:p-10 relative z-10 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-             <div className="mx-auto max-w-7xl w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Main Content */}
+          <main className="flex-1 overflow-auto p-4 md:p-8 lg:p-10 relative z-10 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+             <div className="mx-auto max-w-7xl w-full animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
                 {children}
              </div>
           </main>

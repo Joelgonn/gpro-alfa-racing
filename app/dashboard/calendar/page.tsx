@@ -136,7 +136,7 @@ export default function CalendarioAlfaPremium() {
       <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/5 p-4 md:p-6 rounded-[24px] md:rounded-[32px] flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 shadow-2xl gap-4 md:gap-0">
         <div className="flex items-center gap-3 md:gap-5 w-full md:w-auto justify-center md:justify-start">
           <CalendarIcon className="text-indigo-400 shrink-0" size={24} />
-          <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter text-center">Calendário Alfa Racing</h1>
+          <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter text-center">Calendário Temporada</h1>
           {isSaving && <Cloud className="text-amber-500 animate-bounce" size={16} />}
         </div>
         
