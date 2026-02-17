@@ -12,17 +12,17 @@ import { useGame } from '@/app/context/GameContext';
 
 // --- CONFIGURAÇÃO DAS PEÇAS ---
 const CAR_PARTS = [
-  { id: 'chassi', label: 'CHASSIS', icon: <Settings2 size={12} /> },
-  { id: 'motor', label: 'MOTOR', icon: <Zap size={12} /> },
-  { id: 'asa_diant', label: 'ASA DIANT.', icon: <Activity size={12} /> },
-  { id: 'asa_tras', label: 'ASA TRAS.', icon: <Activity size={12} /> },
-  { id: 'assoalho', label: 'ASSOALHO', icon: <ShieldAlert size={12} /> },
-  { id: 'laterais', label: 'LATERAIS', icon: <Settings2 size={12} /> },
-  { id: 'radiador', label: 'RADIADOR', icon: <Thermometer size={12} /> },
-  { id: 'cambio', label: 'CÂMBIO', icon: <Settings2 size={12} /> },
-  { id: 'freios', label: 'FREIOS', icon: <ShieldAlert size={12} /> },
-  { id: 'suspensao', label: 'SUSPENSÃO', icon: <Settings2 size={12} /> },
-  { id: 'eletronicos', label: 'ELETRÔNICOS', icon: <Zap size={12} /> },
+  { id: 'chassi', label: 'CHASSIS', icon: <Settings2 size={14} /> },
+  { id: 'motor', label: 'MOTOR', icon: <Zap size={14} /> },
+  { id: 'asa_diant', label: 'ASA DIANT.', icon: <Activity size={14} /> },
+  { id: 'asa_tras', label: 'ASA TRAS.', icon: <Activity size={14} /> },
+  { id: 'assoalho', label: 'ASSOALHO', icon: <ShieldAlert size={14} /> },
+  { id: 'laterais', label: 'LATERAIS', icon: <Settings2 size={14} /> },
+  { id: 'radiador', label: 'RADIADOR', icon: <Thermometer size={14} /> },
+  { id: 'cambio', label: 'CÂMBIO', icon: <Settings2 size={14} /> },
+  { id: 'freios', label: 'FREIOS', icon: <ShieldAlert size={14} /> },
+  { id: 'suspensao', label: 'SUSPENSÃO', icon: <Settings2 size={14} /> },
+  { id: 'eletronicos', label: 'ELETRÔNICOS', icon: <Zap size={14} /> },
 ];
 
 // --- MAPEAMENTO DE BANDEIRAS ---
@@ -217,6 +217,14 @@ export default function WearPlanningPage() {
     setSeasonSlots(prev => prev.map((slot, i) => i === index ? { ...slot, ctr: 0, testLaps: 0 } : slot));
   };
 
+  // Referência para scroll no mobile
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Efeito para rolar automaticamente para o card selecionado se necessário (opcional)
+  const handleMobileTabClick = (idx: number) => {
+      setMobileActiveTab(idx);
+  };
+
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-[#050505]">
       <Loader2 className="animate-spin text-emerald-500 mb-4" size={40} />
@@ -253,13 +261,12 @@ export default function WearPlanningPage() {
                         <span className="text-sm font-mono font-bold text-zinc-200 group-hover:text-white transition-colors">
                             {stat.val} <span className="text-[9px] text-zinc-600 font-normal">{stat.unit}</span>
                         </span>
-                        <div className="absolute -top-8 bg-black border border-white/10 px-2 py-1 rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">{stat.full}</div>
                     </div>
                 ))}
             </div>
         </div>
 
-        <div className="flex items-center gap-4 bg-black/60 px-6 py-3 rounded-2xl border border-white/5 font-mono z-10 w-full sm:w-auto justify-between sm:justify-end">
+        <div className="hidden sm:flex items-center gap-4 bg-black/60 px-6 py-3 rounded-2xl border border-white/5 font-mono z-10 w-full sm:w-auto justify-between sm:justify-end">
           <button 
             onClick={() => { if(confirm("ATENÇÃO: Limpar nuvem? Isso resetará TUDO.")) { saveToCloud([], {}, []); window.location.reload(); }}} 
             className="mr-2 p-2 text-zinc-600 hover:text-rose-500 transition-colors group relative"
@@ -353,99 +360,110 @@ export default function WearPlanningPage() {
         </div>
       </div>
 
-      {/* --- MOBILE VIEW (TRACK SLIDER & CARD) --- */}
-      <div className="block md:hidden pb-20">
+      {/* --- MOBILE VIEW (OTIMIZADO) --- */}
+      <div className="block md:hidden pb-24">
         
-        {/* Track Slider */}
-        <div className="flex gap-2 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-none px-1">
+        {/* Track Slider - Alinhado à esquerda com rolagem */}
+        <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-6 px-1 snap-x snap-mandatory scrollbar-none items-start justify-start">
             {seasonSlots.map((slot, idx) => {
                 const isActive = mobileActiveTab === idx;
                 const isLocked = lockedSlots.includes(idx);
                 return (
                     <button 
                         key={idx}
-                        onClick={() => setMobileActiveTab(idx)}
+                        onClick={() => handleMobileTabClick(idx)}
                         className={`
-                            flex-shrink-0 snap-center flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all w-24 relative
+                            snap-start flex-shrink-0 flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all w-[85px] relative
                             ${isActive 
-                                ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_15px_-5px_rgba(245,158,11,0.3)]' 
-                                : 'bg-zinc-900/50 border-white/5 opacity-70'
+                                ? 'bg-zinc-800 border-amber-500/50 shadow-[0_4px_20px_-8px_rgba(245,158,11,0.3)] scale-105 z-10' 
+                                : 'bg-zinc-900/50 border-white/5 opacity-60'
                             }
                         `}
                     >
-                         {isLocked && <div className="absolute top-2 right-2 text-emerald-400"><Lock size={10} /></div>}
-                         <div className="relative w-8 h-5 shadow-sm">
-                             <Image src={getFlagSrc(slot.name)} alt="flag" fill className="object-cover rounded-[2px]" unoptimized />
+                         {isLocked && <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-0.5 text-emerald-400 shadow-sm border border-emerald-500/20"><Lock size={10} /></div>}
+                         <div className={`relative w-10 h-6 shadow-sm overflow-hidden rounded ${isActive ? 'ring-1 ring-white/20' : ''}`}>
+                             <Image src={getFlagSrc(slot.name)} alt="flag" fill className="object-cover" unoptimized />
                          </div>
-                         <span className={`text-[9px] font-black uppercase truncate w-full text-center ${isActive ? 'text-white' : 'text-zinc-500'}`}>
-                            #{idx+1} {slot.name.split(' ')[0]}
-                         </span>
-                         <div className={`w-full h-0.5 rounded-full ${isActive ? 'bg-amber-500' : 'bg-transparent'}`} />
+                         <div className="flex flex-col w-full text-center">
+                           <span className={`text-[10px] font-black uppercase truncate w-full ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+                              {slot.name.split(' ')[0]}
+                           </span>
+                           <span className="text-[8px] font-mono text-zinc-600">
+                             #{idx+1}
+                           </span>
+                         </div>
                     </button>
                 )
             })}
+             {/* Espaçador final para facilitar rolagem */}
+             <div className="w-4 flex-shrink-0" />
         </div>
 
-        {/* Selected Track Detail */}
+        {/* Selected Track Detail Card */}
         {seasonSlots.length > 0 && (
-            <div className="bg-zinc-900/40 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-zinc-900/60 border border-white/10 rounded-[2rem] overflow-hidden backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-2xl">
                 
-                {/* Track Controls Header */}
-                <div className="bg-black/40 p-4 border-b border-white/5">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-zinc-800/50 rounded-xl flex items-center justify-center border border-white/5">
-                                 <div className="relative w-6 h-4"><Image src={getFlagSrc(seasonSlots[mobileActiveTab].name)} alt="flag" fill className="object-cover" unoptimized /></div>
+                {/* Header da Pista Selecionada */}
+                <div className="bg-gradient-to-b from-black/50 to-black/20 p-5 border-b border-white/5">
+                    <div className="flex justify-between items-start mb-5">
+                        <div className="flex items-center gap-4">
+                             <div className="w-12 h-12 bg-zinc-800 rounded-2xl flex items-center justify-center border border-white/5 shadow-inner">
+                                 <div className="relative w-8 h-5"><Image src={getFlagSrc(seasonSlots[mobileActiveTab].name)} alt="flag" fill className="object-cover rounded-sm shadow-sm" unoptimized /></div>
                              </div>
                              <div>
-                                 <h2 className="text-lg font-black italic uppercase text-white leading-none truncate max-w-[150px]">{seasonSlots[mobileActiveTab].name}</h2>
-                                 <span className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">Race #{mobileActiveTab + 1}</span>
+                                 <h2 className="text-xl font-black italic uppercase text-white leading-none truncate max-w-[180px] tracking-tight">{seasonSlots[mobileActiveTab].name}</h2>
+                                 <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] text-amber-500 font-bold tracking-widest uppercase bg-amber-500/10 px-1.5 py-0.5 rounded">Race #{mobileActiveTab + 1}</span>
+                                 </div>
                              </div>
                         </div>
                         <div className="flex items-center gap-2">
                             {!lockedSlots.includes(mobileActiveTab) && (
-                                <button onClick={() => resetTrackSlot(mobileActiveTab)} className="p-2.5 rounded-xl bg-zinc-800/50 text-zinc-400 hover:text-rose-400 border border-white/5"><Eraser size={16} /></button>
+                                <button onClick={() => resetTrackSlot(mobileActiveTab)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-800/50 text-zinc-500 hover:text-rose-400 border border-white/5 transition-colors"><Eraser size={16} /></button>
                             )}
                             <button 
                                 onClick={() => toggleLock(mobileActiveTab)} 
-                                className={`p-2.5 rounded-xl border ${lockedSlots.includes(mobileActiveTab) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/50 border-white/5 text-zinc-400'}`}
+                                className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all ${lockedSlots.includes(mobileActiveTab) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/50 border-white/5 text-zinc-500'}`}
                             >
                                 {lockedSlots.includes(mobileActiveTab) ? <Lock size={16} /> : <LockOpen size={16} />}
                             </button>
                         </div>
                     </div>
 
+                    {/* Inputs de Controle (CTR, Teste, Status) */}
                     <div className={`grid grid-cols-3 gap-3 ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <div className="bg-zinc-800/30 rounded-xl p-2 border border-white/5 flex flex-col items-center">
-                            <span className="text-[9px] text-zinc-500 font-black uppercase mb-1">CTR</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab].ctr} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono font-bold text-emerald-400 outline-none" placeholder="0" />
+                        <div className="bg-zinc-800/40 rounded-xl p-2.5 border border-white/5 flex flex-col items-center justify-center">
+                            <span className="text-[8px] text-zinc-500 font-black uppercase mb-1 tracking-wider">CTR</span>
+                            <input type="tel" value={seasonSlots[mobileActiveTab].ctr} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-lg font-bold text-emerald-400 outline-none placeholder-emerald-900" placeholder="0" />
                         </div>
-                        <div className="bg-zinc-800/30 rounded-xl p-2 border border-white/5 flex flex-col items-center">
-                            <span className="text-[9px] text-zinc-500 font-black uppercase mb-1">TESTE</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab].testLaps} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono font-bold text-amber-400 outline-none" placeholder="0" />
+                        <div className="bg-zinc-800/40 rounded-xl p-2.5 border border-white/5 flex flex-col items-center justify-center">
+                            <span className="text-[8px] text-zinc-500 font-black uppercase mb-1 tracking-wider">TESTE</span>
+                            <input type="tel" value={seasonSlots[mobileActiveTab].testLaps} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono text-lg font-bold text-amber-400 outline-none placeholder-amber-900" placeholder="0" />
                         </div>
                         <button 
                             onClick={() => updateSeasonSlot(mobileActiveTab, 'testEnabled', !seasonSlots[mobileActiveTab].testEnabled)}
-                            className={`rounded-xl p-2 border flex flex-col items-center justify-center ${seasonSlots[mobileActiveTab].testEnabled ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}
+                            className={`rounded-xl p-2.5 border flex flex-col items-center justify-center transition-all ${seasonSlots[mobileActiveTab].testEnabled ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}
                         >
-                            <span className="text-[9px] font-black uppercase mb-0.5 text-zinc-400">STATUS</span>
-                            <span className={`text-[10px] font-bold ${seasonSlots[mobileActiveTab].testEnabled ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {seasonSlots[mobileActiveTab].testEnabled ? 'ON' : 'OFF'}
+                            <span className="text-[8px] font-black uppercase mb-1 text-zinc-500 tracking-wider">STATUS</span>
+                            <span className={`text-xs font-black ${seasonSlots[mobileActiveTab].testEnabled ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {seasonSlots[mobileActiveTab].testEnabled ? 'ATIVO' : 'OFF'}
                             </span>
                         </button>
                     </div>
                 </div>
 
-                {/* Parts List */}
-                <div className="divide-y divide-white/5">
-                    <div className="grid grid-cols-[1fr_36px_44px_36px_40px] gap-2 sm:gap-3 px-4 py-2.5 bg-black/30 text-[9px] font-black uppercase text-zinc-500 tracking-wider items-center">
-                        <div className="text-left pl-1">Hardware</div>
+                {/* Lista de Peças */}
+                <div className="flex flex-col">
+                    {/* Cabeçalho da Tabela */}
+                    <div className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_0.8fr] gap-2 px-5 py-3 bg-black/40 text-[9px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5">
+                        <div className="text-left">Peça</div>
                         <div className="text-center">Lvl</div>
                         <div className="text-center">Start</div>
                         <div className="text-center">Wear</div>
-                        <div className="text-center pr-1">End</div>
+                        <div className="text-center">End</div>
                     </div>
                     
+                    <div className="divide-y divide-white/[0.03]">
                     {CAR_PARTS.map((part) => {
                          const sIdx = mobileActiveTab;
                          const isLocked = lockedSlots.includes(sIdx);
@@ -455,34 +473,43 @@ export default function WearPlanningPage() {
                          const finalVal = Math.round(Number(data.final)) || 0;
 
                          return (
-                             <div key={part.id} className={`grid grid-cols-[1fr_36px_44px_36px_40px] gap-2 sm:gap-3 items-center px-4 py-2.5 ${isLocked ? 'opacity-50' : ''}`}>
-                                 <div className="flex items-center gap-2 overflow-hidden pl-1">
-                                     <div className="text-zinc-600 shrink-0">{part.icon}</div>
-                                     <span className="text-[10px] font-bold text-zinc-300 uppercase truncate tracking-tight">{part.label}</span>
+                             <div key={part.id} className={`grid grid-cols-[1.5fr_1fr_1fr_0.8fr_0.8fr] gap-2 items-center px-5 py-3 ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
+                                 {/* Icone e Nome */}
+                                 <div className="flex items-center gap-2 overflow-hidden">
+                                     <div className="text-zinc-500 shrink-0">{part.icon}</div>
+                                     <span className="text-[10px] font-bold text-zinc-300 uppercase truncate leading-tight">{part.label}</span>
                                  </div>
+                                 
+                                 {/* Level Input */}
                                  <div>
-                                     <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-8 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none px-0" />
+                                     <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-9 bg-zinc-800/40 rounded-lg border border-white/5 text-center text-[12px] text-white font-mono focus:border-amber-500/50 focus:bg-zinc-800 outline-none transition-all" />
                                  </div>
+                                 
+                                 {/* Start Input */}
                                  <div>
-                                     <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-8 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none px-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
+                                     <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-9 bg-zinc-800/40 rounded-lg border border-white/5 text-center text-[12px] font-mono focus:border-amber-500/50 focus:bg-zinc-800 outline-none transition-all ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
                                  </div>
-                                 <div className="text-center text-[10px] font-mono text-zinc-400">{Math.round(Number(data.wear))}%</div>
-                                 <div className="flex justify-end pr-1">
-                                     <span className={`flex items-center justify-center w-full h-6 rounded text-[10px] font-black ${finalVal > 90 ? 'bg-rose-500/20 text-rose-500' : finalVal > 70 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{finalVal}%</span>
+                                 
+                                 {/* Wear (Calculado) */}
+                                 <div className="text-center text-[10px] font-mono font-bold text-zinc-500">
+                                    {Math.round(Number(data.wear))}%
+                                 </div>
+                                 
+                                 {/* Final (Calculado) */}
+                                 <div className="flex justify-center">
+                                     <span className={`flex items-center justify-center w-full h-7 rounded-md text-[10px] font-black border ${
+                                         isLocked ? 'border-transparent text-zinc-500' :
+                                         finalVal > 90 ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 
+                                         finalVal > 70 ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 
+                                         'bg-emerald-500/5 border-emerald-500/20 text-emerald-400'
+                                     }`}>
+                                         {finalVal}%
+                                     </span>
                                  </div>
                              </div>
                          )
                     })}
-                </div>
-                
-                {/* Navigation Footer */}
-                <div className="p-4 bg-black/40 flex justify-between gap-3 border-t border-white/5">
-                     <button disabled={mobileActiveTab === 0} onClick={() => setMobileActiveTab(p => Math.max(0, p - 1))} className="flex-1 py-3 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/5 text-zinc-300 disabled:opacity-30 font-bold text-[11px] uppercase flex items-center justify-center gap-1 transition-colors">
-                         <ChevronLeft size={16} /> Ant
-                     </button>
-                     <button disabled={mobileActiveTab === seasonSlots.length - 1} onClick={() => setMobileActiveTab(p => Math.min(seasonSlots.length - 1, p + 1))} className="flex-1 py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 disabled:opacity-30 font-bold text-[11px] uppercase flex items-center justify-center gap-1 transition-colors">
-                         Próx <ChevronRight size={16} />
-                     </button>
+                    </div>
                 </div>
             </div>
         )}
