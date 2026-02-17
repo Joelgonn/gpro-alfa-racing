@@ -227,14 +227,14 @@ export default function WearPlanningPage() {
   return (
     <div className="p-4 sm:p-8 space-y-6 text-slate-200 pb-40 bg-[#050505] min-h-screen">
       
-      {/* HEADER GERAL (Mantido) */}
+      {/* HEADER GERAL */}
       <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/5 p-6 rounded-[2.5rem] flex flex-col xl:flex-row justify-between items-center gap-6 shadow-2xl relative overflow-hidden">
         <div className="flex items-center gap-5 z-10 w-full sm:w-auto justify-center sm:justify-start">
           <div className="p-4 bg-amber-500/10 rounded-3xl border border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
             <Gauge size={28} className="text-amber-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-black uppercase italic tracking-tighter leading-none text-white">Centro de Planejamento</h1>
+            <h1 className="text-2xl font-black uppercase italic tracking-tighter leading-none text-white">Command Center</h1>
             <div className="flex items-center gap-2 mt-1">
                <Cloud size={10} className={saving ? 'text-amber-500 animate-pulse' : 'text-emerald-500'} />
                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{saving ? 'Salvando...' : 'Sincronizado'}</p>
@@ -269,7 +269,7 @@ export default function WearPlanningPage() {
           <div className="text-right border-l border-white/10 pl-4">
             <span className="block text-[8px] font-black text-zinc-500 uppercase tracking-tighter">Engine Status</span>
             <div className="flex items-center justify-end gap-2">
-                <span className="text-xs text-emerald-400 font-bold">{calculating ? 'CALC...' : 'Pronto'}</span>
+                <span className="text-xs text-emerald-400 font-bold">{calculating ? 'CALC...' : 'READY'}</span>
                 {calculating && <Loader2 size={14} className="animate-spin text-amber-400" />}
             </div>
           </div>
@@ -283,7 +283,7 @@ export default function WearPlanningPage() {
             <thead>
               <tr className="bg-black/60">
                 <th className="sticky left-0 z-30 bg-[#080808] p-8 text-left border-b border-r border-white/10 min-w-[180px]">
-                  <span className="text-[11px] font-black uppercase text-zinc-500 tracking-[0.3em]">Peças</span>
+                  <span className="text-[11px] font-black uppercase text-zinc-500 tracking-[0.3em]">Hardware / Slot</span>
                 </th>
                 {seasonSlots.map((slot, i) => {
                   const isLocked = lockedSlots.includes(i);
@@ -309,7 +309,7 @@ export default function WearPlanningPage() {
                           </div>
                         </div>
                         <div className="grid grid-cols-4 w-full text-[8px] font-black text-zinc-600 uppercase mt-2 text-center tracking-widest border-t border-white/5 pt-3">
-                           <span>Nível</span><span>Início</span><span>Desg.</span><span className="text-emerald-500/50">Final</span>
+                           <span>Lvl</span><span>Start</span><span>Wear</span><span className="text-emerald-500/50">Final</span>
                         </div>
                       </div>
                     </th>
@@ -391,24 +391,24 @@ export default function WearPlanningPage() {
             <div className="bg-zinc-900/40 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
                 
                 {/* Track Controls Header */}
-                <div className="bg-black/40 p-5 border-b border-white/5">
+                <div className="bg-black/40 p-4 border-b border-white/5">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
                              <div className="w-10 h-10 bg-zinc-800/50 rounded-xl flex items-center justify-center border border-white/5">
                                  <div className="relative w-6 h-4"><Image src={getFlagSrc(seasonSlots[mobileActiveTab].name)} alt="flag" fill className="object-cover" unoptimized /></div>
                              </div>
                              <div>
-                                 <h2 className="text-lg font-black italic uppercase text-white leading-none">{seasonSlots[mobileActiveTab].name}</h2>
+                                 <h2 className="text-lg font-black italic uppercase text-white leading-none truncate max-w-[150px]">{seasonSlots[mobileActiveTab].name}</h2>
                                  <span className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">Race #{mobileActiveTab + 1}</span>
                              </div>
                         </div>
                         <div className="flex items-center gap-2">
                             {!lockedSlots.includes(mobileActiveTab) && (
-                                <button onClick={() => resetTrackSlot(mobileActiveTab)} className="p-2 rounded-xl bg-zinc-800/50 text-zinc-500 hover:text-rose-400 border border-white/5"><Eraser size={16} /></button>
+                                <button onClick={() => resetTrackSlot(mobileActiveTab)} className="p-2.5 rounded-xl bg-zinc-800/50 text-zinc-400 hover:text-rose-400 border border-white/5"><Eraser size={16} /></button>
                             )}
                             <button 
                                 onClick={() => toggleLock(mobileActiveTab)} 
-                                className={`p-2 rounded-xl border ${lockedSlots.includes(mobileActiveTab) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/50 border-white/5 text-zinc-500'}`}
+                                className={`p-2.5 rounded-xl border ${lockedSlots.includes(mobileActiveTab) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/50 border-white/5 text-zinc-400'}`}
                             >
                                 {lockedSlots.includes(mobileActiveTab) ? <Lock size={16} /> : <LockOpen size={16} />}
                             </button>
@@ -438,14 +438,15 @@ export default function WearPlanningPage() {
 
                 {/* Parts List */}
                 <div className="divide-y divide-white/5">
-                    <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-black/20 text-[9px] font-black uppercase text-zinc-600 tracking-wider text-center">
-                        <div className="col-span-4 text-left pl-2">Part</div>
-                        <div className="col-span-2">Lvl</div>
-                        <div className="col-span-2">Start</div>
-                        <div className="col-span-2">Wear</div>
-                        <div className="col-span-2">End</div>
+                    <div className="grid grid-cols-[1fr_36px_44px_36px_40px] gap-2 sm:gap-3 px-4 py-2.5 bg-black/30 text-[9px] font-black uppercase text-zinc-500 tracking-wider items-center">
+                        <div className="text-left pl-1">Hardware</div>
+                        <div className="text-center">Lvl</div>
+                        <div className="text-center">Start</div>
+                        <div className="text-center">Wear</div>
+                        <div className="text-center pr-1">End</div>
                     </div>
-                    {CAR_PARTS.map((part, pIdx) => {
+                    
+                    {CAR_PARTS.map((part) => {
                          const sIdx = mobileActiveTab;
                          const isLocked = lockedSlots.includes(sIdx);
                          const data = results?.[part.id]?.[sIdx] || { wear: 0, final: 0 };
@@ -454,66 +455,33 @@ export default function WearPlanningPage() {
                          const finalVal = Math.round(Number(data.final)) || 0;
 
                          return (
-                             <div key={part.id} className={`grid grid-cols-12 gap-2 items-center px-4 py-3 ${isLocked ? 'opacity-60' : ''}`}>
-                                 <div className="col-span-4 flex items-center gap-2 overflow-hidden">
-                                     <div className="text-zinc-500 shrink-0">{part.icon}</div>
-                                     <span className="text-[10px] font-bold text-zinc-300 uppercase truncate">{part.label}</span>
+                             <div key={part.id} className={`grid grid-cols-[1fr_36px_44px_36px_40px] gap-2 sm:gap-3 items-center px-4 py-2.5 ${isLocked ? 'opacity-50' : ''}`}>
+                                 <div className="flex items-center gap-2 overflow-hidden pl-1">
+                                     <div className="text-zinc-600 shrink-0">{part.icon}</div>
+                                     <span className="text-[10px] font-bold text-zinc-300 uppercase truncate tracking-tight">{part.label}</span>
                                  </div>
-                                 
-                                 <div className="col-span-2">
-                                     <input 
-                                         disabled={isLocked}
-                                         type="tel" 
-                                         placeholder="1"
-                                         value={override.lvl || ""} 
-                                         onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))}
-                                         className="w-full h-8 bg-zinc-800/40 rounded border border-white/5 text-center text-xs text-white font-mono focus:border-amber-500/50 outline-none"
-                                     />
+                                 <div>
+                                     <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-8 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none px-0" />
                                  </div>
-                                 
-                                 <div className="col-span-2">
-                                     <input 
-                                         disabled={isLocked}
-                                         type="tel" 
-                                         placeholder={(Math.round(Number(prevFinal)) || 0).toString()} 
-                                         value={override.start !== undefined ? override.start : ""} 
-                                         onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))}
-                                         className={`w-full h-8 bg-zinc-800/40 rounded border border-white/5 text-center text-xs font-mono focus:border-amber-500/50 outline-none ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`}
-                                     />
+                                 <div>
+                                     <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-8 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none px-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
                                  </div>
-
-                                 <div className="col-span-2 text-center text-xs font-mono text-zinc-400">
-                                     {Math.round(Number(data.wear))}%
-                                 </div>
-                                 
-                                 <div className="col-span-2 flex justify-center">
-                                     <span className={`
-                                        flex items-center justify-center w-8 h-6 rounded text-[10px] font-black
-                                        ${finalVal > 90 ? 'bg-rose-500/20 text-rose-500' : finalVal > 70 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}
-                                     `}>
-                                         {finalVal}%
-                                     </span>
+                                 <div className="text-center text-[10px] font-mono text-zinc-400">{Math.round(Number(data.wear))}%</div>
+                                 <div className="flex justify-end pr-1">
+                                     <span className={`flex items-center justify-center w-full h-6 rounded text-[10px] font-black ${finalVal > 90 ? 'bg-rose-500/20 text-rose-500' : finalVal > 70 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'}`}>{finalVal}%</span>
                                  </div>
                              </div>
                          )
                     })}
                 </div>
                 
-                {/* Navigation Footer for Mobile */}
-                <div className="p-4 bg-black/40 flex justify-between gap-4">
-                     <button 
-                        disabled={mobileActiveTab === 0}
-                        onClick={() => setMobileActiveTab(p => Math.max(0, p - 1))}
-                        className="flex-1 py-3 rounded-xl bg-zinc-800 border border-white/5 text-zinc-400 disabled:opacity-30 font-bold text-xs uppercase flex items-center justify-center gap-2"
-                     >
-                         <ChevronLeft size={14} /> Anterior
+                {/* Navigation Footer */}
+                <div className="p-4 bg-black/40 flex justify-between gap-3 border-t border-white/5">
+                     <button disabled={mobileActiveTab === 0} onClick={() => setMobileActiveTab(p => Math.max(0, p - 1))} className="flex-1 py-3 rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-white/5 text-zinc-300 disabled:opacity-30 font-bold text-[11px] uppercase flex items-center justify-center gap-1 transition-colors">
+                         <ChevronLeft size={16} /> Ant
                      </button>
-                     <button 
-                        disabled={mobileActiveTab === seasonSlots.length - 1}
-                        onClick={() => setMobileActiveTab(p => Math.min(seasonSlots.length - 1, p + 1))}
-                        className="flex-1 py-3 rounded-xl bg-emerald-600/20 border border-emerald-500/20 text-emerald-400 disabled:opacity-30 font-bold text-xs uppercase flex items-center justify-center gap-2"
-                     >
-                         Próxima <ChevronRight size={14} />
+                     <button disabled={mobileActiveTab === seasonSlots.length - 1} onClick={() => setMobileActiveTab(p => Math.min(seasonSlots.length - 1, p + 1))} className="flex-1 py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 disabled:opacity-30 font-bold text-[11px] uppercase flex items-center justify-center gap-1 transition-colors">
+                         Próx <ChevronRight size={16} />
                      </button>
                 </div>
             </div>
