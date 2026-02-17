@@ -231,7 +231,6 @@ export default function WearPlanningPage() {
   );
 
   return (
-    // ATENÇÃO: padding removido no mobile (p-0) para aproveitar toda a largura
     <div className="p-0 sm:p-8 space-y-4 sm:space-y-6 text-slate-200 pb-40 bg-[#050505] min-h-screen">
       
       {/* HEADER GERAL */}
@@ -360,10 +359,10 @@ export default function WearPlanningPage() {
         </div>
       </div>
 
-      {/* --- MOBILE VIEW (SUPER OTIMIZADO) --- */}
+      {/* --- MOBILE VIEW (OTIMIZADA PARA COMPACIDADE) --- */}
       <div className="block md:hidden pb-24 px-0">
         
-        {/* Track Slider - TOTALMENTE A ESQUERDA */}
+        {/* Slider de Pistas (Topo) - ~5 pistas visíveis */}
         <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start w-full">
             {seasonSlots.map((slot, idx) => {
                 const isActive = mobileActiveTab === idx;
@@ -373,7 +372,7 @@ export default function WearPlanningPage() {
                         key={idx}
                         onClick={() => handleMobileTabClick(idx)}
                         className={`
-                            snap-start flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all w-[70px] relative
+                            snap-start flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all w-[72px] relative
                             ${isActive 
                                 ? 'bg-zinc-800 border-amber-500/40 shadow-lg z-10' 
                                 : 'bg-zinc-900/30 border-white/5 opacity-60'
@@ -398,11 +397,11 @@ export default function WearPlanningPage() {
              <div className="w-2 flex-shrink-0" />
         </div>
 
-        {/* Selected Track Detail Card - LARGURA TOTAL */}
+        {/* Card Principal da Pista Ativa */}
         {seasonSlots.length > 0 && (
             <div className="bg-zinc-900/40 border-y border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 
-                {/* Header da Pista Selecionada */}
+                {/* Header do Card (Nome e Controles) */}
                 <div className="bg-gradient-to-r from-black/60 to-black/20 p-4 border-b border-white/5">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
@@ -427,15 +426,15 @@ export default function WearPlanningPage() {
                         </div>
                     </div>
 
-                    {/* Inputs de Controle Compactos */}
+                    {/* Inputs de Controle (CTR, Teste) */}
                     <div className={`grid grid-cols-3 gap-2 ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
                             <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">CTR</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab].ctr} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-400 outline-none" placeholder="0" />
+                            <input type="tel" value={seasonSlots[mobileActiveTab].ctr} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-400 outline-none p-0" placeholder="0" />
                         </div>
                         <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
                             <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">TESTE</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab].testLaps} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-amber-400 outline-none" placeholder="0" />
+                            <input type="tel" value={seasonSlots[mobileActiveTab].testLaps} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-amber-400 outline-none p-0" placeholder="0" />
                         </div>
                         <button 
                             onClick={() => updateSeasonSlot(mobileActiveTab, 'testEnabled', !seasonSlots[mobileActiveTab].testEnabled)}
@@ -449,15 +448,15 @@ export default function WearPlanningPage() {
                     </div>
                 </div>
 
-                {/* Lista de Peças - GRID ULTRA COMPACTO */}
+                {/* Tabela de Peças COMPACTA */}
                 <div className="flex flex-col w-full">
-                    {/* Cabeçalho */}
-                    <div className="grid grid-cols-[1fr_32px_36px_32px_36px] gap-2 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center">
-                        <div className="text-left pl-1">Componente</div>
-                        <div className="text-center">Lv</div>
-                        <div className="text-center">Ini</div>
-                        <div className="text-center">Wear</div>
-                        <div className="text-center">Fim</div>
+                    {/* Cabeçalho do Grid (Tamanhos Fixos para Dados, Flex para Nome) */}
+                    <div className="grid grid-cols-[1fr_30px_35px_30px_35px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center">
+                        <div className="text-left pl-1">Peça</div>
+                        <div>Lv</div>
+                        <div>Ini</div>
+                        <div>Des</div>
+                        <div>Fim</div>
                     </div>
                     
                     <div className="divide-y divide-white/[0.03]">
@@ -470,29 +469,31 @@ export default function WearPlanningPage() {
                          const finalVal = Math.round(Number(data.final)) || 0;
 
                          return (
-                             <div key={part.id} className={`grid grid-cols-[1fr_32px_36px_32px_36px] gap-2 items-center px-3 py-2.5 ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
-                                 {/* Nome */}
+                             // Grid row com as mesmas medidas do cabeçalho
+                             <div key={part.id} className={`grid grid-cols-[1fr_30px_35px_30px_35px] gap-1 items-center px-3 py-2 ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
+                                 
+                                 {/* Coluna 1: Nome (Ocupa o resto) */}
                                  <div className="flex items-center gap-2 overflow-hidden pl-1">
                                      <div className="text-zinc-600 shrink-0">{part.icon}</div>
-                                     <span className="text-[9px] font-bold text-zinc-300 uppercase truncate">{part.label}</span>
+                                     <span className="text-[9px] font-bold text-zinc-300 uppercase truncate leading-none">{part.label}</span>
                                  </div>
                                  
-                                 {/* Level */}
+                                 {/* Coluna 2: Level (30px) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none p-0" />
                                  </div>
                                  
-                                 {/* Start */}
+                                 {/* Coluna 3: Start (35px) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none p-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
                                  </div>
                                  
-                                 {/* Wear */}
+                                 {/* Coluna 4: Wear (30px) */}
                                  <div className="text-center text-[9px] font-mono text-zinc-500">
                                     {Math.round(Number(data.wear))}%
                                  </div>
                                  
-                                 {/* Final */}
+                                 {/* Coluna 5: End (35px) */}
                                  <div className="flex justify-center">
                                      <span className={`flex items-center justify-center w-full h-6 rounded text-[9px] font-black ${
                                          finalVal > 90 ? 'text-rose-500 bg-rose-500/10' : 
