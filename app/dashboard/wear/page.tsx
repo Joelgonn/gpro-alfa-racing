@@ -359,10 +359,10 @@ export default function WearPlanningPage() {
         </div>
       </div>
 
-      {/* --- MOBILE VIEW (OTIMIZADA PARA COMPACIDADE) --- */}
+      {/* --- MOBILE VIEW (OTIMIZADA E ESQUERDIZADA) --- */}
       <div className="block md:hidden pb-24 px-0">
         
-        {/* Slider de Pistas (Topo) - ~5 pistas visíveis */}
+        {/* Slider de Pistas - Cola na esquerda */}
         <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start w-full">
             {seasonSlots.map((slot, idx) => {
                 const isActive = mobileActiveTab === idx;
@@ -397,11 +397,11 @@ export default function WearPlanningPage() {
              <div className="w-2 flex-shrink-0" />
         </div>
 
-        {/* Card Principal da Pista Ativa */}
+        {/* Card Principal */}
         {seasonSlots.length > 0 && (
             <div className="bg-zinc-900/40 border-y border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 
-                {/* Header do Card (Nome e Controles) */}
+                {/* Header (Pista + Inputs) */}
                 <div className="bg-gradient-to-r from-black/60 to-black/20 p-4 border-b border-white/5">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
@@ -426,8 +426,7 @@ export default function WearPlanningPage() {
                         </div>
                     </div>
 
-                    {/* Inputs de Controle (CTR, Teste) */}
-                    <div className={`grid grid-cols-3 gap-2 ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className={`grid grid-cols-3 gap-2 max-w-[300px] ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
                             <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">CTR</span>
                             <input type="tel" value={seasonSlots[mobileActiveTab].ctr} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-400 outline-none p-0" placeholder="0" />
@@ -448,10 +447,10 @@ export default function WearPlanningPage() {
                     </div>
                 </div>
 
-                {/* Tabela de Peças COMPACTA */}
-                <div className="flex flex-col w-full">
-                    {/* Cabeçalho do Grid (Tamanhos Fixos para Dados, Flex para Nome) */}
-                    <div className="grid grid-cols-[1fr_30px_35px_30px_35px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center">
+                {/* Tabela de Peças - AGORA COMPACTA E À ESQUERDA */}
+                <div className="flex flex-col w-full overflow-hidden">
+                    {/* Cabeçalho com larguras fixas */}
+                    <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center justify-start">
                         <div className="text-left pl-1">Peça</div>
                         <div>Lv</div>
                         <div>Ini</div>
@@ -469,31 +468,31 @@ export default function WearPlanningPage() {
                          const finalVal = Math.round(Number(data.final)) || 0;
 
                          return (
-                             // Grid row com as mesmas medidas do cabeçalho
-                             <div key={part.id} className={`grid grid-cols-[1fr_30px_35px_30px_35px] gap-1 items-center px-3 py-2 ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
+                             // ROW com larguras fixas (Total ~260px colado na esquerda)
+                             <div key={part.id} className={`grid grid-cols-[100px_35px_40px_35px_40px] gap-1 items-center px-3 py-2 justify-start ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
                                  
-                                 {/* Coluna 1: Nome (Ocupa o resto) */}
+                                 {/* Coluna 1: Nome (100px fixo) */}
                                  <div className="flex items-center gap-2 overflow-hidden pl-1">
                                      <div className="text-zinc-600 shrink-0">{part.icon}</div>
                                      <span className="text-[9px] font-bold text-zinc-300 uppercase truncate leading-none">{part.label}</span>
                                  </div>
                                  
-                                 {/* Coluna 2: Level (30px) */}
+                                 {/* Coluna 2: Level (35px fixo) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none p-0" />
                                  </div>
                                  
-                                 {/* Coluna 3: Start (35px) */}
+                                 {/* Coluna 3: Start (40px fixo) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none p-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
                                  </div>
                                  
-                                 {/* Coluna 4: Wear (30px) */}
+                                 {/* Coluna 4: Wear (35px fixo) */}
                                  <div className="text-center text-[9px] font-mono text-zinc-500">
                                     {Math.round(Number(data.wear))}%
                                  </div>
                                  
-                                 {/* Coluna 5: End (35px) */}
+                                 {/* Coluna 5: End (40px fixo) */}
                                  <div className="flex justify-center">
                                      <span className={`flex items-center justify-center w-full h-6 rounded text-[9px] font-black ${
                                          finalVal > 90 ? 'text-rose-500 bg-rose-500/10' : 
