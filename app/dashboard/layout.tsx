@@ -47,7 +47,7 @@ const menuGroups = [
     items: [
       { name: 'Setup Manual', path: '/dashboard/manual', icon: <Icons.Wrench /> },
       { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> },
-      { name: 'Desgastes', path: '/dashboard/wear', icon: <Icons.Wear /> },
+      { name: 'Planejamento', path: '/dashboard/wear', icon: <Icons.Wear /> },
     ]
   },
   {
