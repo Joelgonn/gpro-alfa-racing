@@ -179,13 +179,86 @@ function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Functi
     );
 }
 
-function RainOverlay() {
-  const drops = useMemo(() => Array.from({ length: 80 }).map((_, i) => ({ id: i, left: Math.random() * 100, delay: Math.random() * 2, duration: 0.5 + Math.random() * 0.4, length: 10 + Math.random() * 15 })), []);
+function SkyViewRainOverlay() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let w = window.innerWidth;
+    let h = window.innerHeight;
+    const handleResize = () => {
+      w = window.innerWidth; h = window.innerHeight;
+      canvas.width = w; canvas.height = h;
+    };
+    handleResize();
+
+    const dropCount = 450;
+    const rainColor = '79, 195, 247'; 
+    const speed = 0.03; 
+
+    const drops: any[] = [];
+    const resetDrop = (d: any) => {
+      d.x = (Math.random() - 0.5) * 2;
+      d.y = (Math.random() - 0.5) * 2;
+      d.z = 1; // Z=1 é perto do olho (grande), Z=5 é o chão (longe)
+      d.size = Math.random() * 4 + 1;
+    };
+
+    for (let i = 0; i < dropCount; i++) {
+      drops.push({});
+      resetDrop(drops[i]);
+      drops[i].z = Math.random() * 4 + 1; 
+    }
+
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h);
+      const cx = w / 2;
+      const cy = h / 2;
+
+      for (let i = 0; i < dropCount; i++) {
+        const d = drops[i];
+        d.z += speed; 
+
+        if (d.z > 5) resetDrop(d);
+
+        const perspective = 1 / d.z;
+        const x = cx + d.x * w * perspective;
+        const y = cy + d.y * h * perspective;
+
+        // Calcula rastro
+        const pPrev = 1 / (d.z - 0.1);
+        const xPrev = cx + d.x * w * pPrev;
+        const yPrev = cy + d.y * h * pPrev;
+
+        const alpha = (5 - d.z) / 4 * 0.3;
+
+        if (alpha > 0) {
+          ctx.strokeStyle = `rgba(${rainColor}, ${alpha})`;
+          ctx.lineWidth = d.size * perspective * 1.5;
+          ctx.beginPath();
+          ctx.moveTo(xPrev, yPrev);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      }
+      requestAnimationFrame(draw);
+    };
+
+    const animFrame = requestAnimationFrame(draw);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      cancelAnimationFrame(animFrame);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
-      <style jsx global>{` @keyframes rainfall { 0% { transform: translateY(-20vh); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(120vh); opacity: 0; } } .rain-drop { animation-name: rainfall; animation-timing-function: linear; animation-iteration-count: infinite; } `}</style>
-      <div className="absolute inset-0 bg-slate-900/20 backdrop-grayscale-[30%] transition-all duration-1000" />
-      {drops.map((drop) => ( <div key={drop.id} className="rain-drop absolute top-0 w-[1px] bg-gradient-to-b from-transparent via-indigo-300/50 to-transparent shadow-[0_0_4px_rgba(165,180,252,0.4)]" style={{ left: `${drop.left}%`, height: `${drop.length}vh`, animationDuration: `${drop.duration}s`, animationDelay: `-${drop.delay}s` }} /> ))}
+      <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );
 }
@@ -403,9 +476,22 @@ export default function StrategyPage() {
 
   const currentStintData = activeTab === 'manual' ? outputs?.stints_personal : outputs?.stints_predefined;
 
-  return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono relative">
-      <AnimatePresence>{inputs.race_options.condicao === "Wet" && (<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }}><RainOverlay /></motion.div>)}</AnimatePresence>
+  
+return (
+  <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono relative">       
+    // ... (Linha 504 aproximada)
+    {/* ... dentro do return do StrategyPage ... */}
+    <AnimatePresence>
+    {inputs.race_options.condicao === "Wet" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }}>
+        
+        {/* CORREÇÃO AQUI: O nome deve bater com a função acima */}
+        <SkyViewRainOverlay /> 
+        
+        </motion.div>
+    )}
+    </AnimatePresence>
+ 
 
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 backdrop-blur-xl">
