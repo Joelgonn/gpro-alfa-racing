@@ -240,7 +240,7 @@ export default function WearPlanningPage() {
             <Gauge size={28} className="text-amber-400" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black uppercase italic tracking-tighter leading-none text-white text-center sm:text-left">Command Center</h1>
+            <h1 className="text-xl sm:text-2xl font-black uppercase italic tracking-tighter leading-none text-white text-center sm:text-left">Planejamento</h1>
             <div className="flex items-center justify-center sm:justify-start gap-2 mt-1">
                <Cloud size={10} className={saving ? 'text-amber-500 animate-pulse' : 'text-emerald-500'} />
                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{saving ? 'Salvando...' : 'Sincronizado'}</p>
@@ -275,7 +275,7 @@ export default function WearPlanningPage() {
           <div className="text-right border-l border-white/10 pl-4">
             <span className="block text-[8px] font-black text-zinc-500 uppercase tracking-tighter">Engine Status</span>
             <div className="flex items-center justify-end gap-2">
-                <span className="text-xs text-emerald-400 font-bold">{calculating ? 'CALC...' : 'READY'}</span>
+                <span className="text-xs text-emerald-400 font-bold">{calculating ? 'CALC...' : 'Pronto'}</span>
                 {calculating && <Loader2 size={14} className="animate-spin text-amber-400" />}
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function WearPlanningPage() {
             <thead>
               <tr className="bg-black/60">
                 <th className="sticky left-0 z-30 bg-[#080808] p-8 text-left border-b border-r border-white/10 min-w-[180px]">
-                  <span className="text-[11px] font-black uppercase text-zinc-500 tracking-[0.3em]">Hardware / Slot</span>
+                  <span className="text-[11px] font-black uppercase text-zinc-500 tracking-[0.3em]">Peças</span>
                 </th>
                 {seasonSlots.map((slot, i) => {
                   const isLocked = lockedSlots.includes(i);
@@ -315,7 +315,7 @@ export default function WearPlanningPage() {
                           </div>
                         </div>
                         <div className="grid grid-cols-4 w-full text-[8px] font-black text-zinc-600 uppercase mt-2 text-center tracking-widest border-t border-white/5 pt-3">
-                           <span>Lvl</span><span>Start</span><span>Wear</span><span className="text-emerald-500/50">Final</span>
+                           <span>Nível</span><span>Início</span><span>Desg.</span><span className="text-emerald-500/50">Final</span>
                         </div>
                       </div>
                     </th>
@@ -426,7 +426,7 @@ export default function WearPlanningPage() {
                         </div>
                     </div>
 
-                    <div className={`grid grid-cols-3 gap-2 max-w-[300px] ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className={`grid grid-cols-3 gap-2 w-full ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
                             <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">CTR</span>
                             <input type="tel" value={seasonSlots[mobileActiveTab].ctr} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-400 outline-none p-0" placeholder="0" />
@@ -447,10 +447,10 @@ export default function WearPlanningPage() {
                     </div>
                 </div>
 
-                {/* Tabela de Peças - AGORA COMPACTA E À ESQUERDA */}
+                {/* Tabela de Peças - CORRIGIDA PARA OCUPAR A LARGURA TOTAL */}
                 <div className="flex flex-col w-full overflow-hidden">
-                    {/* Cabeçalho com larguras fixas */}
-                    <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center justify-start">
+                    {/* Cabeçalho com frações (fr) em vez de pixels fixos */}
+                    <div className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr] gap-2 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center">
                         <div className="text-left pl-1">Peça</div>
                         <div>Lv</div>
                         <div>Ini</div>
@@ -468,31 +468,31 @@ export default function WearPlanningPage() {
                          const finalVal = Math.round(Number(data.final)) || 0;
 
                          return (
-                             // ROW com larguras fixas (Total ~260px colado na esquerda)
-                             <div key={part.id} className={`grid grid-cols-[100px_35px_40px_35px_40px] gap-1 items-center px-3 py-2 justify-start ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
+                             // ROW com frações (fr) para ocupar 100% da largura
+                             <div key={part.id} className={`grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr] gap-2 items-center px-3 py-2 ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
                                  
-                                 {/* Coluna 1: Nome (100px fixo) */}
+                                 {/* Coluna 1: Nome */}
                                  <div className="flex items-center gap-2 overflow-hidden pl-1">
                                      <div className="text-zinc-600 shrink-0">{part.icon}</div>
                                      <span className="text-[9px] font-bold text-zinc-300 uppercase truncate leading-none">{part.label}</span>
                                  </div>
                                  
-                                 {/* Coluna 2: Level (35px fixo) */}
+                                 {/* Coluna 2: Level */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none p-0" />
                                  </div>
                                  
-                                 {/* Coluna 3: Start (40px fixo) */}
+                                 {/* Coluna 3: Start */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none p-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
                                  </div>
                                  
-                                 {/* Coluna 4: Wear (35px fixo) */}
+                                 {/* Coluna 4: Wear */}
                                  <div className="text-center text-[9px] font-mono text-zinc-500">
                                     {Math.round(Number(data.wear))}%
                                  </div>
                                  
-                                 {/* Coluna 5: End (40px fixo) */}
+                                 {/* Coluna 5: End */}
                                  <div className="flex justify-center">
                                      <span className={`flex items-center justify-center w-full h-6 rounded text-[9px] font-black ${
                                          finalVal > 90 ? 'text-rose-500 bg-rose-500/10' : 
