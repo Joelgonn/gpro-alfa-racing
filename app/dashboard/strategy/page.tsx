@@ -196,7 +196,7 @@ function SkyViewRainOverlay() {
     };
     handleResize();
 
-    const dropCount = 450;
+    const dropCount = 350;
     const rainColor = '79, 195, 247'; 
     const speed = 0.03; 
 
