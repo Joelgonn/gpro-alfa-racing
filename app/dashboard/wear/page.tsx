@@ -360,10 +360,11 @@ export default function WearPlanningPage() {
       </div>
 
       {/* --- MOBILE VIEW (OTIMIZADA E ESQUERDIZADA) --- */}
-      <div className="block md:hidden pb-24 px-0">
+      {/* Container com largura máxima justa ao conteúdo */}
+      <div className="block md:hidden pb-24 px-0 max-w-fit">
         
-        {/* Slider de Pistas - Cola na esquerda */}
-        <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start w-full">
+        {/* Slider de Pistas - LIMITADO A 315px (Aprox 4 itens + gaps) */}
+        <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start max-w-[315px]">
             {seasonSlots.map((slot, idx) => {
                 const isActive = mobileActiveTab === idx;
                 const isLocked = lockedSlots.includes(idx);
@@ -402,7 +403,7 @@ export default function WearPlanningPage() {
             <div className="bg-zinc-900/40 border-y border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 
                 {/* Header (Pista + Inputs) */}
-                <div className="bg-gradient-to-r from-black/60 to-black/20 p-4 border-b border-white/5">
+                <div className="bg-gradient-to-r from-black/60 to-black/20 p-4 border-b border-white/5 max-w-[300px]">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
                              <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center border border-white/5">
@@ -447,10 +448,10 @@ export default function WearPlanningPage() {
                     </div>
                 </div>
 
-                {/* Tabela de Peças - CORRIGIDA PARA OCUPAR A LARGURA TOTAL */}
+                {/* Tabela de Peças - MANTIDA À ESQUERDA (FIXED PIXELS) */}
                 <div className="flex flex-col w-full overflow-hidden">
-                    {/* Cabeçalho com frações (fr) em vez de pixels fixos */}
-                    <div className="grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr] gap-2 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center">
+                    {/* Cabeçalho com larguras fixas */}
+                    <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center justify-start">
                         <div className="text-left pl-1">Peça</div>
                         <div>Lv</div>
                         <div>Ini</div>
@@ -468,31 +469,31 @@ export default function WearPlanningPage() {
                          const finalVal = Math.round(Number(data.final)) || 0;
 
                          return (
-                             // ROW com frações (fr) para ocupar 100% da largura
-                             <div key={part.id} className={`grid grid-cols-[1.5fr_1fr_1fr_0.8fr_1fr] gap-2 items-center px-3 py-2 ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
+                             // ROW com larguras fixas (Total ~260px colado na esquerda)
+                             <div key={part.id} className={`grid grid-cols-[100px_35px_40px_35px_40px] gap-1 items-center px-3 py-2 justify-start ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
                                  
-                                 {/* Coluna 1: Nome */}
+                                 {/* Coluna 1: Nome (100px fixo) */}
                                  <div className="flex items-center gap-2 overflow-hidden pl-1">
                                      <div className="text-zinc-600 shrink-0">{part.icon}</div>
                                      <span className="text-[9px] font-bold text-zinc-300 uppercase truncate leading-none">{part.label}</span>
                                  </div>
                                  
-                                 {/* Coluna 2: Level */}
+                                 {/* Coluna 2: Level (35px fixo) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none p-0" />
                                  </div>
                                  
-                                 {/* Coluna 3: Start */}
+                                 {/* Coluna 3: Start (40px fixo) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none p-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
                                  </div>
                                  
-                                 {/* Coluna 4: Wear */}
+                                 {/* Coluna 4: Wear (35px fixo) */}
                                  <div className="text-center text-[9px] font-mono text-zinc-500">
                                     {Math.round(Number(data.wear))}%
                                  </div>
                                  
-                                 {/* Coluna 5: End */}
+                                 {/* Coluna 5: End (40px fixo) */}
                                  <div className="flex justify-center">
                                      <span className={`flex items-center justify-center w-full h-6 rounded text-[9px] font-black ${
                                          finalVal > 90 ? 'text-rose-500 bg-rose-500/10' : 
