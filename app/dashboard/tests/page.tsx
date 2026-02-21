@@ -1,7 +1,7 @@
-// --- START OF FILE app/tests/page.tsx (ou o caminho equivalente) ---
+// --- START OF FILE app/tests/page.tsx ---
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase'; 
 import { useGame } from '../../context/GameContext'; 
@@ -77,15 +77,15 @@ function DriverStatRow({ label, value, onChange, max = 250 }: any) {
 export default function TestsPage() {
   const router = useRouter(); 
   
-  // PUXANDO DADOS E STATUS DO NOVO CONTEXTO GLOBAL
+  // PUXANDO DADOS E STATUS DO CONTEXTO GLOBAL
   const { 
       driver: globalDriver, 
       car: globalCar, 
       techDirector, 
       staffFacilities, 
       desgasteModifier,
-      isGlobalLoading, // <-- NOVO
-      isDataSynced     // <-- NOVO
+      isGlobalLoading,
+      isDataSynced
   } = useGame();
   
   const [tracks, setTracks] = useState<string[]>([]);
@@ -106,25 +106,17 @@ export default function TestsPage() {
   const [sheetData, setSheetData] = useState<any[]>(Array(8).fill({ wear: 0, fuel: 0 }));
   const [setupIdeal, setSetupIdeal] = useState<any[]>(Array(6).fill('--'));
 
-  // --- ESTADO PARA DESGASTE DETALHADO ---
   const [partWearDetails, setPartWearDetails] = useState<any>(null);
-
   const [lockedStints, setLockedStints] = useState<Record<number, boolean>>({});
   const [frozenResults, setFrozenResults] = useState<any[]>(Array(8).fill(null));
 
-  // --- VERIFICAÇÃO RIGOROSA DE DADOS DO CONTEXTO ---
+  // --- VERIFICAÇÃO RIGOROSA DE DADOS ---
   const isContextValid = useMemo(() => {
-    // 1. Piloto existe e tem talento?
     const driverOk = globalDriver && typeof globalDriver.talento === 'number' && globalDriver.talento > 0;
-    
-    // 2. Carro existe, tem 11 peças E o nível não está zerado?
-    // (Verificamos a primeira peça 'Chassi'. Se for nível 0, é dado falso/inicial)
     const carOk = Array.isArray(globalCar) && globalCar.length >= 11 && globalCar[0].lvl > 0;
-    
     return driverOk && carOk;
   }, [globalDriver, globalCar]);
 
-  // --- VERIFICA SE SETUP ESTÁ FALTANDO ---
   const isSetupMissing = useMemo(() => {
     return setupIdeal.some(val => val === '--');
   }, [setupIdeal]);
@@ -167,11 +159,36 @@ export default function TestsPage() {
       if (val > 0 && val < 5) setTestStints((prev: any) => ({ ...prev, [key]: 5 }));
   };
 
-  // --- LÓGICA DE AVISO (LIMIT 90%) ---
   const hasTestingLimitWarning = useMemo(() => {
       if (!partWearDetails) return false;
       return Object.values(partWearDetails).some((part: any) => part.pre_race && part.pre_race > 90.4);
   }, [partWearDetails]);
+
+  // --- SINCRONIZAÇÃO INTELIGENTE: GLOBAL -> LOCAL ---
+  useEffect(() => {
+    // 1. Sincroniza Piloto
+    if (globalDriver && globalDriver.talento > 0) {
+        if (!localDriver.talento || localDriver.talento === 0) {
+            setLocalDriver({...globalDriver});
+        }
+    }
+
+    // 2. Sincroniza Carro
+    if (globalCar && globalCar.length > 0) {
+        const isLocalEmpty = localCar.length === 0;
+        
+        // Verifica se o carro local está "estagnado" (Nível 0 ou 1 e sem desgaste)
+        // enquanto o carro global tem dados reais
+        const isLocalStale = localCar.length > 0 && 
+                             (localCar[0].lvl <= 1 && localCar[0].wear === 0) && 
+                             (globalCar[0].lvl > 1 || globalCar[0].wear > 0 || globalCar[1].wear > 0);
+
+        if (isLocalEmpty || isLocalStale) {
+            const deepCopy = globalCar.map(part => ({ ...part }));
+            setLocalCar(deepCopy);
+        }
+    }
+  }, [globalDriver, globalCar, isDataSynced, localDriver, localCar]);
 
   useEffect(() => {
     if (priority === "Testar os limites do carro") setInputs(prev => ({ ...prev, risk: 100 }));
@@ -187,38 +204,7 @@ export default function TestsPage() {
     fetch('/api/python?action=tracks').then(res => res.json()).then(data => setTracks(data.tracks || []));
   }, [router]);
 
-  // --- SINCRONIZAÇÃO INTELIGENTE: GLOBAL -> LOCAL ---
-  useEffect(() => {
-    // 1. Sincroniza Piloto
-    if (globalDriver && globalDriver.talento > 0) {
-        // Se o piloto local não tem talento ou é 0, puxa do global
-        if (!localDriver.talento || localDriver.talento === 0) {
-            setLocalDriver({...globalDriver});
-        }
-    }
-
-    // 2. Sincroniza Carro
-    if (globalCar && globalCar.length > 0) {
-        const isLocalEmpty = localCar.length === 0;
-        
-        // Verifica se o carro local está "estagnado" com dados iniciais (Nível 0 ou 1 e sem desgaste)
-        // enquanto o carro global tem dados reais (Nível > 1 OU tem algum desgaste)
-        const isLocalStale = localCar.length > 0 && 
-                             (localCar[0].lvl <= 1 && localCar[0].wear === 0) && 
-                             (globalCar[0].lvl > 1 || globalCar[0].wear > 0 || globalCar[1].wear > 0);
-
-        // Se estiver vazio OU se estiver com dados "falsos", força a atualização
-        if (isLocalEmpty || isLocalStale) {
-            // Fazemos uma cópia profunda para garantir que a edição local não afete o global diretamente
-            const deepCopy = globalCar.map(part => ({ ...part }));
-            setLocalCar(deepCopy);
-        }
-    }
-  }, [globalDriver, globalCar, isDataSynced]); // Adicionada dependência isDataSynced
-
-  // --- CALCULO DE TESTE ---
   const runCalculations = useCallback(async () => {
-    // Só roda o cálculo se os dados estiverem válidos E o contexto já tiver sincronizado
     if (!userId || !testTrack || !isContextValid || !isDataSynced) return;
 
     setIsSyncing(true);
@@ -268,10 +254,7 @@ export default function TestsPage() {
     return 'text-emerald-400';
   };
 
-  // 1. CARREGANDO DADOS GLOBAIS OU AUTH
-  // AQUI ESTÁ O SEGREDO: Adicionamos "|| !isDataSynced" dentro do Loading.
-  // Isso força a tela de carregamento a continuar girando até que a sincronização seja confirmada como TRUE.
-  // Se o carregamento acabar e isDataSynced continuar false (erro real), tratamos no próximo if.
+  // 1. CARREGANDO
   if (isAuthLoading || isGlobalLoading) {
     return (
         <div className="flex h-screen items-center justify-center bg-[#050507]">
@@ -283,23 +266,21 @@ export default function TestsPage() {
     );
   }
 
-  // 2. TELA DE BLOQUEIO - DADOS NÃO ENCONTRADOS
-  // Agora este aviso só aparece se o loading acabou E o isDataSynced CONTINUOU false (ou seja, falhou mesmo).
+  // 2. BLOQUEIO
   if (!isDataSynced) {
     return (
         <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-slate-300 p-6 relative overflow-hidden">
-            {/* ... (seu código da tela de aviso mantém igual) ... */}
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[100px]"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px]"></div>
             <div className="relative z-10 max-w-lg w-full bg-white/[0.02] border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-xl text-center">
                 <div className="mx-auto w-16 h-16 bg-black/40 border border-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
                     <Database size={24} className="text-amber-500" />
                 </div>
-                
                 <h2 className="text-xl font-black text-white uppercase tracking-wider mb-2">Sincronização Necessária</h2>
                 <p className="text-xs text-slate-400 font-medium leading-relaxed mb-8 px-4">
                     Os dados do Piloto e Carro não foram encontrados na sua base de dados. <br/>
                     Acesse a Visão Geral para inicializar sua equipe.
                 </p>
-
                 <button onClick={() => router.push('/dashboard')} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-[0_10px_20px_rgba(79,70,229,0.2)] hover:shadow-[0_10px_30px_rgba(79,70,229,0.4)] group">
                     <RotateCcw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
                     Ir para Visão Geral e Sincronizar
@@ -310,7 +291,6 @@ export default function TestsPage() {
     );
   }
 
-  // 3. PÁGINA NORMAL (DADOS VÁLIDOS)
   return (
     <div className="p-4 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
       {/* HEADER */}
@@ -334,16 +314,16 @@ export default function TestsPage() {
                 <span className="text-[9px] font-black uppercase text-slate-400">{isSyncing ? 'Recalculando...' : 'Pronto para Teste'}</span>
             </div>
           </div>
-          <button onClick={() => { setLocalDriver({...globalDriver}); setLocalCar([...globalCar]); }} className="text-indigo-400 hover:text-white transition-colors flex items-center gap-2 text-[9px] uppercase font-black px-3 py-1.5 border border-indigo-500/20 rounded hover:bg-indigo-500/10"><RotateCcw size={12}/> Resetar Dados</button>
+          {/* BOTÃO DE RESET AGORA É FULL WIDTH NO MOBILE */}
+          <button onClick={() => { setLocalDriver({...globalDriver}); setLocalCar([...globalCar]); }} className="w-full md:w-auto justify-center md:justify-start text-indigo-400 hover:text-white transition-colors flex items-center gap-2 text-[9px] uppercase font-black px-3 py-1.5 border border-indigo-500/20 rounded hover:bg-indigo-500/10"><RotateCcw size={12}/> Resetar Dados</button>
         </div>
       </div>
 
-      {/* LAYOUT PRINCIPAL DO CONTEÚDO */}
       <div className="space-y-6 md:space-y-8">
-          
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8 items-stretch">
+          {/* GRID RESPONSIVO MELHORADO: 1 col (mobile) -> 2 cols (tablet/laptop) -> 3 cols (desktop) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 items-stretch">
               
-              {/* COLUNA 1: DADOS PISTA + ALERTA SETUP (INTERNO) */}
+              {/* COLUNA 1 */}
               <div className="space-y-6 flex flex-col">
                   <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl flex-1 flex flex-col justify-between">
                       <div>
@@ -377,7 +357,6 @@ export default function TestsPage() {
                         </div>
                       </div>
 
-                      {/* --- ALERTA: SETUP IDEAL AUSENTE (NO FINAL DA COLUNA) --- */}
                       {isSetupMissing && (
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex flex-col gap-3 group hover:bg-amber-500/15 transition-colors">
                             <div className="flex items-start gap-3">
@@ -400,7 +379,7 @@ export default function TestsPage() {
                   </div>
               </div>
 
-              {/* COLUNA 2: ATRIBUTOS DO PILOTO */}
+              {/* COLUNA 2 */}
               <div className="space-y-6 flex flex-col">
                  <div className="bg-[#0b0b10] rounded-2xl border border-white/5 p-5 shadow-2xl flex-1 flex flex-col">
                     <h3 className="text-[10px] font-black text-white uppercase mb-6 pb-4 border-b border-white/5 flex items-center gap-2 tracking-widest"><User size={14} className="text-yellow-400"/> Atributos do Piloto</h3>
@@ -412,7 +391,7 @@ export default function TestsPage() {
                  </div>
               </div>
 
-              {/* COLUNA 3: DESGASTE DO CARRO */}
+              {/* COLUNA 3 */}
               <div className="space-y-6 flex flex-col">
                  <div className="bg-[#0b0b10] rounded-2xl border border-white/5 overflow-hidden shadow-2xl flex-1">
                     <div className="p-5 border-b border-white/5 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3">
