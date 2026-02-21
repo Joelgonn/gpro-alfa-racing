@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase'; 
 import { useGame } from '../../context/GameContext'; 
 import {
   Loader2, MapPin, ChevronDown, Search, X, ShieldCheck,
   Settings, Sun, CloudRain, ChevronLeft, ChevronRight, Zap, Timer, 
-  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw
+  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,7 +25,9 @@ const TYRE_COMPOUNDS = [
 ];
 
 const TEST_PRIORITIES = ["Nenhuma prioridade em especial", "Velocidade máxima", "Fazer curvas", "Cotovelos", "Frear", "Ultrapassagem", "Chicanes", "Testar os limites do carro", "Afinação do ajuste"];
-const CAR_PARTS_LABELS = ['Chassi', 'Motor', 'Asa Dianteira', 'Asa Traseira', 'Assoalho', 'Laterais', 'Radiador', 'Câmbio', 'Freios', 'Suspensão', 'Eletrônicos'];
+const COMPONENTS = [ 
+    { id: 'chassi', label: 'Chassi' }, { id: 'motor', label: 'Motor' }, { id: 'asaDianteira', label: 'Asa Dianteira' }, { id: 'asaTraseira', label: 'Asa Traseira' }, { id: 'assoalho', label: 'Assoalho' }, { id: 'laterais', label: 'Laterais' }, { id: 'radiador', label: 'Radiador' }, { id: 'cambio', label: 'Câmbio' }, { id: 'freios', label: 'Freios' }, { id: 'suspensao', label: 'Suspensão' }, { id: 'eletronicos', label: 'Eletrônicos' } 
+];
 const DRIVER_FIELDS = [
   { key: 'energia', label: 'Energia', max: 100 }, { key: 'concentracao', label: 'Concentração' }, { key: 'talento', label: 'Talento' }, { key: 'agressividade', label: 'Agressividade' }, { key: 'experiencia', label: 'Experiência', max: 500 }, { key: 'tecnica', label: 'Técnica' }, { key: 'resistencia', label: 'Resistência' }, { key: 'carisma', label: 'Carisma' }, { key: 'motivacao', label: 'Motivação' }, { key: 'reputacao', label: 'Reputação' }, { key: 'peso', label: 'Peso (kg)', max: 100 }, { key: 'idade', label: 'Idade', max: 50 }
 ];
@@ -71,21 +73,9 @@ function DriverStatRow({ label, value, onChange, max = 250 }: any) {
     );
 }
 
-function CarPartRow({ label, lvl, wear, onUpdate }: any) {
-    return (
-        <div className="flex items-center justify-between h-8 border-b border-white/5 px-1 hover:bg-white/[0.02] transition-colors">
-            <span className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase flex-1 truncate mr-2">{label}</span>
-            <div className="flex gap-1 md:gap-2">
-                <div className="flex items-center bg-black/30 rounded border border-white/5 px-1"><span className="text-[7px] text-slate-500 mr-1">LVL</span><input type="number" value={lvl} onChange={(e) => onUpdate('lvl', Number(e.target.value))} className="w-6 md:w-8 h-5 text-center bg-transparent text-[10px] font-bold text-slate-300 outline-none" /></div>
-                <div className="flex items-center bg-black/30 rounded border border-white/5 px-1"><span className="text-[7px] text-slate-500 mr-1">DSG</span><input type="number" value={wear} onChange={(e) => onUpdate('wear', Number(e.target.value))} className="w-6 md:w-8 h-5 text-center bg-transparent text-[10px] font-bold text-emerald-400 outline-none" /></div>
-            </div>
-        </div>
-    );
-}
-
 export default function TestsPage() {
   const router = useRouter(); 
-  const { driver: globalDriver, car: globalCar } = useGame();
+  const { driver: globalDriver, car: globalCar, techDirector, staffFacilities, desgasteModifier } = useGame();
   
   const [tracks, setTracks] = useState<string[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -105,8 +95,13 @@ export default function TestsPage() {
   const [sheetData, setSheetData] = useState<any[]>(Array(8).fill({ wear: 0, fuel: 0 }));
   const [setupIdeal, setSetupIdeal] = useState<any[]>(Array(6).fill('--'));
 
+  // --- NOVO ESTADO PARA DESGASTE DETALHADO ---
+  const [partWearDetails, setPartWearDetails] = useState<any>(null);
+
   const [lockedStints, setLockedStints] = useState<Record<number, boolean>>({});
   const [frozenResults, setFrozenResults] = useState<any[]>(Array(8).fill(null));
+
+  const totalLaps = useMemo(() => Object.values(testStints).reduce((acc: number, val) => acc + (Number(val) || 0), 0), [testStints]);
 
   const toggleLock = (index: number) => {
     const isLocked = lockedStints[index];
@@ -127,8 +122,6 @@ export default function TestsPage() {
     return count;
   }, [testStints]);
 
-  const totalLaps = useMemo(() => Object.values(testStints).reduce((acc: number, val) => acc + (Number(val) || 0), 0), [testStints]);
-
   const handleStintChange = (key: string, value: string) => {
       const index = parseInt(key.replace('s', '')) - 1;
       if (lockedStints[index]) return;
@@ -145,6 +138,12 @@ export default function TestsPage() {
       const val = Number(testStints[key]);
       if (val > 0 && val < 5) setTestStints((prev: any) => ({ ...prev, [key]: 5 }));
   };
+
+  // --- LÓGICA DE AVISO (LIMIT 90%) ---
+  const hasTestingLimitWarning = useMemo(() => {
+      if (!partWearDetails) return false;
+      return Object.values(partWearDetails).some((part: any) => part.pre_race && part.pre_race > 90.4);
+  }, [partWearDetails]);
 
   useEffect(() => {
     if (priority === "Testar os limites do carro") setInputs(prev => ({ ...prev, risk: 100 }));
@@ -165,37 +164,57 @@ export default function TestsPage() {
     if (globalCar && localCar.length === 0) setLocalCar([...globalCar]);
   }, [globalDriver, globalCar]);
 
-  useEffect(() => {
+  // --- CALCULO DE TESTE (STINTS + DESGASTE PEÇAS) ---
+  const runCalculations = useCallback(async () => {
     if (!userId || !testTrack) return;
-    const runCalc = async () => {
-      setIsSyncing(true);
-      try {
-        const compoundMap: Record<string, string> = {
-            'ExSoft': 'Extra Soft',
-            'Soft': 'Soft',
-            'Medium': 'Medium',
-            'Hard': 'Hard',
-            'Rain': 'Rain'
-        };
+    setIsSyncing(true);
+    try {
+        const compoundMap: Record<string, string> = { 'ExSoft': 'Extra Soft', 'Soft': 'Soft', 'Medium': 'Medium', 'Hard': 'Hard', 'Rain': 'Rain' };
 
-        const res = await fetch('/api/test-calculator', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            track: testTrack, driver: localDriver, car: localCar, weather, temp: inputs.temp, risk: inputs.risk, pits: inputs.pits,
-            tyreSupplier: TYRE_SUPPLIERS[supplierIndex],
-            compound: compoundMap[selectedCompound] || selectedCompound,
-            stints: testStints, priority
-          })
+        // 1. Cálculo de Stints (Combustível/Pneus)
+        const resTest = await fetch('/api/test-calculator', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                track: testTrack, driver: localDriver, car: localCar, weather, temp: inputs.temp, risk: inputs.risk, pits: inputs.pits,
+                tyreSupplier: TYRE_SUPPLIERS[supplierIndex], compound: compoundMap[selectedCompound] || selectedCompound,
+                stints: testStints, priority
+            })
         });
-        const data = await res.json();
-        if(data.results) setSheetData(data.results);
-        if(data.setupIdeal) setSetupIdeal(data.setupIdeal);
-      } catch (e) { console.error(e); } finally { setIsSyncing(false); }
-    };
-    const debounce = setTimeout(runCalc, 600);
+        const dataTest = await resTest.json();
+        if(dataTest.results) setSheetData(dataTest.results);
+        if(dataTest.setupIdeal) setSetupIdeal(dataTest.setupIdeal);
+
+        // 2. Cálculo de Desgaste Detalhado por Peça (Baseado no total de voltas acumulado)
+        const resParts = await fetch('/api/python?action=test_calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'user-id': userId },
+            body: JSON.stringify({ 
+                test_track: testTrack, 
+                test_laps: totalLaps,
+                driver: localDriver, 
+                car: localCar, 
+                tech_director: techDirector,
+                staff_facilities: staffFacilities,
+                desgasteModifier
+            })
+        });
+        const dataParts = await resParts.json();
+        if (dataParts.sucesso) setPartWearDetails(dataParts.data);
+
+    } catch (e) { console.error(e); } finally { setIsSyncing(false); }
+  }, [userId, testTrack, localDriver, localCar, weather, inputs, supplierIndex, selectedCompound, testStints, priority, totalLaps, techDirector, staffFacilities, desgasteModifier]);
+
+  useEffect(() => {
+    const debounce = setTimeout(runCalculations, 600);
     return () => clearTimeout(debounce);
-  }, [testTrack, localDriver, localCar, weather, inputs, supplierIndex, selectedCompound, testStints, priority, userId]);
+  }, [runCalculations]);
+
+  const getWearColor = (val: number) => {
+    if(val > 90.4) return 'text-rose-500 font-black';
+    if(val > 80) return 'text-amber-400';
+    return 'text-emerald-400';
+  };
 
   if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-black"><Loader2 className="animate-spin text-indigo-500" /></div>;
 
@@ -213,16 +232,16 @@ export default function TestsPage() {
                   </div>
                </div>
                <div className="flex flex-col w-full md:w-auto">
-                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Circuito</span>
+                 <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Circuito de Testes</span>
                  <TrackSelector currentTrack={testTrack} tracksList={tracks} onSelect={setTestTrack} />
                </div>
             </div>
             <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5 w-full md:w-auto justify-center md:justify-start">
-                <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-blue-500'}`}></div>
-                <span className="text-[9px] font-black uppercase text-slate-400">{isSyncing ? 'Processando...' : 'Sincronizado'}</span>
+                <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></div>
+                <span className="text-[9px] font-black uppercase text-slate-400">{isSyncing ? 'Recalculando...' : 'Pronto para Teste'}</span>
             </div>
           </div>
-          <button onClick={() => { setLocalDriver({...globalDriver}); setLocalCar([...globalCar]); }} className="text-indigo-400 hover:text-white transition-colors flex items-center gap-2 text-[9px] uppercase font-black px-3 py-1.5 border border-indigo-500/20 rounded hover:bg-indigo-500/10"><RotateCcw size={12}/> Resetar</button>
+          <button onClick={() => { setLocalDriver({...globalDriver}); setLocalCar([...globalCar]); }} className="text-indigo-400 hover:text-white transition-colors flex items-center gap-2 text-[9px] uppercase font-black px-3 py-1.5 border border-indigo-500/20 rounded hover:bg-indigo-500/10"><RotateCcw size={12}/> Resetar Dados</button>
         </div>
       </div>
 
@@ -230,10 +249,10 @@ export default function TestsPage() {
           <div className="xl:col-span-4 space-y-6">
               {/* PARÂMETROS */}
               <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 md:p-6">
-                  <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Settings size={14} className="text-indigo-500" /> Parâmetros</h2>
+                  <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Settings size={14} className="text-indigo-500" /> Configuração</h2>
                   <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6">
-                      <button onClick={() => setWeather('Dry')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Dry' ? 'bg-orange-500 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><Sun size={18} /><span className="text-[9px] font-black">PISTA SECA</span></button>
-                      <button onClick={() => setWeather('Wet')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Wet' ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(79,70,229,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><CloudRain size={18} /><span className="text-[9px] font-black">PISTA MOLHADA</span></button>
+                      <button onClick={() => setWeather('Dry')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Dry' ? 'bg-orange-500 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><Sun size={18} /><span className="text-[9px] font-black">SECO</span></button>
+                      <button onClick={() => setWeather('Wet')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Wet' ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(79,70,229,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><CloudRain size={18} /><span className="text-[9px] font-black">CHUVA</span></button>
                   </div>
                   <div className="grid grid-cols-3 gap-2 md:gap-3 mb-6">
                       <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-indigo-400">Temp</label><input type="number" value={inputs.temp} onChange={e => setInputs({...inputs, temp: Number(e.target.value)})} className="bg-transparent text-white font-black text-sm w-full outline-none" /></div>
@@ -241,15 +260,13 @@ export default function TestsPage() {
                       <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-emerald-500">Pits</label><input type="number" value={inputs.pits} onChange={e => setInputs({...inputs, pits: Number(e.target.value)})} className="bg-transparent text-white font-black text-sm w-full outline-none" /></div>
                   </div>
                   <div className="mb-6">
-                    <label className="text-[8px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade</label>
+                    <label className="text-[8px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade do Teste</label>
                     <div className="relative"><select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg py-3 pl-4 pr-10 text-[10px] md:text-[11px] font-black text-white outline-none uppercase cursor-pointer appearance-none hover:bg-white/5 transition-colors">{TEST_PRIORITIES.map(opt => <option key={opt} value={opt} className="bg-[#0F0F13]">{opt.toUpperCase()}</option>)}</select><ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"/></div>
                   </div>
                   <div className="mb-6">
                       <div className="bg-black/40 border border-white/10 rounded-xl h-14 flex items-center justify-between px-2 overflow-hidden select-none">
                         <button onClick={() => setSupplierIndex(prev => (prev - 1 + TYRE_SUPPLIERS.length) % TYRE_SUPPLIERS.length)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"><ChevronLeft size={16}/></button>
-                        <div className="flex-1 flex justify-center">
-                           <img src={`/tyres/${TYRE_SUPPLIERS[supplierIndex].toLowerCase()}.gif`} alt="supplier" className="h-8 w-auto object-contain drop-shadow-md" />
-                        </div>
+                        <div className="flex-1 flex justify-center"><img src={`/tyres/${TYRE_SUPPLIERS[supplierIndex].toLowerCase()}.gif`} alt="supplier" className="h-8 w-auto object-contain drop-shadow-md" /></div>
                         <button onClick={() => setSupplierIndex(prev => (prev + 1) % TYRE_SUPPLIERS.length)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"><ChevronRight size={16}/></button>
                       </div>
                   </div>
@@ -261,37 +278,100 @@ export default function TestsPage() {
                       ))}
                   </div>
               </div>
+              {/* SETUP IDEAL */}
               <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 md:p-6">
-                  <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Wrench size={14} className="text-indigo-500" /> Setup Ideal</h2>
+                  <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Wrench size={14} className="text-indigo-500" /> Setup Estimado</h2>
                   <div className="space-y-3">{TEST_SETUP_PARTS.map((label, idx) => (<div key={label} className="flex items-center justify-between bg-black/40 border border-white/5 rounded-lg p-3 hover:border-white/20 transition-colors"><span className="text-xs font-black text-slate-300 uppercase tracking-tight">{label}</span><span className="text-lg font-black text-indigo-400 font-mono">{setupIdeal[idx] ?? '--'}</span></div>))}</div>
               </div>
           </div>
 
           <div className="xl:col-span-8 space-y-6 md:space-y-8">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+             <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                 {/* PILOTO STATS */}
                  <div className="bg-[#0b0b10] rounded-2xl border border-white/5 p-5 shadow-2xl">
-                    <h3 className="text-[10px] font-black text-white uppercase mb-6 pb-4 border-b border-white/5 flex items-center gap-2 tracking-widest"><User size={14} className="text-yellow-400"/> Piloto</h3>
-                    <div className="space-y-3">{DRIVER_FIELDS.map(f => (<DriverStatRow key={f.key} label={f.label} value={localDriver[f.key] || 0} max={f.max} onChange={(val:any) => setLocalDriver({...localDriver, [f.key]: val})} />))}</div>
+                    <h3 className="text-[10px] font-black text-white uppercase mb-6 pb-4 border-b border-white/5 flex items-center gap-2 tracking-widest"><User size={14} className="text-yellow-400"/> Atributos do Piloto</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">{DRIVER_FIELDS.map(f => (<DriverStatRow key={f.key} label={f.label} value={localDriver[f.key] || 0} max={f.max} onChange={(val:any) => setLocalDriver({...localDriver, [f.key]: val})} />))}</div>
                  </div>
-                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 p-5 shadow-2xl">
-                    <h3 className="text-[10px] font-black text-white uppercase mb-6 pb-4 border-b border-white/5 flex items-center gap-2 tracking-widest"><CarFront size={14} className="text-indigo-400"/> Carro</h3>
-                    <div className="space-y-1">{CAR_PARTS_LABELS.map((label, i) => (<CarPartRow key={label} label={label} lvl={localCar[i]?.lvl || 1} wear={localCar[i]?.wear || 0} onUpdate={(f:any, v:any) => { const nc = [...localCar]; nc[i] = {...nc[i], [f]: v}; setLocalCar(nc); }} />))}</div>
+
+                 {/* TABELA DE CARRO ADAPTADA (ESTILO SETUP PAGE) */}
+                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+                    <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                        <h3 className="text-[10px] font-black text-white uppercase flex items-center gap-2 tracking-widest"><CarFront size={14} className="text-indigo-400"/> Integridade do Carro pós-testes</h3>
+                        <AnimatePresence>
+                            {hasTestingLimitWarning && (
+                                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">
+                                    <ShieldAlert size={14} className="text-rose-500 animate-pulse" />
+                                    <span className="text-[9px] font-black text-rose-500 uppercase">Limite de Teste Excedido (+90.4%)</span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                    
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-[10px] text-left border-separate border-spacing-0">
+                            <thead>
+                                <tr className="bg-white/5 text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                                    <th className="px-4 py-3 border-b border-white/5">Componente</th>
+                                    <th className="px-4 py-3 border-b border-white/5 text-center">Nível</th>
+                                    <th className="px-4 py-3 border-b border-white/5 text-center">Atual</th>
+                                    <th className="px-4 py-3 border-b border-white/5 text-center text-amber-500">Desg. Teste</th>
+                                    <th className="px-4 py-3 border-b border-white/5 text-center">Final Estimado</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {COMPONENTS.map((part, i) => {
+                                    const lvl = localCar[i]?.lvl || 1;
+                                    const currentWear = localCar[i]?.wear || 0;
+                                    const testWear = partWearDetails ? partWearDetails[part.id]?.test_wear : 0;
+                                    const preRace = partWearDetails ? partWearDetails[part.id]?.pre_race : currentWear;
+                                    const isBroken = preRace > 90.4;
+
+                                    return (
+                                        <tr key={part.id} className={`group transition-colors ${isBroken ? 'bg-rose-500/5' : 'hover:bg-white/[0.02]'}`}>
+                                            <td className="px-4 py-2 font-black text-slate-400 uppercase">{part.label}</td>
+                                            <td className="px-4 py-2">
+                                                <div className="flex justify-center">
+                                                    <input type="number" value={lvl} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], lvl: Number(e.target.value)}; setLocalCar(nc); }} className="w-10 bg-black/40 border border-white/10 rounded text-center py-1 font-bold text-slate-300" />
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <div className="flex justify-center">
+                                                    <input type="number" value={currentWear} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], wear: Number(e.target.value)}; setLocalCar(nc); }} className="w-10 bg-black/40 border border-white/10 rounded text-center py-1 font-bold text-emerald-400" />
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2 text-center text-amber-500 font-black">
+                                                +{testWear.toFixed(1)}%
+                                            </td>
+                                            <td className="px-4 py-2 text-center">
+                                                <span className={`text-xs ${getWearColor(preRace)}`}>
+                                                    {preRace.toFixed(1)}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                  </div>
              </div>
 
               {/* PLANEJAMENTO MANUAL COM COLUNA FIXA */}
               <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
                   <div className="bg-white/5 p-4 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-3">
-                      <h3 className="font-black text-[10px] uppercase text-white tracking-[0.2em] flex items-center gap-2"><HardHat size={14} className="text-amber-500"/> Planejamento Manual</h3>
-                      <div className="bg-black/30 px-3 py-1 rounded border border-white/5 font-black text-[10px] text-indigo-400">{totalLaps} / 100 Voltas</div>
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-black text-[10px] uppercase text-white tracking-[0.2em] flex items-center gap-2"><HardHat size={14} className="text-amber-500"/> Planejamento de Stints</h3>
+                        <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded border border-white/10">
+                            <Timer size={12} className="text-indigo-400" />
+                            <span className="font-black text-[10px] text-indigo-400">{totalLaps} / 100 Voltas Totais</span>
+                        </div>
+                      </div>
                   </div>
                   
-                  {/* Container com scroll horizontal e position relative para o sticky funcionar */}
                   <div className="overflow-x-auto custom-scrollbar relative">
                       <table className="w-full text-[10px] border-separate border-spacing-y-1 min-w-[600px]">
                           <thead>
                               <tr className="text-slate-600 uppercase font-black text-[8px]">
-                                  {/* Coluna Sticky - Header */}
                                   <th className="text-left p-3 w-28 sticky left-0 z-20 bg-[#0F0F13] border-r border-white/10 shadow-[4px_0_12px_rgba(0,0,0,0.5)]">Parâmetro</th>
                                   {Array.from({ length: visibleStintsCount }).map((_, i) => (
                                     <th key={i} className={`p-2 text-center transition-colors duration-300 ${lockedStints[i] ? 'text-emerald-400' : ''}`}>
@@ -305,8 +385,7 @@ export default function TestsPage() {
                           </thead>
                           <tbody>
                               <tr className="bg-white/5 font-black">
-                                  {/* Coluna Sticky - Voltas */}
-                                  <td className="p-4 text-indigo-400 uppercase sticky left-0 z-20 bg-[#15151a] border-r border-white/10 shadow-[4px_0_12px_rgba(0,0,0,0.5)]">Voltas</td>
+                                  <td className="p-4 text-indigo-400 uppercase sticky left-0 z-20 bg-[#15151a] border-r border-white/10 shadow-[4px_0_12px_rgba(0,0,0,0.5)]">Nº Voltas</td>
                                   {Array.from({ length: visibleStintsCount }).map((_, i) => {
                                       const sk = `s${i+1}`;
                                       return (
@@ -320,16 +399,14 @@ export default function TestsPage() {
                                   })}
                               </tr>
                               <tr className="hover:bg-white/[0.01] transition-colors">
-                                  {/* Coluna Sticky - Desgaste */}
-                                  <td className="p-4 text-slate-500 uppercase flex items-center gap-2 sticky left-0 z-20 bg-[#0c0c10] border-r border-white/10 shadow-[4px_0_12px_rgba(0,0,0,0.5)]"><Activity size={12} /> Desgaste Total</td>
+                                  <td className="p-4 text-slate-500 uppercase flex items-center gap-2 sticky left-0 z-20 bg-[#0c0c10] border-r border-white/10 shadow-[4px_0_12px_rgba(0,0,0,0.5)]"><Activity size={12} /> Desg. Pneus/Sessão</td>
                                   {Array.from({ length: visibleStintsCount }).map((_, i) => {
                                       const data = lockedStints[i] ? frozenResults[i] : sheetData[i];
                                       return (<td key={i} className={`p-2 text-center font-black text-lg transition-colors ${lockedStints[i] ? 'text-emerald-400' : 'text-rose-500'}`}>{typeof data?.wear === 'number' ? `${data.wear.toFixed(1)}%` : '-'}</td>)
                                   })}
                               </tr>
                               <tr className="hover:bg-white/[0.01] transition-colors">
-                                  {/* Coluna Sticky - Combustível */}
-                                  <td className="p-4 text-slate-500 uppercase flex items-center gap-2 sticky left-0 z-20 bg-[#0c0c10] border-r border-white/10 shadow-[4px_0_12px_rgba(0,0,0,0.5)]"><Fuel size={12} /> Combustível Total</td>
+                                  <td className="p-4 text-slate-500 uppercase flex items-center gap-2 sticky left-0 z-20 bg-[#0c0c10] border-r border-white/10 shadow-[4px_0_12px_rgba(0,0,0,0.5)]"><Fuel size={12} /> Gasto de Comb.</td>
                                   {Array.from({ length: visibleStintsCount }).map((_, i) => {
                                       const data = lockedStints[i] ? frozenResults[i] : sheetData[i];
                                       return (<td key={i} className={`p-2 text-center font-black text-lg transition-colors ${lockedStints[i] ? 'text-emerald-400' : 'text-cyan-400'}`}>{typeof data?.fuel === 'number' ? `${data.fuel.toFixed(1)}L` : '-'}</td>)

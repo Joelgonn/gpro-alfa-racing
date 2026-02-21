@@ -9,7 +9,7 @@ import { useGame } from '../../context/GameContext';
 import {
   Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin,
   Sparkles, ChevronLeft, ChevronRight, Fuel, Wind, TrendingUp,
-  ChevronDown, Search, X, ShieldCheck
+  ChevronDown, Search, X, ShieldCheck, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -267,12 +267,13 @@ function SkyViewRainOverlay() {
 export default function StrategyPage() {
   const router = useRouter(); 
   
-  // Extraímos os novos campos do contexto
+  // Extraímos os novos campos e o Ideal Setup do contexto
   const {
     track, updateTrack, tracksList, tyreSuppliers,
     updateWeather, driver, updateDriver, car, updateCar,
-    techDirector, updateTechDirector,      // NOVOS
-    staffFacilities, updateStaffFacilities // NOVOS
+    techDirector, updateTechDirector,      
+    staffFacilities, updateStaffFacilities, 
+    idealSetup 
   } = useGame();
 
   const [inputs, setInputs] = useState<InputsState>({
@@ -479,13 +480,11 @@ export default function StrategyPage() {
   
 return (
   <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono relative">       
-    // ... (Linha 504 aproximada)
-    {/* ... dentro do return do StrategyPage ... */}
     <AnimatePresence>
     {inputs.race_options.condicao === "Wet" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }}>
         
-        {/* CORREÇÃO AQUI: O nome deve bater com a função acima */}
+       
         <SkyViewRainOverlay /> 
         
         </motion.div>
@@ -564,6 +563,70 @@ return (
         </div>
         <div className="xl:col-span-8 space-y-4 md:space-y-8">
             <StatsGrid outputs={outputs} fmt={fmt} className="hidden xl:grid" />
+            
+            {/* --- NOVA SESSÃO: SETUP IDEAL (ÁREA VERDE DA IMAGEM) --- */}
+            <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
+                {!idealSetup ? (
+                    // CÁLCULO AUSENTE (ALERTA)
+                    <div className="p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-amber-500/5">
+                        <div className="flex items-center gap-4 text-center md:text-left">
+                            <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20 mx-auto md:mx-0">
+                                <ShieldAlert size={18} className="text-amber-500" />
+                            </div>
+                            <div>
+                                <h4 className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-1">Atenção: Setup Ideal Ausente</h4>
+                                <p className="text-slate-400 text-[10px] max-w-md leading-relaxed">
+                                    O setup mecânico ideal para esta pista ainda não foi calculado. Vá até a Setup Calculadora para definir os ajustes.
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => router.push('/dashboard/setup')} 
+                            className="shrink-0 w-full md:w-auto px-5 py-3 md:py-2.5 bg-amber-500/10 hover:bg-amber-500 hover:text-white border border-amber-500/20 rounded-xl text-amber-500 font-black text-[9px] uppercase transition-all shadow-lg hover:shadow-amber-500/25"
+                        >
+                            Ir para Setup Calculadora
+                        </button>
+                    </div>
+                ) : (
+                    // CÁLCULO PRESENTE (COCKPIT SEMÁFORO)
+                    <div className="p-4 md:p-5">
+                        <div className="flex items-center justify-between mb-4 px-1">
+                            <div className="flex items-center gap-2">
+                                <Settings size={14} className="text-emerald-400" />
+                                <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Setup Ideal Recomendado</span>
+                            </div>
+                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md">
+                                Sincronizado
+                            </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
+                            {[
+                                { id: 'asaDianteira', label: 'Asa Diant.' },
+                                { id: 'asaTraseira', label: 'Asa Tras.' },
+                                { id: 'motor', label: 'Motor' },
+                                { id: 'freios', label: 'Freios' },
+                                { id: 'cambio', label: 'Câmbio' },
+                                { id: 'suspensao', label: 'Suspensão' }
+                            ].map(part => (
+                                <div key={part.id} className="bg-black/40 p-3 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col items-center text-center group">
+                                    <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2 group-hover:text-slate-300 transition-colors">{part.label}</span>
+                                    
+                                    {/* CORRIDA: VERDE e MENOR */}
+                                    <span className="text-sm md:text-base font-black text-emerald-400 leading-none mb-2">{idealSetup[part.id]?.race || '-'}</span>
+                                    
+                                    {/* Q1 e Q2: VERMELHO E AMARELO, MAIORES */}
+                                    <div className="flex items-center gap-3 text-[8px] md:text-[9px] font-black w-full justify-center pt-2 border-t border-white/5">
+                                        <span className="text-rose-500" title="Qualificação 1">Q1: {idealSetup[part.id]?.q1 || '-'}</span>
+                                        <span className="text-amber-400" title="Qualificação 2">Q2: {idealSetup[part.id]?.q2 || '-'}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </section>
+            
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise da Performance</h3></div>
                 <div className="overflow-x-auto custom-scrollbar">

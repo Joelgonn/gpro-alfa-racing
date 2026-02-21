@@ -99,7 +99,8 @@ export default function SetupPage() {
       desgasteModifier, updateDesgasteModifier, 
       raceAvgTemp,
       techDirector, updateTechDirector,
-      staffFacilities, updateStaffFacilities
+      staffFacilities, updateStaffFacilities,
+      updateIdealSetup // <-- AQUI ADICIONAMOS A FUNÇÃO DO CONTEXTO
   } = useGame();
   
   const [loading, setLoading] = useState(false);
@@ -218,10 +219,13 @@ export default function SetupPage() {
         })
       });
       const data = await res.json();
-      if (data.sucesso) setResultado(data.data);
+      if (data.sucesso) {
+          setResultado(data.data);
+          updateIdealSetup(data.data); // <-- AQUI SALVAMOS GLOBALMENTE NO CONTEXTO
+      }
     } catch (error) { console.error("Calc error:", error); }
     finally { setLoading(false); }
-  }, [userId, track, driver, car, techDirector, staffFacilities, weather, raceAvgTemp, desgasteModifier, initialHydrationDone]);
+  }, [userId, track, driver, car, techDirector, staffFacilities, weather, raceAvgTemp, desgasteModifier, initialHydrationDone, updateIdealSetup]);
 
   useEffect(() => {
     if (initialHydrationDone && userId && track && track !== "Selecionar Pista") {

@@ -57,6 +57,9 @@ interface GameContextType {
   raceAvgTemp: number; 
   desgasteModifier: number;
 
+  // ESTADO ADICIONADO: Armazena o setup ideal calculado
+  idealSetup: Record<string, any> | null;
+
   // Ações / Setters
   updateRole: (newRole: 'admin' | 'user') => void;
   updateTrack: (t: string) => void;
@@ -69,6 +72,9 @@ interface GameContextType {
 
   updateWeather: (data: Partial<WeatherData>) => void;
   updateDesgasteModifier: (val: number) => void;
+
+  // AÇÃO ADICIONADA: Atualiza o setup ideal globalmente
+  updateIdealSetup: (data: Record<string, any> | null) => void;
 }
 
 // ============================================================================
@@ -127,6 +133,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [weather, setWeather] = useState<WeatherData>(INITIAL_WEATHER);
   const [desgasteModifier, setDesgasteModifier] = useState<number>(0);
 
+  // ESTADO ADICIONADO: Setup Ideal
+  const [idealSetup, setIdealSetup] = useState<Record<string, any> | null>(null);
+
   // --- Effects (Data Fetching) ---
   useEffect(() => {
     // Busca lista de pistas
@@ -178,6 +187,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const updateWeather = useCallback((data: Partial<WeatherData>) => { setWeather(prev => ({ ...prev, ...data })); }, []);
   const updateDesgasteModifier = useCallback((val: number) => { setDesgasteModifier(val); }, []);
 
+  // AÇÃO ADICIONADA: Setter do Setup Ideal
+  const updateIdealSetup = useCallback((data: Record<string, any> | null) => { setIdealSetup(data); }, []);
+
   // --- Render ---
   return (
     <GameContext.Provider value={{ 
@@ -192,6 +204,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       weather, 
       raceAvgTemp,
       desgasteModifier,
+      idealSetup,        // Expondo novo estado
       updateRole,
       updateTrack, 
       updateDriver, 
@@ -199,7 +212,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       updateTechDirector,    // Expondo
       updateStaffFacilities, // Expondo
       updateWeather,
-      updateDesgasteModifier
+      updateDesgasteModifier,
+      updateIdealSetup       // Expondo nova ação
     }}>
       {children}
     </GameContext.Provider>
