@@ -1,3 +1,4 @@
+// --- START OF FILE app/tests/page.tsx (ou o caminho equivalente) ---
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -7,7 +8,7 @@ import { useGame } from '../../context/GameContext';
 import {
   Loader2, MapPin, ChevronDown, Search, X, ShieldCheck,
   Settings, Sun, CloudRain, ChevronLeft, ChevronRight, Zap, Timer, 
-  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert
+  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert, Database, ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -63,19 +64,29 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: any) {
 function DriverStatRow({ label, value, onChange, max = 250 }: any) {
     const percentage = Math.min(100, Math.max(0, (value / max) * 100));
     return (
-        <div className="flex items-center gap-2 md:gap-4 h-6">
+        <div className="flex items-center gap-2 md:gap-4 h-6 w-full">
             <span className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase w-20 md:w-24 truncate">{label}</span>
             <div className="flex-1 h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5">
                 <div className="h-full bg-gradient-to-r from-indigo-600 to-cyan-400 transition-all duration-300" style={{ width: `${percentage}%` }}></div>
             </div>
-            <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-10 md:w-12 h-5 text-center bg-black/40 border border-white/10 rounded text-[10px] font-bold text-white outline-none" />
+            <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-10 md:w-12 h-6 text-center bg-black/40 border border-white/10 rounded text-[10px] font-bold text-white outline-none focus:border-indigo-500 transition-colors" />
         </div>
     );
 }
 
 export default function TestsPage() {
   const router = useRouter(); 
-  const { driver: globalDriver, car: globalCar, techDirector, staffFacilities, desgasteModifier } = useGame();
+  
+  // PUXANDO DADOS E STATUS DO NOVO CONTEXTO GLOBAL
+  const { 
+      driver: globalDriver, 
+      car: globalCar, 
+      techDirector, 
+      staffFacilities, 
+      desgasteModifier,
+      isGlobalLoading, // <-- NOVO
+      isDataSynced     // <-- NOVO
+  } = useGame();
   
   const [tracks, setTracks] = useState<string[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -95,11 +106,28 @@ export default function TestsPage() {
   const [sheetData, setSheetData] = useState<any[]>(Array(8).fill({ wear: 0, fuel: 0 }));
   const [setupIdeal, setSetupIdeal] = useState<any[]>(Array(6).fill('--'));
 
-  // --- NOVO ESTADO PARA DESGASTE DETALHADO ---
+  // --- ESTADO PARA DESGASTE DETALHADO ---
   const [partWearDetails, setPartWearDetails] = useState<any>(null);
 
   const [lockedStints, setLockedStints] = useState<Record<number, boolean>>({});
   const [frozenResults, setFrozenResults] = useState<any[]>(Array(8).fill(null));
+
+  // --- VERIFICAÇÃO RIGOROSA DE DADOS DO CONTEXTO ---
+  const isContextValid = useMemo(() => {
+    // 1. Piloto existe e tem talento?
+    const driverOk = globalDriver && typeof globalDriver.talento === 'number' && globalDriver.talento > 0;
+    
+    // 2. Carro existe, tem 11 peças E o nível não está zerado?
+    // (Verificamos a primeira peça 'Chassi'. Se for nível 0, é dado falso/inicial)
+    const carOk = Array.isArray(globalCar) && globalCar.length >= 11 && globalCar[0].lvl > 0;
+    
+    return driverOk && carOk;
+  }, [globalDriver, globalCar]);
+
+  // --- VERIFICA SE SETUP ESTÁ FALTANDO ---
+  const isSetupMissing = useMemo(() => {
+    return setupIdeal.some(val => val === '--');
+  }, [setupIdeal]);
 
   const totalLaps = useMemo(() => Object.values(testStints).reduce((acc: number, val) => acc + (Number(val) || 0), 0), [testStints]);
 
@@ -159,19 +187,44 @@ export default function TestsPage() {
     fetch('/api/python?action=tracks').then(res => res.json()).then(data => setTracks(data.tracks || []));
   }, [router]);
 
+  // --- SINCRONIZAÇÃO INTELIGENTE: GLOBAL -> LOCAL ---
   useEffect(() => {
-    if (globalDriver && !localDriver.talento) setLocalDriver({...globalDriver});
-    if (globalCar && localCar.length === 0) setLocalCar([...globalCar]);
-  }, [globalDriver, globalCar]);
+    // 1. Sincroniza Piloto
+    if (globalDriver && globalDriver.talento > 0) {
+        // Se o piloto local não tem talento ou é 0, puxa do global
+        if (!localDriver.talento || localDriver.talento === 0) {
+            setLocalDriver({...globalDriver});
+        }
+    }
 
-  // --- CALCULO DE TESTE (STINTS + DESGASTE PEÇAS) ---
+    // 2. Sincroniza Carro
+    if (globalCar && globalCar.length > 0) {
+        const isLocalEmpty = localCar.length === 0;
+        
+        // Verifica se o carro local está "estagnado" com dados iniciais (Nível 0 ou 1 e sem desgaste)
+        // enquanto o carro global tem dados reais (Nível > 1 OU tem algum desgaste)
+        const isLocalStale = localCar.length > 0 && 
+                             (localCar[0].lvl <= 1 && localCar[0].wear === 0) && 
+                             (globalCar[0].lvl > 1 || globalCar[0].wear > 0 || globalCar[1].wear > 0);
+
+        // Se estiver vazio OU se estiver com dados "falsos", força a atualização
+        if (isLocalEmpty || isLocalStale) {
+            // Fazemos uma cópia profunda para garantir que a edição local não afete o global diretamente
+            const deepCopy = globalCar.map(part => ({ ...part }));
+            setLocalCar(deepCopy);
+        }
+    }
+  }, [globalDriver, globalCar, isDataSynced]); // Adicionada dependência isDataSynced
+
+  // --- CALCULO DE TESTE ---
   const runCalculations = useCallback(async () => {
-    if (!userId || !testTrack) return;
+    // Só roda o cálculo se os dados estiverem válidos E o contexto já tiver sincronizado
+    if (!userId || !testTrack || !isContextValid || !isDataSynced) return;
+
     setIsSyncing(true);
     try {
         const compoundMap: Record<string, string> = { 'ExSoft': 'Extra Soft', 'Soft': 'Soft', 'Medium': 'Medium', 'Hard': 'Hard', 'Rain': 'Rain' };
 
-        // 1. Cálculo de Stints (Combustível/Pneus)
         const resTest = await fetch('/api/test-calculator', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -185,7 +238,6 @@ export default function TestsPage() {
         if(dataTest.results) setSheetData(dataTest.results);
         if(dataTest.setupIdeal) setSetupIdeal(dataTest.setupIdeal);
 
-        // 2. Cálculo de Desgaste Detalhado por Peça (Baseado no total de voltas acumulado)
         const resParts = await fetch('/api/python?action=test_calculate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'user-id': userId },
@@ -203,7 +255,7 @@ export default function TestsPage() {
         if (dataParts.sucesso) setPartWearDetails(dataParts.data);
 
     } catch (e) { console.error(e); } finally { setIsSyncing(false); }
-  }, [userId, testTrack, localDriver, localCar, weather, inputs, supplierIndex, selectedCompound, testStints, priority, totalLaps, techDirector, staffFacilities, desgasteModifier]);
+  }, [userId, testTrack, localDriver, localCar, weather, inputs, supplierIndex, selectedCompound, testStints, priority, totalLaps, techDirector, staffFacilities, desgasteModifier, isContextValid, isDataSynced]);
 
   useEffect(() => {
     const debounce = setTimeout(runCalculations, 600);
@@ -216,8 +268,49 @@ export default function TestsPage() {
     return 'text-emerald-400';
   };
 
-  if (isAuthLoading) return <div className="flex h-screen items-center justify-center bg-black"><Loader2 className="animate-spin text-indigo-500" /></div>;
+  // 1. CARREGANDO DADOS GLOBAIS OU AUTH
+  // AQUI ESTÁ O SEGREDO: Adicionamos "|| !isDataSynced" dentro do Loading.
+  // Isso força a tela de carregamento a continuar girando até que a sincronização seja confirmada como TRUE.
+  // Se o carregamento acabar e isDataSynced continuar false (erro real), tratamos no próximo if.
+  if (isAuthLoading || isGlobalLoading) {
+    return (
+        <div className="flex h-screen items-center justify-center bg-[#050507]">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="animate-spin text-indigo-500" size={32} />
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest animate-pulse">Sincronizando com a Garagem...</span>
+            </div>
+        </div>
+    );
+  }
 
+  // 2. TELA DE BLOQUEIO - DADOS NÃO ENCONTRADOS
+  // Agora este aviso só aparece se o loading acabou E o isDataSynced CONTINUOU false (ou seja, falhou mesmo).
+  if (!isDataSynced) {
+    return (
+        <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-slate-300 p-6 relative overflow-hidden">
+            {/* ... (seu código da tela de aviso mantém igual) ... */}
+            <div className="relative z-10 max-w-lg w-full bg-white/[0.02] border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-xl text-center">
+                <div className="mx-auto w-16 h-16 bg-black/40 border border-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+                    <Database size={24} className="text-amber-500" />
+                </div>
+                
+                <h2 className="text-xl font-black text-white uppercase tracking-wider mb-2">Sincronização Necessária</h2>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed mb-8 px-4">
+                    Os dados do Piloto e Carro não foram encontrados na sua base de dados. <br/>
+                    Acesse a Visão Geral para inicializar sua equipe.
+                </p>
+
+                <button onClick={() => router.push('/dashboard')} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-[0_10px_20px_rgba(79,70,229,0.2)] hover:shadow-[0_10px_30px_rgba(79,70,229,0.4)] group">
+                    <RotateCcw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
+                    Ir para Visão Geral e Sincronizar
+                    <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                </button>
+            </div>
+        </div>
+    );
+  }
+
+  // 3. PÁGINA NORMAL (DADOS VÁLIDOS)
   return (
     <div className="p-4 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
       {/* HEADER */}
@@ -245,77 +338,104 @@ export default function TestsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
-          <div className="xl:col-span-4 space-y-6">
-              {/* PARÂMETROS */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 md:p-6">
-                  <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Settings size={14} className="text-indigo-500" /> Configuração</h2>
-                  <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6">
-                      <button onClick={() => setWeather('Dry')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Dry' ? 'bg-orange-500 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><Sun size={18} /><span className="text-[9px] font-black">SECO</span></button>
-                      <button onClick={() => setWeather('Wet')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Wet' ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(79,70,229,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><CloudRain size={18} /><span className="text-[9px] font-black">CHUVA</span></button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 md:gap-3 mb-6">
-                      <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-indigo-400">Temp</label><input type="number" value={inputs.temp} onChange={e => setInputs({...inputs, temp: Number(e.target.value)})} className="bg-transparent text-white font-black text-sm w-full outline-none" /></div>
-                      <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-amber-500">Risco</label><input type="number" value={inputs.risk} onChange={e => setInputs({...inputs, risk: Number(e.target.value)})} className="bg-transparent text-amber-500 font-black text-sm w-full outline-none" /></div>
-                      <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-emerald-500">Pits</label><input type="number" value={inputs.pits} onChange={e => setInputs({...inputs, pits: Number(e.target.value)})} className="bg-transparent text-white font-black text-sm w-full outline-none" /></div>
-                  </div>
-                  <div className="mb-6">
-                    <label className="text-[8px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade do Teste</label>
-                    <div className="relative"><select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg py-3 pl-4 pr-10 text-[10px] md:text-[11px] font-black text-white outline-none uppercase cursor-pointer appearance-none hover:bg-white/5 transition-colors">{TEST_PRIORITIES.map(opt => <option key={opt} value={opt} className="bg-[#0F0F13]">{opt.toUpperCase()}</option>)}</select><ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"/></div>
-                  </div>
-                  <div className="mb-6">
-                      <div className="bg-black/40 border border-white/10 rounded-xl h-14 flex items-center justify-between px-2 overflow-hidden select-none">
-                        <button onClick={() => setSupplierIndex(prev => (prev - 1 + TYRE_SUPPLIERS.length) % TYRE_SUPPLIERS.length)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"><ChevronLeft size={16}/></button>
-                        <div className="flex-1 flex justify-center"><img src={`/tyres/${TYRE_SUPPLIERS[supplierIndex].toLowerCase()}.gif`} alt="supplier" className="h-8 w-auto object-contain drop-shadow-md" /></div>
-                        <button onClick={() => setSupplierIndex(prev => (prev + 1) % TYRE_SUPPLIERS.length)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"><ChevronRight size={16}/></button>
+      {/* LAYOUT PRINCIPAL DO CONTEÚDO */}
+      <div className="space-y-6 md:space-y-8">
+          
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 md:gap-8 items-stretch">
+              
+              {/* COLUNA 1: DADOS PISTA + ALERTA SETUP (INTERNO) */}
+              <div className="space-y-6 flex flex-col">
+                  <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl flex-1 flex flex-col justify-between">
+                      <div>
+                        <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Settings size={14} className="text-indigo-500" /> Dados Pista de Testes</h2>
+                        <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6">
+                            <button onClick={() => setWeather('Dry')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Dry' ? 'bg-orange-500 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><Sun size={18} /><span className="text-[9px] font-black">SECO</span></button>
+                            <button onClick={() => setWeather('Wet')} className={`py-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${weather === 'Wet' ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(79,70,229,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 hover:text-slate-300'}`}><CloudRain size={18} /><span className="text-[9px] font-black">CHUVA</span></button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 md:gap-3 mb-6">
+                            <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-indigo-400">Temp</label><input type="number" value={inputs.temp} onChange={e => setInputs({...inputs, temp: Number(e.target.value)})} className="bg-transparent text-white font-black text-sm w-full outline-none" /></div>
+                            <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-amber-500">Risco</label><input type="number" value={inputs.risk} onChange={e => setInputs({...inputs, risk: Number(e.target.value)})} className="bg-transparent text-amber-500 font-black text-sm w-full outline-none" /></div>
+                            <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-white/20 transition-all"><label className="text-[7px] font-black text-slate-500 uppercase block mb-1 group-hover:text-emerald-500">Pits</label><input type="number" value={inputs.pits} onChange={e => setInputs({...inputs, pits: Number(e.target.value)})} className="bg-transparent text-white font-black text-sm w-full outline-none" /></div>
+                        </div>
+                        <div className="mb-6">
+                            <label className="text-[8px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade do Teste</label>
+                            <div className="relative"><select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg py-3 pl-4 pr-10 text-[10px] md:text-[11px] font-black text-white outline-none uppercase cursor-pointer appearance-none hover:bg-white/5 transition-colors">{TEST_PRIORITIES.map(opt => <option key={opt} value={opt} className="bg-[#0F0F13]">{opt.toUpperCase()}</option>)}</select><ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"/></div>
+                        </div>
+                        <div className="mb-6">
+                            <div className="bg-black/40 border border-white/10 rounded-xl h-14 flex items-center justify-between px-2 overflow-hidden select-none">
+                                <button onClick={() => setSupplierIndex(prev => (prev - 1 + TYRE_SUPPLIERS.length) % TYRE_SUPPLIERS.length)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"><ChevronLeft size={16}/></button>
+                                <div className="flex-1 flex justify-center"><img src={`/tyres/${TYRE_SUPPLIERS[supplierIndex].toLowerCase()}.gif`} alt="supplier" className="h-8 w-auto object-contain drop-shadow-md" /></div>
+                                <button onClick={() => setSupplierIndex(prev => (prev + 1) % TYRE_SUPPLIERS.length)} className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"><ChevronRight size={16}/></button>
+                            </div>
+                        </div>
+                        <div className="flex justify-between gap-1 bg-black/20 p-2 md:p-3 rounded-xl border border-white/5 overflow-x-auto custom-scrollbar">
+                            {TYRE_COMPOUNDS.map(comp => (
+                                <button key={comp.id} onClick={() => setSelectedCompound(comp.id)} className={`relative group transition-all duration-300 shrink-0 ${selectedCompound === comp.id ? 'scale-110 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0'}`}>
+                                <img src={`/compound/${comp.img}`} alt={comp.label} className={`w-9 h-9 object-contain rounded-full border-[3px] ${selectedCompound === comp.id ? 'border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.5)]' : 'border-transparent'}`} />
+                                </button>
+                            ))}
+                        </div>
                       </div>
-                  </div>
-                  <div className="flex justify-between gap-1 bg-black/20 p-2 md:p-3 rounded-xl border border-white/5 overflow-x-auto custom-scrollbar">
-                      {TYRE_COMPOUNDS.map(comp => (
-                        <button key={comp.id} onClick={() => setSelectedCompound(comp.id)} className={`relative group transition-all duration-300 shrink-0 ${selectedCompound === comp.id ? 'scale-110 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0'}`}>
-                           <img src={`/compound/${comp.img}`} alt={comp.label} className={`w-9 h-9 object-contain rounded-full border-[3px] ${selectedCompound === comp.id ? 'border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.5)]' : 'border-transparent'}`} />
-                        </button>
-                      ))}
-                  </div>
-              </div>
-              {/* SETUP IDEAL */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 md:p-6">
-                  <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Wrench size={14} className="text-indigo-500" /> Setup Estimado</h2>
-                  <div className="space-y-3">{TEST_SETUP_PARTS.map((label, idx) => (<div key={label} className="flex items-center justify-between bg-black/40 border border-white/5 rounded-lg p-3 hover:border-white/20 transition-colors"><span className="text-xs font-black text-slate-300 uppercase tracking-tight">{label}</span><span className="text-lg font-black text-indigo-400 font-mono">{setupIdeal[idx] ?? '--'}</span></div>))}</div>
-              </div>
-          </div>
 
-          <div className="xl:col-span-8 space-y-6 md:space-y-8">
-             <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-                 {/* PILOTO STATS */}
-                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 p-5 shadow-2xl">
+                      {/* --- ALERTA: SETUP IDEAL AUSENTE (NO FINAL DA COLUNA) --- */}
+                      {isSetupMissing && (
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex flex-col gap-3 group hover:bg-amber-500/15 transition-colors">
+                            <div className="flex items-start gap-3">
+                                <div className="bg-amber-500/20 p-2 rounded-lg text-amber-500 shrink-0">
+                                    <ShieldAlert size={18} />
+                                </div>
+                                <div>
+                                    <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Setup Ideal Ausente</h4>
+                                    <p className="text-[9px] text-slate-400 leading-tight mt-1">
+                                        Os valores de setup para testes ainda não foram calculados.
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={() => router.push('/dashboard/setup')} className="w-full bg-amber-500 hover:bg-amber-400 text-[#0F0F13] font-black text-[9px] uppercase py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-amber-500/20">
+                                <Wrench size={12} /> Ir para Calculadora
+                            </button>
+                        </motion.div>
+                      )}
+
+                  </div>
+              </div>
+
+              {/* COLUNA 2: ATRIBUTOS DO PILOTO */}
+              <div className="space-y-6 flex flex-col">
+                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 p-5 shadow-2xl flex-1 flex flex-col">
                     <h3 className="text-[10px] font-black text-white uppercase mb-6 pb-4 border-b border-white/5 flex items-center gap-2 tracking-widest"><User size={14} className="text-yellow-400"/> Atributos do Piloto</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">{DRIVER_FIELDS.map(f => (<DriverStatRow key={f.key} label={f.label} value={localDriver[f.key] || 0} max={f.max} onChange={(val:any) => setLocalDriver({...localDriver, [f.key]: val})} />))}</div>
+                    <div className="flex flex-col gap-y-4 pt-2">
+                        {DRIVER_FIELDS.map(f => (
+                            <DriverStatRow key={f.key} label={f.label} value={localDriver[f.key] || 0} max={f.max} onChange={(val:any) => setLocalDriver({...localDriver, [f.key]: val})} />
+                        ))}
+                    </div>
                  </div>
+              </div>
 
-                 {/* TABELA DE CARRO ADAPTADA (ESTILO SETUP PAGE) */}
-                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
-                    <div className="p-5 border-b border-white/5 flex items-center justify-between">
-                        <h3 className="text-[10px] font-black text-white uppercase flex items-center gap-2 tracking-widest"><CarFront size={14} className="text-indigo-400"/> Integridade do Carro pós-testes</h3>
+              {/* COLUNA 3: DESGASTE DO CARRO */}
+              <div className="space-y-6 flex flex-col">
+                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 overflow-hidden shadow-2xl flex-1">
+                    <div className="p-5 border-b border-white/5 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3">
+                        <h3 className="text-[10px] font-black text-white uppercase flex items-center gap-2 tracking-widest"><CarFront size={14} className="text-indigo-400"/>Desgaste do Carro Stints Testes</h3>
                         <AnimatePresence>
                             {hasTestingLimitWarning && (
                                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">
                                     <ShieldAlert size={14} className="text-rose-500 animate-pulse" />
-                                    <span className="text-[9px] font-black text-rose-500 uppercase">Limite de Teste Excedido (+90.4%)</span>
+                                    <span className="text-[9px] font-black text-rose-500 uppercase">Limite Excedido (+90.4%)</span>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
                     
                     <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-[10px] text-left border-separate border-spacing-0">
+                        <table className="w-full text-[10px] text-left border-separate border-spacing-0 min-w-[350px]">
                             <thead>
                                 <tr className="bg-white/5 text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                                    <th className="px-4 py-3 border-b border-white/5">Componente</th>
-                                    <th className="px-4 py-3 border-b border-white/5 text-center">Nível</th>
-                                    <th className="px-4 py-3 border-b border-white/5 text-center">Atual</th>
-                                    <th className="px-4 py-3 border-b border-white/5 text-center text-amber-500">Desg. Teste</th>
-                                    <th className="px-4 py-3 border-b border-white/5 text-center">Final Estimado</th>
+                                    <th className="px-3 py-3 border-b border-white/5">Componente</th>
+                                    <th className="px-3 py-3 border-b border-white/5 text-center">Nível</th>
+                                    <th className="px-3 py-3 border-b border-white/5 text-center">Atual</th>
+                                    <th className="px-3 py-3 border-b border-white/5 text-center text-amber-500">Desg. Teste</th>
+                                    <th className="px-3 py-3 border-b border-white/5 text-center">Estimado</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
@@ -328,21 +448,21 @@ export default function TestsPage() {
 
                                     return (
                                         <tr key={part.id} className={`group transition-colors ${isBroken ? 'bg-rose-500/5' : 'hover:bg-white/[0.02]'}`}>
-                                            <td className="px-4 py-2 font-black text-slate-400 uppercase">{part.label}</td>
-                                            <td className="px-4 py-2">
+                                            <td className="px-3 py-2.5 font-black text-slate-400 uppercase">{part.label}</td>
+                                            <td className="px-3 py-2.5">
                                                 <div className="flex justify-center">
-                                                    <input type="number" value={lvl} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], lvl: Number(e.target.value)}; setLocalCar(nc); }} className="w-10 bg-black/40 border border-white/10 rounded text-center py-1 font-bold text-slate-300" />
+                                                    <input type="number" value={lvl} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], lvl: Number(e.target.value)}; setLocalCar(nc); }} className="w-9 bg-black/40 border border-white/10 rounded text-center py-1 font-bold text-slate-300" />
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-2">
+                                            <td className="px-3 py-2.5">
                                                 <div className="flex justify-center">
-                                                    <input type="number" value={currentWear} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], wear: Number(e.target.value)}; setLocalCar(nc); }} className="w-10 bg-black/40 border border-white/10 rounded text-center py-1 font-bold text-emerald-400" />
+                                                    <input type="number" value={currentWear} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], wear: Number(e.target.value)}; setLocalCar(nc); }} className="w-9 bg-black/40 border border-white/10 rounded text-center py-1 font-bold text-emerald-400" />
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-2 text-center text-amber-500 font-black">
+                                            <td className="px-3 py-2.5 text-center text-amber-500 font-black">
                                                 +{testWear.toFixed(1)}%
                                             </td>
-                                            <td className="px-4 py-2 text-center">
+                                            <td className="px-3 py-2.5 text-center">
                                                 <span className={`text-xs ${getWearColor(preRace)}`}>
                                                     {preRace.toFixed(1)}%
                                                 </span>
@@ -354,10 +474,25 @@ export default function TestsPage() {
                         </table>
                     </div>
                  </div>
-             </div>
+              </div>
+          </div>
 
-              {/* PLANEJAMENTO MANUAL COM COLUNA FIXA */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
+          {/* SETUP HORIZONTAL */}
+          <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl">
+              <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-5 flex items-center gap-2"><Wrench size={14} className="text-emerald-500" /> Setup Recomendado para Testes</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
+                  {TEST_SETUP_PARTS.map((label, idx) => (
+                      <div key={label} className="flex flex-col items-center justify-center gap-1.5 bg-black/40 border border-white/5 rounded-xl p-3 md:p-4 hover:border-emerald-500/30 transition-colors group">
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center group-hover:text-slate-300 transition-colors">{label}</span>
+                          <span className="text-2xl font-black text-emerald-400 font-mono drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">{setupIdeal[idx] ?? '--'}</span>
+                      </div>
+                  ))}
+              </div>
+          </div>
+
+          {/* PLANEJAMENTO MANUAL */}
+          <div>
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm shadow-2xl">
                   <div className="bg-white/5 p-4 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <h3 className="font-black text-[10px] uppercase text-white tracking-[0.2em] flex items-center gap-2"><HardHat size={14} className="text-amber-500"/> Planejamento de Stints</h3>
@@ -417,6 +552,7 @@ export default function TestsPage() {
                   </div>
               </div>
           </div>
+          
       </div>
     </div>
   );

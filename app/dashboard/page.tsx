@@ -1,4 +1,4 @@
-// --- START OF FILE app/dashboard/DashboardHome.tsx ---
+// --- START OF FILE app/dashboard/page.tsx (ou o caminho equivalente) ---
 'use client';
 import { ChangeEvent, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- 1. MAPEAMENTO DE BANDEIRAS (MANTIDO) ---
+// --- 1. MAPEAMENTO DE BANDEIRAS ---
 const TRACK_FLAGS: { [key: string]: string } = {
   "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
   "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
@@ -93,11 +93,72 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
     );
 }
 
+// --- SUBCOMPONENTES ---
+
+function TelemetryInput({ label, value, max, onChange, disabled, isEnergy }: any) {
+    const pct = Math.min(100, (value / max) * 100);
+    return (
+        <div className={`flex items-center justify-between h-7 group transition-colors ${disabled ? 'opacity-50' : 'hover:bg-white/[0.02]'}`}>
+            <label className={`text-[10px] font-black uppercase tracking-tighter truncate w-32 flex items-center gap-2 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
+                {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}{label}
+            </label>
+            <div className={`flex-1 mx-3 h-1.5 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>
+                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : (isEnergy ? 'bg-gradient-to-r from-indigo-500 to-cyan-400' : 'bg-indigo-500')}`} />
+            </div>
+            <input disabled={disabled} type="number" value={value} onChange={onChange} className="w-12 h-6 bg-black/40 text-center text-xs font-black rounded border border-white/10 text-white outline-none focus:border-yellow-500" />
+        </div>
+    )
+}
+
+function CarRow({ part, finalWear, onLvl, onWear, disabled }: any) {
+    const isCritical = part.wear > 85 || (finalWear !== undefined && finalWear > 95);
+    return (
+        <div className={`flex items-center justify-between h-7 rounded px-2 transition-colors ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter w-24 truncate">{part.name}</span>
+            <div className="flex items-center gap-4">
+                <input disabled={disabled} type="number" value={part.lvl} onChange={(e)=>onLvl(Number(e.target.value))} className="w-10 h-6 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-white" />
+                <input disabled={disabled} type="number" value={part.wear} onChange={(e)=>onWear(Number(e.target.value))} className={`w-10 h-6 bg-black/40 border border-white/10 rounded text-center text-xs font-black ${part.wear > 80 ? 'text-rose-500' : 'text-emerald-400'}`} />
+                <div className={`w-10 h-6 rounded flex items-center justify-center border font-black text-[10px] ${isCritical ? 'bg-rose-500/10 border-rose-500/50 text-rose-500' : 'bg-indigo-500/20 border-indigo-500/50 text-white shadow-[0_0_10px_rgba(99,102,241,0.2)]'}`}>
+                    {finalWear !== undefined ? finalWear : '--'}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
+    const diff = (data?.carro || 0) - (data?.pista || 0);
+    const isOk = diff >= 0;
+    const pctPista = Math.min(100, ((data?.pista || 0) / 200) * 100);
+    const pctPeça = Math.min(100, ((data?.part || 0) / 200) * 100);
+    const pctTeste = Math.min(100 - pctPeça, (test / 200) * 100);
+
+    return (
+        <div className={`space-y-3 ${disabled ? 'opacity-60' : ''}`}>
+            <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                <span className="text-slate-500">{label} <span className={isOk ? 'text-emerald-400 ml-2' : 'text-rose-400 ml-2'}>{diff > 0 ? `+${diff}` : diff}</span></span>
+                <div className="flex items-center gap-2">
+                    <div className="text-center flex flex-col items-center">
+                        <p className="text-[6px] text-slate-600 mb-0.5">TESTE</p>
+                        <input disabled={disabled} type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-14 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-indigo-400 focus:border-yellow-500 outline-none" />
+                    </div>
+                    <div className="text-center bg-white/5 px-2 py-1 rounded min-w-[30px] ml-2"><p className="text-[6px] text-slate-500 mb-0.5">REQ</p><p className="text-[10px] text-white">{data?.pista || 0}</p></div>
+                </div>
+            </div>
+            <div className="h-3 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
+                <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${pctPeça}%` }} />
+                <div className="h-full absolute top-0 bg-indigo-500 shadow-[0_0_10px_#6366f1]" style={{ left: `${pctPeça}%`, width: `${pctTeste}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-1 h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full transition-all duration-500" style={{ left: `${pctPista}%` }} />
+            </div>
+        </div>
+    );
+}
+
 // --- MAIN DASHBOARD COMPONENT ---
 export default function DashboardHome() {
   const router = useRouter();
   
-  // USANDO O CONTEXTO GLOBAL PARA TUDO (Inclusive Tech Director e Facilities)
+  // PUXANDO TUDO DO CONTEXTO INCLUINDO OS NOVOS ESTADOS GLOBAIS
   const { 
       driver, updateDriver, 
       car, updateCar, 
@@ -105,16 +166,16 @@ export default function DashboardHome() {
       weather, updateWeather, 
       desgasteModifier, updateDesgasteModifier, 
       tracksList,
-      techDirector, updateTechDirector,      // Contexto Global
-      staffFacilities, updateStaffFacilities // Contexto Global
+      techDirector, updateTechDirector,      
+      staffFacilities, updateStaffFacilities, 
+      testPoints, updateTestPoints, // <-- AGORA VEM DO CONTEXTO
+      isGlobalLoading               // <-- AGORA VEM DO CONTEXTO
   } = useGame();
   
-  const [testPoints, setTestPoints] = useState({ power: 0, handling: 0, accel: 0 });
   const [performanceData, setPerformanceData] = useState(MOCK_PERFORMANCE_DATA);
   const [calculatedWear, setCalculatedWear] = useState<number[]>([]);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -127,36 +188,11 @@ export default function DashboardHome() {
     checkSession();
   }, [router]);
 
-  // 2. Hydrate State (Carrega do Banco e atualiza o Contexto)
-  useEffect(() => {
-    const hydrate = async () => {
-        if (!userId) return;
-        try {
-            const resS = await fetch('/api/python?action=get_state', { headers: { 'user-id': userId } });
-            const jsonState = await resS.json();
-            if (jsonState.sucesso && jsonState.data) {
-                const d = jsonState.data;
-                if (d.current_track) updateTrack(d.current_track);
-                if (d.driver) Object.entries(d.driver).forEach(([key, val]) => updateDriver(key as any, Number(val)));
-                if (d.car) d.car.forEach((part: any, idx: number) => { updateCar(idx, 'lvl', part.lvl); updateCar(idx, 'wear', part.wear); });
-                if (d.test_points) setTestPoints(d.test_points);
-                
-                // ATUALIZA O CONTEXTO COM DADOS DO BANCO
-                if (d.tech_director) updateTechDirector(d.tech_director);
-                if (d.staff_facilities) updateStaffFacilities(d.staff_facilities);
-                
-                if (d.weather) updateWeather(d.weather);
-                if (d.desgasteModifier !== undefined) updateDesgasteModifier(Number(d.desgasteModifier));
-            }
-        } catch (e) { console.error("Erro na hidratação:", e); }
-        finally { setInitialLoaded(true); }
-    }
-    hydrate();
-  }, [userId, updateTrack, updateDriver, updateCar, updateWeather, updateDesgasteModifier, updateTechDirector, updateStaffFacilities]);
-
-  // 3. Auto-save (Debounced) - Lê do Contexto
+  // 2. Auto-save (Debounced) - Salva os dados do Contexto no banco
   const persistState = useCallback(async () => {
-    if (!initialLoaded || !userId) return; 
+    // Só salva se o app já terminou de carregar os dados reais do banco
+    if (isGlobalLoading || !userId) return; 
+    
     setIsSyncing(true);
     try {
         const res = await fetch('/api/python?action=update_state', {
@@ -165,8 +201,8 @@ export default function DashboardHome() {
             body: JSON.stringify({ 
                 track, driver, car, 
                 test_points: testPoints, 
-                tech_director: techDirector, // Lê do Contexto
-                staff_facilities: staffFacilities, // Lê do Contexto
+                tech_director: techDirector, 
+                staff_facilities: staffFacilities, 
                 weather, desgasteModifier 
             })
         });
@@ -174,17 +210,17 @@ export default function DashboardHome() {
         if (data.sucesso && data.oa !== undefined) updateDriver('total', Number(data.oa));
     } catch (e) { console.error("Persist error:", e); }
     finally { setIsSyncing(false); }
-  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, initialLoaded, userId, updateDriver]);
+  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, isGlobalLoading, userId, updateDriver]);
 
   useEffect(() => {
-    if (!initialLoaded || !userId) return;
+    if (isGlobalLoading || !userId) return;
     const timer = setTimeout(() => persistState(), 2000);
     return () => clearTimeout(timer);
-  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, persistState, initialLoaded, userId]);
+  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, persistState, isGlobalLoading, userId]);
 
-  // 4. Calculations (Performance + Wear)
+  // 3. Calculations (Performance + Wear)
   const fetchCalculations = useCallback(async () => {
-    if (!track || track === "Selecionar Pista" || !userId || !initialLoaded) return;
+    if (!track || track === "Selecionar Pista" || !userId || isGlobalLoading) return;
     setIsPerformanceLoading(true);
     try {
         // PERFORMANCE
@@ -196,8 +232,8 @@ export default function DashboardHome() {
                 driver, 
                 car, 
                 test_points: testPoints,
-                tech_director: techDirector,     // Envia para calculo
-                staff_facilities: staffFacilities // Envia para calculo
+                tech_director: techDirector,     
+                staff_facilities: staffFacilities 
             }) 
         });
         const dataPerf = await resPerf.json();
@@ -212,8 +248,8 @@ export default function DashboardHome() {
                 driver, 
                 car, 
                 desgasteModifier,
-                tech_director: techDirector, // Envia para calculo
-                staff_facilities: staffFacilities // Envia para calculo
+                tech_director: techDirector, 
+                staff_facilities: staffFacilities 
             }) 
         });
         const dataSetup = await resSetup.json();
@@ -235,16 +271,17 @@ export default function DashboardHome() {
         }
     } catch (e) { console.error("Calc error:", e); } 
     finally { setIsPerformanceLoading(false); }
-  }, [track, driver, car, testPoints, desgasteModifier, techDirector, staffFacilities, userId, initialLoaded]);
+  }, [track, driver, car, testPoints, desgasteModifier, techDirector, staffFacilities, userId, isGlobalLoading]);
 
   useEffect(() => {
-    if (track && track !== "Selecionar Pista" && initialLoaded && userId) {
+    if (track && track !== "Selecionar Pista" && !isGlobalLoading && userId) {
         const timer = setTimeout(() => fetchCalculations(), 600); 
         return () => clearTimeout(timer);
     }
-  }, [track, driver, car, testPoints, desgasteModifier, fetchCalculations, initialLoaded, userId]);
+  }, [track, driver, car, testPoints, desgasteModifier, fetchCalculations, isGlobalLoading, userId]);
 
-  if (!initialLoaded) return (
+  // --- TELA DE CARREGAMENTO GLOBAL ---
+  if (isGlobalLoading) return (
     <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#050507] text-indigo-500 font-mono text-xs gap-4">
         <Loader2 className="animate-spin w-8 h-8" />
         <span className="animate-pulse tracking-widest">SINCRONIZANDO TELEMETRIA...</span>
@@ -330,7 +367,14 @@ export default function DashboardHome() {
             <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl h-full space-y-8">
                 <div className="flex items-center gap-3 border-b border-white/5 pb-4"><Activity size={16} className="text-indigo-400"/><h3 className="text-[10px] font-black uppercase text-white tracking-widest">Telemetria de Performance</h3></div>
                 {['power', 'handling', 'accel'].map((key) => (
-                    <PerformanceMetric key={key} label={key} data={(performanceData as any)[key]} test={(testPoints as any)[key]} onTest={(v: number) => setTestPoints(p => ({...p, [key]: v}))} disabled={!isEditMode} />
+                    <PerformanceMetric 
+                        key={key} 
+                        label={key} 
+                        data={(performanceData as any)[key]} 
+                        test={(testPoints as any)[key]} 
+                        onTest={(v: number) => updateTestPoints({ [key]: v })} // ATUALIZADO
+                        disabled={!isEditMode} 
+                    />
                 ))}
             </section>
         </div>
@@ -374,65 +418,4 @@ export default function DashboardHome() {
       </div>
     </div>
   );
-}
-
-// --- SUBCOMPONENTES ---
-
-function TelemetryInput({ label, value, max, onChange, disabled, isEnergy }: any) {
-    const pct = Math.min(100, (value / max) * 100);
-    return (
-        <div className={`flex items-center justify-between h-7 group transition-colors ${disabled ? 'opacity-50' : 'hover:bg-white/[0.02]'}`}>
-            <label className={`text-[10px] font-black uppercase tracking-tighter truncate w-32 flex items-center gap-2 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
-                {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}{label}
-            </label>
-            <div className={`flex-1 mx-3 h-1.5 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>
-                <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : (isEnergy ? 'bg-gradient-to-r from-indigo-500 to-cyan-400' : 'bg-indigo-500')}`} />
-            </div>
-            <input disabled={disabled} type="number" value={value} onChange={onChange} className="w-12 h-6 bg-black/40 text-center text-xs font-black rounded border border-white/10 text-white outline-none focus:border-yellow-500" />
-        </div>
-    )
-}
-
-function CarRow({ part, finalWear, onLvl, onWear, disabled }: any) {
-    const isCritical = part.wear > 85 || (finalWear !== undefined && finalWear > 95);
-    return (
-        <div className={`flex items-center justify-between h-7 rounded px-2 transition-colors ${disabled ? 'opacity-60' : 'hover:bg-white/[0.02]'}`}>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter w-24 truncate">{part.name}</span>
-            <div className="flex items-center gap-4">
-                <input disabled={disabled} type="number" value={part.lvl} onChange={(e)=>onLvl(Number(e.target.value))} className="w-10 h-6 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-white" />
-                <input disabled={disabled} type="number" value={part.wear} onChange={(e)=>onWear(Number(e.target.value))} className={`w-10 h-6 bg-black/40 border border-white/10 rounded text-center text-xs font-black ${part.wear > 80 ? 'text-rose-500' : 'text-emerald-400'}`} />
-                <div className={`w-10 h-6 rounded flex items-center justify-center border font-black text-[10px] ${isCritical ? 'bg-rose-500/10 border-rose-500/50 text-rose-500' : 'bg-indigo-500/20 border-indigo-500/50 text-white shadow-[0_0_10px_rgba(99,102,241,0.2)]'}`}>
-                    {finalWear !== undefined ? finalWear : '--'}
-                </div>
-            </div>
-        </div>
-    )
-}
-
-function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
-    const diff = (data?.carro || 0) - (data?.pista || 0);
-    const isOk = diff >= 0;
-    const pctPista = Math.min(100, ((data?.pista || 0) / 200) * 100);
-    const pctPeça = Math.min(100, ((data?.part || 0) / 200) * 100);
-    const pctTeste = Math.min(100 - pctPeça, (test / 200) * 100);
-
-    return (
-        <div className={`space-y-3 ${disabled ? 'opacity-60' : ''}`}>
-            <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-slate-500">{label} <span className={isOk ? 'text-emerald-400 ml-2' : 'text-rose-400 ml-2'}>{diff > 0 ? `+${diff}` : diff}</span></span>
-                <div className="flex items-center gap-2">
-                    <div className="text-center flex flex-col items-center">
-                        <p className="text-[6px] text-slate-600 mb-0.5">TESTE</p>
-                        <input disabled={disabled} type="number" value={test} onChange={(e)=>onTest(Number(e.target.value))} className="w-14 h-8 bg-black/40 border border-white/10 rounded text-center text-xs font-black text-indigo-400 focus:border-yellow-500 outline-none" />
-                    </div>
-                    <div className="text-center bg-white/5 px-2 py-1 rounded min-w-[30px] ml-2"><p className="text-[6px] text-slate-500 mb-0.5">REQ</p><p className="text-[10px] text-white">{data?.pista || 0}</p></div>
-                </div>
-            </div>
-            <div className="h-3 w-full bg-white/5 rounded-full relative overflow-visible border border-white/5">
-                <div className="h-full bg-slate-600 rounded-l-full" style={{ width: `${pctPeça}%` }} />
-                <div className="h-full absolute top-0 bg-indigo-500 shadow-[0_0_10px_#6366f1]" style={{ left: `${pctPeça}%`, width: `${pctTeste}%` }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-1 h-5 bg-white shadow-[0_0_8px_white] z-10 rounded-full transition-all duration-500" style={{ left: `${pctPista}%` }} />
-            </div>
-        </div>
-    );
 }
