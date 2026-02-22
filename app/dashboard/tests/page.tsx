@@ -7,7 +7,7 @@ import { useGame } from '../../context/GameContext';
 import {
   Loader2, MapPin, ChevronDown, Search, X, ShieldCheck,
   Settings, Sun, CloudRain, ChevronLeft, ChevronRight, Zap, Timer, 
-  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert, Database, ArrowRight
+  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert, Database, ArrowRight, Target
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,6 +24,15 @@ const TYRE_COMPOUNDS = [
   { id: 'Rain', label: 'Rain', img: 'chuva.png' },
 ];
 
+// Mapeamento para exibição em português no botão
+const COMPOUND_DISPLAY_NAMES: Record<string, string> = {
+    'ExSoft': 'X Macio',
+    'Soft': 'Macio',
+    'Medium': 'Médio',
+    'Hard': 'Duro',
+    'Rain': 'Chuva'
+};
+
 const TEST_PRIORITIES = ["Nenhuma prioridade em especial", "Velocidade máxima", "Fazer curvas", "Cotovelos", "Frear", "Ultrapassagem", "Chicanes", "Testar os limites do carro", "Afinação do ajuste"];
 const COMPONENTS = [ 
     { id: 'chassi', label: 'Chassi' }, { id: 'motor', label: 'Motor' }, { id: 'asaDianteira', label: 'Asa Dianteira' }, { id: 'asaTraseira', label: 'Asa Traseira' }, { id: 'assoalho', label: 'Assoalho' }, { id: 'laterais', label: 'Laterais' }, { id: 'radiador', label: 'Radiador' }, { id: 'cambio', label: 'Câmbio' }, { id: 'freios', label: 'Freios' }, { id: 'suspensao', label: 'Suspensão' }, { id: 'eletronicos', label: 'Eletrônicos' } 
@@ -32,6 +41,19 @@ const DRIVER_FIELDS = [
   { key: 'energia', label: 'Energia', max: 100 }, { key: 'concentracao', label: 'Concentração' }, { key: 'talento', label: 'Talento' }, { key: 'agressividade', label: 'Agressividade' }, { key: 'experiencia', label: 'Experiência', max: 500 }, { key: 'tecnica', label: 'Técnica' }, { key: 'resistencia', label: 'Resistência' }, { key: 'carisma', label: 'Carisma' }, { key: 'motivacao', label: 'Motivação' }, { key: 'reputacao', label: 'Reputação' }, { key: 'peso', label: 'Peso (kg)', max: 100 }, { key: 'idade', label: 'Idade', max: 50 }
 ];
 const TEST_SETUP_PARTS = ['Asa Dianteira', 'Asa Traseira', 'Motor', 'Freios', 'Câmbio', 'Suspensão'];
+
+// --- MATEMÁTICA DE PONTOS DE TESTE (Por Volta) ---
+const PRIORITY_MULTIPLIERS: Record<string, { P: number, D: number, A: number }> = {
+    "Nenhuma prioridade em especial": { P: 0.265, D: 0.265, A: 0.265 },
+    "Velocidade máxima": { P: 0.645, D: 0.081, A: 0.081 },
+    "Fazer curvas": { P: 0.081, D: 0.645, A: 0.081 },
+    "Cotovelos": { P: 0.081, D: 0.081, A: 0.645 },
+    "Frear": { P: 0.202, D: 0.404, A: 0.202 },
+    "Ultrapassagem": { P: 0.404, D: 0.202, A: 0.202 },
+    "Chicanes": { P: 0.202, D: 0.202, A: 0.404 },
+    "Testar os limites do carro": { P: 0.02, D: 0.02, A: 0.02 },
+    "Afinação do ajuste": { P: 0.02, D: 0.02, A: 0.02 }
+};
 
 // --- COMPONENTES AUXILIARES ---
 function TrackSelector({ currentTrack, tracksList, onSelect }: any) {
@@ -68,7 +90,13 @@ function DriverStatRow({ label, value, onChange, max = 250 }: any) {
             <div className="flex-1 h-2 bg-black/50 rounded-full overflow-hidden border border-white/5 relative min-w-0">
                 <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-cyan-400 transition-all duration-300" style={{ width: `${percentage}%` }}></div>
             </div>
-            <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-12 shrink-0 h-8 text-center bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white outline-none focus:border-indigo-500 transition-colors" />
+            <input 
+                type="number" 
+                value={value} 
+                onChange={(e) => onChange(Number(e.target.value))} 
+                onFocus={(e) => e.target.select()}
+                className="w-12 shrink-0 h-8 text-center bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white outline-none focus:border-indigo-500 transition-colors" 
+            />
         </div>
     );
 }
@@ -192,8 +220,8 @@ export default function TestsPage() {
   const [lockedStints, setLockedStints] = useState<Record<number, boolean>>({});
   const [frozenResults, setFrozenResults] = useState<any[]>(Array(8).fill(null));
 
-  // Histórico do desgaste adicionado por cada stint (para podermos subtrair ao remover o check)
-  const [stintWearHistory, setStintWearHistory] = useState<Record<number, Record<string, number>>>({});
+  // HISTÓRICO ATUALIZADO: Guarda o desgaste gerado E os Pontos PDA de cada Stint Ticado
+  const [stintHistory, setStintHistory] = useState<Record<number, { wear: Record<string, number>, points: { P: number, D: number, A: number } }>>({});
 
   // --- VERIFICAÇÃO RIGOROSA DE DADOS ---
   const isContextValid = useMemo(() => {
@@ -208,7 +236,7 @@ export default function TestsPage() {
 
   const totalLaps = useMemo(() => Object.values(testStints).reduce((acc: number, val) => acc + (Number(val) || 0), 0), [testStints]);
 
-  // Somamos as voltas apenas dos stints DESTRAVADOS para projetar o novo desgaste.
+  // CASCATA PASSO 1: Somamos as voltas apenas dos stints DESTRAVADOS para projetar o novo desgaste.
   const activePlannedLaps = useMemo(() => {
       return Object.entries(testStints).reduce((acc: number, [key, val]) => {
           const index = parseInt(key.replace('s', '')) - 1;
@@ -217,15 +245,35 @@ export default function TestsPage() {
       }, 0);
   }, [testStints, lockedStints]);
 
+  // CÁLCULO DE PONTOS DE TESTE ACUMULADOS (SOMENTE STINTS TICADOS)
+  const lockedPointsTotal = useMemo(() => {
+      let P = 0, D = 0, A = 0;
+      Object.values(stintHistory).forEach(history => {
+          P += history.points.P;
+          D += history.points.D;
+          A += history.points.A;
+      });
+      return { P, D, A };
+  }, [stintHistory]);
+
   // CASCATA (TRAVAR E DESTRAVAR)
   const toggleLock = (index: number) => {
     const isLocked = lockedStints[index];
     
     if (!isLocked) {
-        // AÇÃO: TRAVAR (Absorver desgaste do stint)
+        // AÇÃO: TRAVAR (Absorver desgaste do stint e contabilizar Pontos)
         const newFrozen = [...frozenResults];
         newFrozen[index] = { ...sheetData[index] };
         setFrozenResults(newFrozen);
+
+        // Calcula Pontos desse stint específico
+        const laps = Number(testStints[`s${index + 1}`]) || 0;
+        const pdaMult = PRIORITY_MULTIPLIERS[priority] || PRIORITY_MULTIPLIERS["Nenhuma prioridade em especial"];
+        const generatedPoints = {
+            P: laps * pdaMult.P,
+            D: laps * pdaMult.D,
+            A: laps * pdaMult.A
+        };
 
         if (partWearDetails) {
             const addedWearForThisStint: Record<string, number> = {};
@@ -245,18 +293,22 @@ export default function TestsPage() {
                 return carPart;
             });
             
-            setStintWearHistory(prev => ({ ...prev, [index]: addedWearForThisStint }));
+            setStintHistory(prev => ({ 
+                ...prev, 
+                [index]: { wear: addedWearForThisStint, points: generatedPoints } 
+            }));
+            
             setLocalCar(updatedCar); 
         }
     } else {
-        // AÇÃO: DESTRAVAR (Desfazer desgaste)
-        const history = stintWearHistory[index];
+        // AÇÃO: DESTRAVAR (Desfazer desgaste e remover Pontos)
+        const history = stintHistory[index];
         if (history) {
             const updatedCar = localCar.map((carPart, i) => {
                 const comp = COMPONENTS[i];
-                if (comp && history[comp.id] !== undefined) {
-                    // Subtrai exatamente o que esse stint havia adicionado
-                    const restoredWear = Math.max(0, carPart.wear - history[comp.id]);
+                if (comp && history.wear[comp.id] !== undefined) {
+                    // Subtrai exatamente o desgaste que esse stint havia adicionado
+                    const restoredWear = Math.max(0, carPart.wear - history.wear[comp.id]);
                     return { ...carPart, wear: parseFloat(restoredWear.toFixed(1)) };
                 }
                 return carPart;
@@ -264,10 +316,10 @@ export default function TestsPage() {
             
             setLocalCar(updatedCar);
             
-            // Remove o histórico desse stint destravado
-            const newHistory = { ...stintWearHistory };
+            // Remove o histórico desse stint (Desgaste e Pontos somem do banco)
+            const newHistory = { ...stintHistory };
             delete newHistory[index];
-            setStintWearHistory(newHistory);
+            setStintHistory(newHistory);
         }
     }
     
@@ -313,17 +365,16 @@ export default function TestsPage() {
       setTestStints({ s1: 10, s2: '', s3: '', s4: '', s5: '', s6: '', s7: '', s8: '' });
       setLockedStints({});
       setFrozenResults(Array(8).fill(null));
-      setStintWearHistory({});
+      setStintHistory({});
   };
   
-  // Limpa o carro e planner sem afetar o Piloto (Útil pro botão do Header de Stints)
   const handleResetPlanner = () => {
       if (!isContextValid) return;
       setLocalCar(globalCar.map(p => ({...p}))); 
       setTestStints({ s1: 10, s2: '', s3: '', s4: '', s5: '', s6: '', s7: '', s8: '' });
       setLockedStints({});
       setFrozenResults(Array(8).fill(null));
-      setStintWearHistory({});
+      setStintHistory({});
   };
 
   // --- SINCRONIZAÇÃO INTELIGENTE: GLOBAL -> LOCAL ---
@@ -507,9 +558,9 @@ export default function TestsPage() {
                         </div>
 
                         <div className="grid grid-cols-3 gap-3 mb-6">
-                            <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Temp</label><input type="number" value={inputs.temp} onChange={e => setInputs({...inputs, temp: Number(e.target.value)})} className="bg-transparent text-white font-black text-sm md:text-base w-full text-center outline-none" /></div>
-                            <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Risco</label><input type="number" value={inputs.risk} onChange={e => setInputs({...inputs, risk: Number(e.target.value)})} className="bg-transparent text-amber-500 font-black text-sm md:text-base w-full text-center outline-none" /></div>
-                            <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Pits</label><input type="number" value={inputs.pits} onChange={e => setInputs({...inputs, pits: Number(e.target.value)})} className="bg-transparent text-emerald-400 font-black text-sm md:text-base w-full text-center outline-none" /></div>
+                            <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Temp</label><input type="number" value={inputs.temp} onChange={e => setInputs({...inputs, temp: Number(e.target.value)})} onFocus={(e) => e.target.select()} className="bg-transparent text-white font-black text-sm md:text-base w-full text-center outline-none" /></div>
+                            <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Risco</label><input type="number" value={inputs.risk} onChange={e => setInputs({...inputs, risk: Number(e.target.value)})} onFocus={(e) => e.target.select()} className="bg-transparent text-amber-500 font-black text-sm md:text-base w-full text-center outline-none" /></div>
+                            <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Pits</label><input type="number" value={inputs.pits} onChange={e => setInputs({...inputs, pits: Number(e.target.value)})} onFocus={(e) => e.target.select()} className="bg-transparent text-emerald-400 font-black text-sm md:text-base w-full text-center outline-none" /></div>
                         </div>
 
                         <div className="mb-6 w-full">
@@ -530,11 +581,14 @@ export default function TestsPage() {
                             </div>
                         </div>
 
-                        {/* CARROSSEL DE PNEUS - GARANTINDO QUE NÃO ESTOURE A LARGURA */}
+                        {/* CARROSSEL DE PNEUS COM TEXTO (X MACIO, ETC) */}
                         <div className="w-full flex items-center gap-3 bg-black/20 p-3 rounded-2xl border border-white/5 overflow-x-auto snap-x custom-scrollbar pb-3 min-w-0">
                             {TYRE_COMPOUNDS.map(comp => (
-                                <button key={comp.id} onClick={() => setSelectedCompound(comp.id)} className={`relative snap-center shrink-0 transition-all duration-300 ${selectedCompound === comp.id ? 'scale-110 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0 active:scale-95'}`}>
+                                <button key={comp.id} onClick={() => setSelectedCompound(comp.id)} className={`relative flex flex-col items-center gap-2 snap-center shrink-0 transition-all duration-300 ${selectedCompound === comp.id ? 'scale-110 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0 active:scale-95'}`}>
                                     <img src={`/compound/${comp.img}`} alt={comp.label} className={`w-12 h-12 md:w-14 md:h-14 object-contain rounded-full border-[3px] ${selectedCompound === comp.id ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'border-transparent'}`} />
+                                    <span className={`text-[8px] font-black uppercase tracking-wider whitespace-nowrap ${selectedCompound === comp.id ? 'text-indigo-400 drop-shadow-[0_0_5px_rgba(99,102,241,0.5)]' : 'text-slate-500'}`}>
+                                        {COMPOUND_DISPLAY_NAMES[comp.id]}
+                                    </span>
                                 </button>
                             ))}
                         </div>
@@ -572,10 +626,12 @@ export default function TestsPage() {
                  </div>
               </div>
 
-              {/* COLUNA 3: DESGASTE CARRO */}
+              {/* COLUNA 3: DESGASTE CARRO E TOTAL DE PONTOS PDA */}
               <div className="space-y-6 flex flex-col w-full min-w-0">
-                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 shadow-2xl flex-1 flex flex-col overflow-hidden">
-                    <div className="p-5 md:p-6 border-b border-white/5 flex flex-col items-start gap-3 relative overflow-hidden">
+                 <div className="bg-[#0b0b10] rounded-2xl border border-white/5 shadow-2xl flex-1 flex flex-col overflow-hidden relative">
+                    
+                    {/* CABEÇALHO DO CARRO */}
+                    <div className="p-5 md:p-6 border-b border-white/5 flex flex-col items-start gap-3 relative overflow-hidden shrink-0">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl"></div>
                         <h3 className="text-xs font-black text-white uppercase flex items-center gap-2 tracking-widest relative z-10"><CarFront size={16} className="text-indigo-400"/> Desgaste Pós-Teste</h3>
                         <AnimatePresence>
@@ -588,8 +644,8 @@ export default function TestsPage() {
                         </AnimatePresence>
                     </div>
                     
-                    <div className="p-3 md:p-5 flex flex-col gap-2 overflow-y-auto custom-scrollbar max-h-[600px] w-full">
-                        {/* Header da "Tabela Visual" para Desktop (Some no Mobile) */}
+                    {/* LISTA ROLÁVEL DAS PEÇAS */}
+                    <div className="p-3 md:p-5 flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1 max-h-[500px]">
                         <div className="hidden md:flex items-center justify-between px-3 pb-2 text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">
                             <span className="w-1/3">Peça</span>
                             <div className="flex gap-4 w-2/3 justify-end text-center">
@@ -604,7 +660,6 @@ export default function TestsPage() {
                             const lvl = localCar[i]?.lvl || 1;
                             const currentWear = localCar[i]?.wear || 0;
                             const testWear = partWearDetails ? partWearDetails[part.id]?.test_wear : 0;
-                            // CASCATA PASSO FINAL VIZUAL: Final = Atual + Teste explícito
                             const finalWear = currentWear + testWear; 
                             const isBroken = finalWear > 90.4;
 
@@ -618,11 +673,11 @@ export default function TestsPage() {
                                     <div className="flex items-center justify-between md:justify-end gap-3 md:gap-4 md:w-2/3">
                                         <div className="flex flex-col items-center">
                                             <span className="md:hidden text-[8px] font-black text-slate-500 uppercase mb-1">Lvl</span>
-                                            <input type="number" value={lvl} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], lvl: Number(e.target.value)}; setLocalCar(nc); }} className="w-12 bg-[#0F0F13] border border-white/10 rounded-lg text-center py-1.5 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500" />
+                                            <input type="number" value={lvl} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], lvl: Number(e.target.value)}; setLocalCar(nc); }} onFocus={(e) => e.target.select()} className="w-12 bg-[#0F0F13] border border-white/10 rounded-lg text-center py-1.5 text-xs font-bold text-slate-300 outline-none focus:border-indigo-500" />
                                         </div>
                                         <div className="flex flex-col items-center">
                                             <span className="md:hidden text-[8px] font-black text-slate-500 uppercase mb-1">Atual</span>
-                                            <input type="number" value={currentWear} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], wear: Number(e.target.value)}; setLocalCar(nc); }} className="w-12 bg-[#0F0F13] border border-white/10 rounded-lg text-center py-1.5 text-xs font-bold text-emerald-400 outline-none focus:border-indigo-500" />
+                                            <input type="number" value={currentWear} onChange={(e) => { const nc = [...localCar]; nc[i] = {...nc[i], wear: Number(e.target.value)}; setLocalCar(nc); }} onFocus={(e) => e.target.select()} className="w-12 bg-[#0F0F13] border border-white/10 rounded-lg text-center py-1.5 text-xs font-bold text-emerald-400 outline-none focus:border-indigo-500" />
                                         </div>
                                         <div className="hidden md:flex flex-col items-center w-12 text-center">
                                             <span className="text-[11px] text-amber-500 font-black">+{testWear.toFixed(1)}</span>
@@ -636,6 +691,31 @@ export default function TestsPage() {
                             );
                         })}
                     </div>
+                    
+                    {/* PAINEL FIXO DE PONTOS ACUMULADOS (PDA) */}
+                    <div className="bg-[#0F0F13] border-t border-white/5 p-4 shrink-0 flex items-center justify-between shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                                <Target size={12} /> Pontos Adquiridos
+                            </span>
+                            <span className="text-[8px] text-slate-500 font-black uppercase">Acumulado da Sessão</span>
+                        </div>
+                        <div className="flex gap-2 md:gap-4">
+                            <div className="flex flex-col items-center bg-black/40 px-3 md:px-4 py-1.5 rounded-lg border border-white/5 w-14 md:w-16">
+                                <span className="text-[8px] font-black text-slate-500 uppercase mb-0.5">P</span>
+                                <span className="text-xs md:text-sm font-black text-rose-500">{lockedPointsTotal.P.toFixed(1)}</span>
+                            </div>
+                            <div className="flex flex-col items-center bg-black/40 px-3 md:px-4 py-1.5 rounded-lg border border-white/5 w-14 md:w-16">
+                                <span className="text-[8px] font-black text-slate-500 uppercase mb-0.5">D</span>
+                                <span className="text-xs md:text-sm font-black text-cyan-400">{lockedPointsTotal.D.toFixed(1)}</span>
+                            </div>
+                            <div className="flex flex-col items-center bg-black/40 px-3 md:px-4 py-1.5 rounded-lg border border-white/5 w-14 md:w-16">
+                                <span className="text-[8px] font-black text-slate-500 uppercase mb-0.5">A</span>
+                                <span className="text-xs md:text-sm font-black text-yellow-400">{lockedPointsTotal.A.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    </div>
+
                  </div>
               </div>
           </div>
@@ -654,7 +734,7 @@ export default function TestsPage() {
               </div>
           </div>
 
-          {/* PLANEJAMENTO DE STINTS - AGORA EMPILHADO EM GRID */}
+          {/* PLANEJAMENTO DE STINTS */}
           <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm shadow-2xl w-full">
               <div className="bg-[#0c0c10] p-4 md:p-5 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -664,7 +744,6 @@ export default function TestsPage() {
                         <span className="font-black text-[10px] md:text-xs text-indigo-400">{totalLaps} / 100 Voltas Totais</span>
                     </div>
                   </div>
-                  {/* BOTÃO DE REINICIAR PLANNER */}
                   <div className="flex items-center justify-end w-full md:w-auto">
                       <button 
                           onClick={handleResetPlanner}
@@ -675,17 +754,29 @@ export default function TestsPage() {
                   </div>
               </div>
               
-              {/* GRID DOS CARDS: 1 coluna (Mobile), 2 colunas (Tablet), 4 colunas (Desktop) */}
               <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 w-full">
                   {Array.from({ length: visibleStintsCount }).map((_, i) => {
                       const sk = `s${i+1}`;
                       const isLocked = lockedStints[i];
                       const data = isLocked ? frozenResults[i] : sheetData[i];
+                      const laps = Number(testStints[sk]) || 0;
+                      
+                      const pdaMult = PRIORITY_MULTIPLIERS[priority] || PRIORITY_MULTIPLIERS["Nenhuma prioridade em especial"];
+                      let cardPoints = { P: 0, D: 0, A: 0 };
+                      
+                      if (isLocked) {
+                          cardPoints = stintHistory[i]?.points || cardPoints;
+                      } else {
+                          cardPoints = {
+                              P: laps * pdaMult.P,
+                              D: laps * pdaMult.D,
+                              A: laps * pdaMult.A
+                          };
+                      }
 
                       return (
-                          <div key={i} className={`w-full flex flex-col gap-4 rounded-2xl p-4 border transition-all duration-300 ${isLocked ? 'bg-emerald-900/10 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-black/40 border-white/10 hover:border-white/20'}`}>
+                          <div key={i} className={`w-full flex flex-col gap-3 rounded-2xl p-4 border transition-all duration-300 ${isLocked ? 'bg-emerald-900/10 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-black/40 border-white/10 hover:border-white/20'}`}>
                               
-                              {/* Header do Card (Stint + Botão Travar) */}
                               <div className="flex justify-between items-center border-b border-white/5 pb-3">
                                   <span className={`text-xs font-black uppercase tracking-widest ${isLocked ? 'text-emerald-400' : 'text-slate-400'}`}>Stint {i + 1}</span>
                                   <button onClick={() => toggleLock(i)} className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all active:scale-90 ${isLocked ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-[#0F0F13] text-slate-500 border-white/10 hover:text-white'}`}>
@@ -693,21 +784,21 @@ export default function TestsPage() {
                                   </button>
                               </div>
 
-                              {/* Input de Voltas (Horizontal e Compacto) */}
                               <div className="flex items-center justify-between gap-3 bg-[#0F0F13]/50 p-2 rounded-xl border border-white/5">
                                   <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest pl-2">Voltas</label>
+                                  {/* Input do Stint com Seleção Automática */}
                                   <input 
                                       type="number" 
                                       disabled={isLocked} 
                                       value={testStints[sk]} 
                                       onChange={e => handleStintChange(sk, e.target.value)} 
                                       onBlur={() => validateMinLaps(sk)} 
+                                      onFocus={(e) => e.target.select()}
                                       className={`w-20 border rounded-lg p-2 text-center text-lg font-black transition-all outline-none ${isLocked ? 'bg-transparent border-transparent text-emerald-400 cursor-not-allowed' : 'bg-black/60 border-white/10 text-white focus:border-indigo-500 shadow-inner'}`} 
                                       placeholder="0"
                                   />
                               </div>
 
-                              {/* Resultados Estimados (Lado a Lado) */}
                               <div className="grid grid-cols-2 gap-3">
                                   <div className="flex flex-col items-center justify-center bg-[#0F0F13]/50 py-2.5 rounded-xl border border-white/5">
                                       <div className="flex items-center gap-1.5 text-slate-500 mb-1">
@@ -728,6 +819,19 @@ export default function TestsPage() {
                                       </span>
                                   </div>
                               </div>
+                              
+                              {/* BARRINHA DE PROJEÇÃO PDA COM CORES */}
+                              <div className={`mt-1 flex items-center justify-between bg-[#0F0F13]/80 px-3 py-2 rounded-lg border ${isLocked ? 'border-emerald-500/20' : 'border-white/5'} transition-all`}>
+                                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                                      {isLocked ? 'Gerou' : 'Projeção'}
+                                  </span>
+                                  <div className="flex items-center gap-3">
+                                      <span className="text-[8px] font-black text-slate-400 uppercase">P <span className={`ml-0.5 ${isLocked ? 'text-rose-500' : 'text-rose-500'}`}>+{cardPoints.P.toFixed(1)}</span></span>
+                                      <span className="text-[8px] font-black text-slate-400 uppercase">D <span className={`ml-0.5 ${isLocked ? 'text-cyan-400' : 'text-cyan-400'}`}>+{cardPoints.D.toFixed(1)}</span></span>
+                                      <span className="text-[8px] font-black text-slate-400 uppercase">A <span className={`ml-0.5 ${isLocked ? 'text-yellow-400' : 'text-yellow-400'}`}>+{cardPoints.A.toFixed(1)}</span></span>
+                                  </div>
+                              </div>
+                              
                           </div>
                       );
                   })}
