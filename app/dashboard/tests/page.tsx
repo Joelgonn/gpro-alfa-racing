@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase'; 
 import { useGame } from '../../context/GameContext'; 
@@ -71,6 +71,90 @@ function DriverStatRow({ label, value, onChange, max = 250 }: any) {
             <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-12 shrink-0 h-8 text-center bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white outline-none focus:border-indigo-500 transition-colors" />
         </div>
     );
+}
+
+function SkyViewRainOverlay() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let w = window.innerWidth;
+    let h = window.innerHeight;
+    const handleResize = () => {
+      w = window.innerWidth; h = window.innerHeight;
+      canvas.width = w; canvas.height = h;
+    };
+    handleResize();
+
+    const dropCount = 350;
+    const rainColor = '79, 195, 247'; 
+    const speed = 0.03; 
+
+    const drops: any[] = [];
+    const resetDrop = (d: any) => {
+      d.x = (Math.random() - 0.5) * 2;
+      d.y = (Math.random() - 0.5) * 2;
+      d.z = 1; // Z=1 é perto do olho (grande), Z=5 é o chão (longe)
+      d.size = Math.random() * 4 + 1;
+    };
+
+    for (let i = 0; i < dropCount; i++) {
+      drops.push({});
+      resetDrop(drops[i]);
+      drops[i].z = Math.random() * 4 + 1; 
+    }
+
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h);
+      const cx = w / 2;
+      const cy = h / 2;
+
+      for (let i = 0; i < dropCount; i++) {
+        const d = drops[i];
+        d.z += speed; 
+
+        if (d.z > 5) resetDrop(d);
+
+        const perspective = 1 / d.z;
+        const x = cx + d.x * w * perspective;
+        const y = cy + d.y * h * perspective;
+
+        // Calcula rastro
+        const pPrev = 1 / (d.z - 0.1);
+        const xPrev = cx + d.x * w * pPrev;
+        const yPrev = cy + d.y * h * pPrev;
+
+        const alpha = (5 - d.z) / 4 * 0.3;
+
+        if (alpha > 0) {
+          ctx.strokeStyle = `rgba(${rainColor}, ${alpha})`;
+          ctx.lineWidth = d.size * perspective * 1.5;
+          ctx.beginPath();
+          ctx.moveTo(xPrev, yPrev);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      }
+      requestAnimationFrame(draw);
+    };
+
+    const animFrame = requestAnimationFrame(draw);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      cancelAnimationFrame(animFrame);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
+      <canvas ref={canvasRef} className="block w-full h-full" />
+    </div>
+  );
 }
 
 export default function TestsPage() {
@@ -283,6 +367,15 @@ export default function TestsPage() {
     // IMPORTANTE: overflow-x-hidden adicionado aqui para garantir que nada passe da tela!
     <div className="p-3 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto overflow-x-hidden">
       
+      {/* EFEITO DE CHUVA */}
+      <AnimatePresence>
+        {weather === "Wet" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }}>
+                <SkyViewRainOverlay /> 
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* HEADER MOBILE-FIRST */}
       <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 backdrop-blur-xl sticky top-2 md:top-4 z-40 shadow-2xl">
         <div className="bg-[#0c0c10]/90 rounded-xl p-3 md:p-4 flex flex-col md:flex-row items-center justify-between gap-4 backdrop-blur-md">
@@ -370,12 +463,12 @@ export default function TestsPage() {
                             <div className="flex items-start gap-3">
                                 <div className="bg-amber-500/20 p-2 rounded-lg text-amber-500 shrink-0"><ShieldAlert size={18} /></div>
                                 <div>
-                                    <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Setup Ideal Ausente</h4>
-                                    <p className="text-[10px] text-slate-400 leading-tight mt-1">Calcule antes de testar.</p>
+                                    <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Calculando Setup... Aguarde!</h4>
+                                    <p className="text-[10px] text-slate-400 leading-tight mt-1"> Atualizando dados 'Piloto' e 'Carro' da página de visão geral.</p>
                                 </div>
                             </div>
                             <button onClick={() => router.push('/dashboard/setup')} className="w-full bg-amber-500 active:bg-amber-600 text-[#0F0F13] font-black text-[10px] uppercase py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg">
-                                <Wrench size={14} /> Ir para Calculadora
+                                <Wrench size={14} /> Página de Visão Geral
                             </button>
                         </motion.div>
                       )}

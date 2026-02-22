@@ -71,11 +71,15 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 
 function ConfigInput({ label, value, onChange, max }: { label: string, value: number, onChange: (v: number) => void, max?: number }) {
     
-    // Função que barra valores negativos ou acima do limite máximo
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let val = Number(e.target.value);
-        if (val < 0) val = 0; // Impede números negativos
-        if (max !== undefined && val > max) val = max; // Trava no limite máximo
+        const valStr = e.target.value;
+        if (valStr === '') {
+            onChange(0);
+            return;
+        }
+        let val = parseInt(valStr, 10);
+        if (val < 0) val = 0;
+        if (max !== undefined && val > max) val = max;
         onChange(val);
     };
 
@@ -85,11 +89,11 @@ function ConfigInput({ label, value, onChange, max }: { label: string, value: nu
             <div className="flex items-center">
                 <input 
                     type="number" 
-                    value={value} 
-                    onChange={handleChange} 
-                    min="0"
-                    max={max}
-                    className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0 placeholder-slate-700"
+                    inputMode="numeric" // Força teclado numérico no mobile
+                    value={value || ''} 
+                    onChange={handleChange}
+                    onFocus={(e) => e.target.select()} // Seleciona tudo ao tocar (ideal para mobile)
+                    className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0"
                     placeholder="0"
                 />
             </div>
@@ -531,33 +535,25 @@ return (
             <div className="p-4 md:p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">{["Dry", "Wet"].map(c => (<button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c? (c === 'Dry' ? 'bg-orange-500 text-white shadow-lg' : 'bg-indigo-600 text-white shadow-lg'): 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}</button>))}</div>
                 <div className="grid grid-cols-3 gap-3 md:gap-4">
-                   {/* Temperatura (Máx 65) - Corrigido para facilitar digitação */}
+                   {/* Temperatura (Máx 65) - Versão Otimizada Mobile */}
                     <div className="bg-black/40 p-3 rounded-lg border border-white/5">
                         <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp.</label>
                         <div className="flex items-center justify-between">
                             <input 
                                 type="number" 
-                                // Usamos o valor bruto para permitir a digitação de múltiplos dígitos
+                                inputMode="decimal" // Teclado com números e ponto/vírgula
                                 value={inputs.race_options.avg_temp ?? ''} 
                                 step="0.1" 
-                                min="0"
-                                max="60"
+                                onFocus={(e) => e.target.select()} // Facilita muito a troca de valor no toque
                                 onChange={(e) => {
                                     const valStr = e.target.value;
-                                    
-                                    // Permite apagar o campo totalmente
                                     if (valStr === '') {
                                         handleInput('race_options', 'avg_temp', 0);
                                         return;
                                     }
-
                                     let val = parseFloat(valStr);
-                                    
-                                    // Validações de limites
                                     if (val < 0) val = 0;
-                                    if (val > 65) val = 65;
-
-                                    // Atualiza o estado sem forçar formatação de texto no meio da digitação
+                                    if (val > 60) val = 60;
                                     handleInput('race_options', 'avg_temp', val);
                                 }} 
                                 className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0" 
