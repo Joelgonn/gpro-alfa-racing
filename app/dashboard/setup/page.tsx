@@ -9,7 +9,7 @@ import { useGame } from '../../context/GameContext';
 import {
   Loader2, Settings, ShieldAlert,
   MapPin, ChevronDown, Search, X, ShieldCheck, 
-  CloudSun, Thermometer, Sun, CloudRain, FlaskConical, Timer
+  CloudSun, Thermometer, Sun, CloudRain, FlaskConical, Timer, Wind, Gauge, Snowflake, Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -58,34 +58,106 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
     );
 }
 
-// --- COMPONENTES AUXILIARES ---
-function SessionGroup({ title, children }: { title: string, children: React.ReactNode }) { return <div className="space-y-4"><h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-indigo-500/30 pl-3">{title}</h3><div className="space-y-4">{children}</div></div> }
+// --- COMPONENTES OTIMIZADOS ---
 
-function HUDInput({ value, name, onChange, label }: any) { return <div className="bg-black/40 border border-white/5 rounded-lg p-3 group hover:border-indigo-500/40 transition-all"><label className="block text-[8px] font-black text-slate-600 uppercase mb-2 tracking-widest">{label}</label><div className="flex items-center justify-between"><Thermometer size={16} className="text-indigo-400/50" /><input type="number" name={name} value={value || ''} onChange={onChange} className="bg-transparent text-right text-white font-black text-xl outline-none w-full" /><span className="text-sm text-slate-600 font-bold ml-2">°C</span></div></div> }
+// 1. HUDInput Reativo (Termômetro muda de cor)
+function HUDInput({ value, name, onChange, label }: any) { 
+    const val = Number(value);
+    
+    // Lógica de cor baseada na temperatura
+    const getIconColor = () => {
+        if (!value) return "text-slate-600";
+        if (val < 15) return "text-cyan-400";
+        if (val < 30) return "text-emerald-400";
+        return "text-orange-500";
+    };
 
+    const IconComponent = !value ? Thermometer : (val < 15 ? Snowflake : (val > 30 ? Flame : Thermometer));
+
+    return (
+        <div className="relative bg-gradient-to-br from-white/[0.03] to-transparent border border-white/5 rounded-xl p-3 flex flex-col justify-between group hover:border-indigo-500/30 transition-all h-24">
+            <div className="flex items-start justify-between">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</label>
+                <IconComponent size={16} className={`transition-colors duration-500 ${getIconColor()}`} />
+            </div>
+            <div className="flex items-baseline gap-1 mt-1">
+                <input 
+                    type="number" 
+                    name={name} 
+                    value={value || ''} 
+                    onChange={onChange} 
+                    placeholder="0"
+                    className="bg-transparent text-white font-black text-3xl outline-none w-full placeholder-slate-800" 
+                />
+                <span className="text-xs text-slate-500 font-bold mb-1">°C</span>
+            </div>
+        </div>
+    ) 
+}
+
+// 2. WeatherSwitch Animado
 function WeatherSwitch({ name, value, onChange }: any) { 
     const isDry = value === 'Dry'; 
     return (
-        <div className="flex bg-black p-1 rounded-lg border border-white/5">
-            <button 
+        <div className="flex bg-black/40 p-1 rounded-lg border border-white/5 h-10 w-full overflow-hidden relative">
+            
+            <motion.button 
+                whileTap={{ scale: 0.95 }}
                 onClick={() => onChange({ target: { name, value: 'Dry' } })} 
-                className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${
-                    isDry ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
+                className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 relative z-10 ${
+                    isDry ? 'text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
                 }`}
             >
-                <Sun size={14} /> Seco
-            </button>
+                {isDry && <motion.div layoutId="bg-weather" className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600 rounded-md -z-10" />}
+                <Sun size={14} className={isDry ? "animate-[spin_10s_linear_infinite]" : ""} /> Seco
+            </motion.button>
 
-            <button 
+            <motion.button 
+                whileTap={{ scale: 0.95 }}
                 onClick={() => onChange({ target: { name, value: 'Wet' } })} 
-                className={`flex-1 py-2.5 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-2 ${
-                    !isDry ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
+                className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 relative z-10 ${
+                    !isDry ? 'text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
                 }`}
             >
+                {!isDry && <motion.div layoutId="bg-weather" className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-md -z-10" />}
                 <CloudRain size={14} /> Chuva
-            </button>
+            </motion.button>
         </div>
     ) 
+}
+
+// 3. SetupCard Compacto e Colorido (Vermelho, Amarelo, Verde)
+function SetupCard({ part, data }: { part: string, data: any }) {
+    const safeRender = (val: any) => (val === null || val === undefined || typeof val === 'object') ? '-' : val;
+    
+    return (
+        <div className="bg-gradient-to-br from-white/[0.04] to-transparent border border-white/5 hover:border-white/10 rounded-xl p-2.5 transition-all group">
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">{part.replace(/([A-Z])/g, ' $1').trim()}</span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-1.5">
+                {/* Q1 - RED */}
+                <div className="flex flex-col items-center p-1.5 rounded-lg bg-rose-500/5 border border-rose-500/20">
+                    <span className="text-[7px] font-black text-rose-500/70 mb-0.5 uppercase">Q1</span>
+                    <span className="text-sm font-black text-rose-400 font-mono leading-none">{safeRender(data?.q1)}</span>
+                </div>
+                
+                {/* Q2 - YELLOW/AMBER */}
+                <div className="flex flex-col items-center p-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                    <span className="text-[7px] font-black text-amber-500/70 mb-0.5 uppercase">Q2</span>
+                    <span className="text-sm font-black text-amber-400 font-mono leading-none">{safeRender(data?.q2)}</span>
+                </div>
+
+                {/* RACE - GREEN */}
+                <div className="flex flex-col items-center p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 relative overflow-hidden shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                    <div className="absolute top-0 right-0 w-2 h-2 bg-emerald-500 blur-md opacity-40"></div>
+                    <span className="text-[7px] font-black text-emerald-500 mb-0.5 uppercase tracking-widest">Corrida</span>
+                    <span className="text-base font-black text-white leading-none">{safeRender(data?.race)}</span>
+                </div>
+            </div>
+        </div>
+    )
 }
 
 export default function SetupPage() {
@@ -100,7 +172,7 @@ export default function SetupPage() {
       raceAvgTemp,
       techDirector, updateTechDirector,
       staffFacilities, updateStaffFacilities,
-      updateIdealSetup // <-- AQUI ADICIONAMOS A FUNÇÃO DO CONTEXTO
+      updateIdealSetup 
   } = useGame();
   
   const [loading, setLoading] = useState(false);
@@ -284,7 +356,6 @@ export default function SetupPage() {
       setTestLaps(val);
   };
 
-  const safeRender = (val: any) => (val === null || val === undefined || typeof val === 'object') ? '-' : val;
   const safeNumber = (val: any) => (typeof val === 'number') ? val : (isNaN(parseFloat(val)) ? 0 : parseFloat(val));
 
   const getWearColor = (val: number) => {
@@ -342,67 +413,172 @@ export default function SetupPage() {
 
       <main className="space-y-6">
         
-        {/* === LINHA SUPERIOR: Clima (Esquerda) e Setup Ideal (Direita) === */}
+        {/* === CLIMA & SETUP IDEAL (Refatorado para Mobile First e Cards Coloridos) === */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
-            {/* CLIMA */}
+            
+            {/* --- SEÇÃO DE CLIMA --- */}
             <div className="xl:col-span-7">
-              <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 md:p-8 backdrop-blur-sm h-full">
-                <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
-                  <CloudSun className="text-indigo-400" size={16} /> Previsão Metereológica
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
-                  <div className="space-y-8">
-                    <SessionGroup title="Qualificação - 1"><WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} /><HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura (Q1)" /></SessionGroup>
-                    <SessionGroup title="Qualificação - 2"><WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} /><HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura (Q2)" /></SessionGroup>
+              <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm h-full flex flex-col">
+                <div className="flex items-center gap-3 border-b border-white/5 pb-4 mb-6">
+                  <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                    <CloudSun size={20} />
                   </div>
-                  <div className="bg-black/20 rounded-xl p-6 border border-white/5">
-                    <h3 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-6">Previsão para a Corrida</h3>
-                    <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
-                    <div className="mt-6 space-y-3">
-                      {[1, 2, 3, 4].map(num => (
-                        <div key={num} className="grid grid-cols-5 items-center bg-black/40 p-2 rounded-lg border border-white/5">
-                          <span className="col-span-2 text-[9px] font-bold text-slate-500 uppercase pl-1">Quad: {num}</span>
-                          <span className='text-slate-600 text-[10px] text-center'>MIN</span>
-                          <input type="number" name={`r${num}_temp_min`} value={(weather as any)[`r${num}_temp_min`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-indigo-300 outline-none w-full" />
-                          <input type="number" name={`r${num}_temp_max`} value={(weather as any)[`r${num}_temp_max`]} onChange={handleWeatherChange} className="bg-transparent text-center text-[11px] font-black text-rose-300 outline-none w-full" />
-                        </div>
-                      ))}
+                  <div>
+                    <h2 className="text-xs font-black text-white uppercase tracking-[0.2em]">Metereologia</h2>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Configurações da Sessão</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
+                  
+                  {/* Card Esquerda: Qualificação */}
+                  <div className="space-y-4">
+                    {/* Q1 Card */}
+                    <div className="bg-black/20 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qualificação 1</span>
+                        <span className="text-[8px] px-2 py-0.5 rounded bg-white/5 text-slate-500 font-bold">Sessão 1</span>
+                      </div>
+                      <div className="space-y-3">
+                        <WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} />
+                        <HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura Q1" />
+                      </div>
+                    </div>
+
+                    {/* Q2 Card */}
+                    <div className="bg-black/20 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qualificação 2</span>
+                        <span className="text-[8px] px-2 py-0.5 rounded bg-white/5 text-slate-500 font-bold">Sessão 2</span>
+                      </div>
+                      <div className="space-y-3">
+                        <WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} />
+                        <HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura Q2" />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Card Direita: Corrida (OTIMIZADO MOBILE FIRST) */}
+                <div className="bg-gradient-to-br from-indigo-900/10 to-transparent rounded-xl border border-indigo-500/20 flex flex-col relative overflow-hidden h-full group">
+                    
+                    {/* Background Decorativo */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[50px] rounded-full -z-10 transition-opacity opacity-50 group-hover:opacity-100 pointer-events-none"></div>
+
+                    {/* Cabeçalho e Controles */}
+                    <div className="p-4 border-b border-white/5 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-indigo-500/20 rounded-md shadow-inner shadow-indigo-500/10">
+                                    <Wind size={14} className="text-indigo-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Corrida</h3>
+                                    <p className="text-[8px] text-indigo-300/60 font-bold uppercase mt-0.5">4 Períodos</p>
+                                </div>
+                            </div>
+                            
+                            {/* Display da Média Calculada */}
+                            <div className="text-right bg-black/20 px-2 py-1 rounded border border-white/5">
+                                <span className="text-[7px] text-slate-500 font-bold uppercase block tracking-wider">Média Est.</span>
+                                <span className="text-sm font-black text-white leading-none tracking-tight">{raceAvgTemp.toFixed(1)}°</span>
+                            </div>
+                        </div>
+                        
+                        {/* Switch de Clima (Seco/Chuva) */}
+                        <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
+                    </div>
+
+                    {/* Grid de Inputs (2x2) - Visual de Telemetria */}
+                    <div className="p-3 grid grid-cols-2 gap-2 flex-grow content-start">
+                        {[1, 2, 3, 4].map(num => (
+                            <div key={num} className="bg-black/40 rounded-lg p-2 border border-white/5 relative hover:border-indigo-500/20 transition-colors flex flex-col justify-between group/period">
+                                
+                                {/* Label do Período */}
+                                <div className="flex justify-between items-start mb-1">
+                                    <span className="text-[8px] font-black text-slate-600 group-hover/period:text-indigo-400 transition-colors uppercase tracking-widest bg-white/5 px-1.5 rounded">P{num}</span>
+                                </div>
+
+                                {/* Linha de Inputs */}
+                                <div className="flex items-end justify-between gap-2">
+                                    
+                                    {/* Input Minimo (Cyan) */}
+                                    <div className="flex flex-col w-full">
+                                        <span className="text-[6px] text-cyan-500/60 font-bold uppercase tracking-wider mb-0.5">Min</span>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                name={`r${num}_temp_min`} 
+                                                value={(weather as any)[`r${num}_temp_min`] || ''} 
+                                                onChange={handleWeatherChange} 
+                                                className="w-full bg-transparent text-lg font-black text-cyan-500/90 outline-none p-0 leading-none placeholder-white/5 focus:text-cyan-400 transition-colors" 
+                                                placeholder="-" 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Divisor Vertical */}
+                                    <div className="w-px h-5 bg-white/5 self-end mb-1"></div>
+
+                                    {/* Input Máximo (Rose) */}
+                                    <div className="flex flex-col w-full items-end">
+                                        <span className="text-[6px] text-rose-500/60 font-bold uppercase tracking-wider mb-0.5">Max</span>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                name={`r${num}_temp_max`} 
+                                                value={(weather as any)[`r${num}_temp_max`] || ''} 
+                                                onChange={handleWeatherChange} 
+                                                className="w-full bg-transparent text-right text-lg font-black text-rose-500/90 outline-none p-0 leading-none placeholder-white/5 focus:text-rose-400 transition-colors" 
+                                                placeholder="-" 
+                                            />
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 </div>
               </section>
             </div>
 
-            {/* SETUP IDEAL */}
+            {/* --- SEÇÃO DE SETUP IDEAL (COMPACTO) --- */}
             <div className="xl:col-span-5">
               <AnimatePresence mode='wait'>
                 {resultado && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm h-full">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 backdrop-blur-sm h-full flex flex-col">
                         <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
-                            <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2"><Settings size={14} className="text-indigo-400" /> Setup Ideal</h2>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                                    <Settings size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xs font-black text-white uppercase tracking-[0.2em]">Setup Ideal</h2>
+                                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Calculado para {track}</p>
+                                </div>
+                            </div>
                             {loading && <Loader2 className="animate-spin text-white" size={14} />}
                         </div>
-                        <div className='space-y-3'>
-                            <div className="hidden md:grid grid-cols-4 px-4 py-1 text-[8px] font-black text-slate-500 uppercase">
-                                <span>Componente</span><span className="text-center">Q1</span><span className="text-center">Q2</span><span className="text-center">Corrida</span>
-                            </div>
-                            {['asaDianteira', 'asaTraseira', 'motor', 'freios', 'cambio', 'suspensao'].map((part) => (
-                                <div key={part} className="bg-black/20 hover:bg-white/5 transition-colors p-4 rounded-lg border border-white/5 md:grid md:grid-cols-4 md:items-center md:py-3">
-                                    <span className="text-sm font-bold text-white uppercase tracking-wider md:text-[10px]">{part.replace('asa', 'Asa ')}</span>
-                                    <div className="grid grid-cols-3 gap-2 mt-3 md:contents">
-                                        <div className="text-center"><p className="text-lg text-slate-400 font-mono md:text-sm">{safeRender(resultado[part]?.q1)}</p></div>
-                                        <div className="text-center"><p className="text-lg text-slate-400 font-mono md:text-sm">{safeRender(resultado[part]?.q2)}</p></div>
-                                        <div className="text-center"><p className="text-xl font-black text-indigo-400 md:text-lg">{safeRender(resultado[part]?.race)}</p></div>
-                                    </div>
-                                </div>
+                        
+                        {/* Grid de Cards Compactos */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-1 gap-2.5 overflow-y-auto custom-scrollbar max-h-[600px] pr-1">
+                            {['asaDianteira', 'asaTraseira', 'motor', 'freios', 'cambio', 'suspensao'].map((partId) => (
+                                <SetupCard key={partId} part={partId} data={resultado[partId]} />
                             ))}
                         </div>
                     </motion.div>
                 )}
                 {!resultado && (
-                    <div className="h-full bg-white/[0.01] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-600 gap-4 border-dashed">
-                        <Settings size={32} className="opacity-20" />
-                        <p className="text-xs uppercase font-black tracking-widest text-center">Aguardando Cálculo...</p>
+                    <div className="h-full bg-white/[0.01] border border-white/5 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-600 gap-4 border-dashed min-h-[400px]">
+                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center animate-pulse">
+                            <Gauge size={32} className="opacity-40" />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs uppercase font-black tracking-widest text-slate-500">Aguardando Dados</p>
+                            <p className="text-[9px] text-slate-700 mt-1 max-w-[200px]">Preencha os dados de clima e driver para calcular o setup.</p>
+                        </div>
                     </div>
                 )}
               </AnimatePresence>
