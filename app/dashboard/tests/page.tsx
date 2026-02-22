@@ -98,7 +98,7 @@ function SkyViewRainOverlay() {
     const resetDrop = (d: any) => {
       d.x = (Math.random() - 0.5) * 2;
       d.y = (Math.random() - 0.5) * 2;
-      d.z = 1; // Z=1 é perto do olho (grande), Z=5 é o chão (longe)
+      d.z = 1; 
       d.size = Math.random() * 4 + 1;
     };
 
@@ -123,7 +123,6 @@ function SkyViewRainOverlay() {
         const x = cx + d.x * w * perspective;
         const y = cy + d.y * h * perspective;
 
-        // Calcula rastro
         const pPrev = 1 / (d.z - 0.1);
         const xPrev = cx + d.x * w * pPrev;
         const yPrev = cy + d.y * h * pPrev;
@@ -193,6 +192,9 @@ export default function TestsPage() {
   const [lockedStints, setLockedStints] = useState<Record<number, boolean>>({});
   const [frozenResults, setFrozenResults] = useState<any[]>(Array(8).fill(null));
 
+  // Histórico do desgaste adicionado por cada stint (para podermos subtrair ao remover o check)
+  const [stintWearHistory, setStintWearHistory] = useState<Record<number, Record<string, number>>>({});
+
   // --- VERIFICAÇÃO RIGOROSA DE DADOS ---
   const isContextValid = useMemo(() => {
     const driverOk = globalDriver && typeof globalDriver.talento === 'number' && globalDriver.talento > 0;
@@ -206,13 +208,69 @@ export default function TestsPage() {
 
   const totalLaps = useMemo(() => Object.values(testStints).reduce((acc: number, val) => acc + (Number(val) || 0), 0), [testStints]);
 
+  // Somamos as voltas apenas dos stints DESTRAVADOS para projetar o novo desgaste.
+  const activePlannedLaps = useMemo(() => {
+      return Object.entries(testStints).reduce((acc: number, [key, val]) => {
+          const index = parseInt(key.replace('s', '')) - 1;
+          if (lockedStints[index]) return acc;
+          return acc + (Number(val) || 0);
+      }, 0);
+  }, [testStints, lockedStints]);
+
+  // CASCATA (TRAVAR E DESTRAVAR)
   const toggleLock = (index: number) => {
     const isLocked = lockedStints[index];
+    
     if (!isLocked) {
+        // AÇÃO: TRAVAR (Absorver desgaste do stint)
         const newFrozen = [...frozenResults];
         newFrozen[index] = { ...sheetData[index] };
         setFrozenResults(newFrozen);
+
+        if (partWearDetails) {
+            const addedWearForThisStint: Record<string, number> = {};
+            
+            const updatedCar = localCar.map((carPart, i) => {
+                const comp = COMPONENTS[i];
+                if (comp) {
+                    const details = partWearDetails[comp.id];
+                    if (details && details.test_wear !== undefined) {
+                        const wearToAdd = details.test_wear;
+                        addedWearForThisStint[comp.id] = wearToAdd; 
+                        
+                        const novoDesgasteAtual = carPart.wear + wearToAdd;
+                        return { ...carPart, wear: parseFloat(novoDesgasteAtual.toFixed(1)) };
+                    }
+                }
+                return carPart;
+            });
+            
+            setStintWearHistory(prev => ({ ...prev, [index]: addedWearForThisStint }));
+            setLocalCar(updatedCar); 
+        }
+    } else {
+        // AÇÃO: DESTRAVAR (Desfazer desgaste)
+        const history = stintWearHistory[index];
+        if (history) {
+            const updatedCar = localCar.map((carPart, i) => {
+                const comp = COMPONENTS[i];
+                if (comp && history[comp.id] !== undefined) {
+                    // Subtrai exatamente o que esse stint havia adicionado
+                    const restoredWear = Math.max(0, carPart.wear - history[comp.id]);
+                    return { ...carPart, wear: parseFloat(restoredWear.toFixed(1)) };
+                }
+                return carPart;
+            });
+            
+            setLocalCar(updatedCar);
+            
+            // Remove o histórico desse stint destravado
+            const newHistory = { ...stintWearHistory };
+            delete newHistory[index];
+            setStintWearHistory(newHistory);
+        }
     }
+    
     setLockedStints(prev => ({ ...prev, [index]: !isLocked }));
   };
 
@@ -247,6 +305,27 @@ export default function TestsPage() {
       return Object.values(partWearDetails).some((part: any) => part.pre_race && part.pre_race > 90.4);
   }, [partWearDetails]);
 
+  // --- BOTÕES DE RESET ---
+  const handleResetTests = () => {
+      if (!isContextValid) return;
+      setLocalDriver({...globalDriver}); 
+      setLocalCar(globalCar.map(p => ({...p}))); 
+      setTestStints({ s1: 10, s2: '', s3: '', s4: '', s5: '', s6: '', s7: '', s8: '' });
+      setLockedStints({});
+      setFrozenResults(Array(8).fill(null));
+      setStintWearHistory({});
+  };
+  
+  // Limpa o carro e planner sem afetar o Piloto (Útil pro botão do Header de Stints)
+  const handleResetPlanner = () => {
+      if (!isContextValid) return;
+      setLocalCar(globalCar.map(p => ({...p}))); 
+      setTestStints({ s1: 10, s2: '', s3: '', s4: '', s5: '', s6: '', s7: '', s8: '' });
+      setLockedStints({});
+      setFrozenResults(Array(8).fill(null));
+      setStintWearHistory({});
+  };
+
   // --- SINCRONIZAÇÃO INTELIGENTE: GLOBAL -> LOCAL ---
   useEffect(() => {
     if (globalDriver && globalDriver.talento > 0) {
@@ -276,6 +355,7 @@ export default function TestsPage() {
     fetch('/api/python?action=tracks').then(res => res.json()).then(data => setTracks(data.tracks || []));
   }, [router]);
 
+  // O Motor roda com o novo Carro e gera o Novo Setup.
   const runCalculations = useCallback(async () => {
     if (!userId || !testTrack || !isContextValid || !isDataSynced) return;
 
@@ -289,19 +369,19 @@ export default function TestsPage() {
             body: JSON.stringify({
                 track: testTrack, driver: localDriver, car: localCar, weather, temp: inputs.temp, risk: inputs.risk, pits: inputs.pits,
                 tyreSupplier: TYRE_SUPPLIERS[supplierIndex], compound: compoundMap[selectedCompound] || selectedCompound,
-                stints: testStints, priority
+                stints: testStints, priority 
             })
         });
         const dataTest = await resTest.json();
         if(dataTest.results) setSheetData(dataTest.results);
-        if(dataTest.setupIdeal) setSetupIdeal(dataTest.setupIdeal);
+        if(dataTest.setupIdeal) setSetupIdeal(dataTest.setupIdeal); 
 
         const resParts = await fetch('/api/python?action=test_calculate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'user-id': userId },
             body: JSON.stringify({ 
                 test_track: testTrack, 
-                test_laps: totalLaps,
+                test_laps: activePlannedLaps, 
                 driver: localDriver, 
                 car: localCar, 
                 tech_director: techDirector,
@@ -313,7 +393,7 @@ export default function TestsPage() {
         if (dataParts.sucesso) setPartWearDetails(dataParts.data);
 
     } catch (e) { console.error(e); } finally { setIsSyncing(false); }
-  }, [userId, testTrack, localDriver, localCar, weather, inputs, supplierIndex, selectedCompound, testStints, priority, totalLaps, techDirector, staffFacilities, desgasteModifier, isContextValid, isDataSynced]);
+  }, [userId, testTrack, localDriver, localCar, weather, inputs, supplierIndex, selectedCompound, testStints, priority, activePlannedLaps, techDirector, staffFacilities, desgasteModifier, isContextValid, isDataSynced]);
 
   useEffect(() => {
     const debounce = setTimeout(runCalculations, 600);
@@ -364,7 +444,6 @@ export default function TestsPage() {
   }
 
   return (
-    // IMPORTANTE: overflow-x-hidden adicionado aqui para garantir que nada passe da tela!
     <div className="p-3 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto overflow-x-hidden">
       
       {/* EFEITO DE CHUVA */}
@@ -400,8 +479,11 @@ export default function TestsPage() {
                   <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></div>
                   <span className="text-[10px] md:text-xs font-black uppercase text-slate-300">{isSyncing ? 'Calculando...' : 'Pronto'}</span>
               </div>
-              <button onClick={() => { setLocalDriver({...globalDriver}); setLocalCar([...globalCar]); }} className="w-1/2 md:w-auto justify-center text-indigo-400 hover:text-white transition-colors flex items-center gap-2 text-[10px] md:text-xs uppercase font-black px-4 py-2.5 border border-indigo-500/20 rounded-xl bg-indigo-500/5 active:bg-indigo-500/20">
-                  <RotateCcw size={14}/> Resetar
+              <button 
+                  onClick={handleResetTests} 
+                  className="w-1/2 md:w-auto justify-center text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all flex items-center gap-2 text-[10px] md:text-xs uppercase font-black px-4 py-2.5 border border-rose-500/20 rounded-xl bg-rose-500/10 active:scale-95 group"
+              >
+                  <RotateCcw size={14} className="group-hover:-rotate-180 transition-transform duration-500"/> Reiniciar Testes
               </button>
           </div>
 
@@ -522,8 +604,9 @@ export default function TestsPage() {
                             const lvl = localCar[i]?.lvl || 1;
                             const currentWear = localCar[i]?.wear || 0;
                             const testWear = partWearDetails ? partWearDetails[part.id]?.test_wear : 0;
-                            const preRace = partWearDetails ? partWearDetails[part.id]?.pre_race : currentWear;
-                            const isBroken = preRace > 90.4;
+                            // CASCATA PASSO FINAL VIZUAL: Final = Atual + Teste explícito
+                            const finalWear = currentWear + testWear; 
+                            const isBroken = finalWear > 90.4;
 
                             return (
                                 <div key={part.id} className={`flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-colors w-full ${isBroken ? 'bg-rose-500/10 border-rose-500/20' : 'bg-black/40 border-white/5 hover:bg-white/5'}`}>
@@ -546,7 +629,7 @@ export default function TestsPage() {
                                         </div>
                                         <div className="flex flex-col items-center bg-[#0F0F13]/50 px-3 py-1.5 rounded-lg border border-white/5 w-16">
                                             <span className="md:hidden text-[8px] font-black text-slate-500 uppercase mb-0.5">Final</span>
-                                            <span className={`text-xs md:text-sm font-black ${getWearColor(preRace)}`}>{preRace.toFixed(1)}%</span>
+                                            <span className={`text-xs md:text-sm font-black ${getWearColor(finalWear)}`}>{finalWear.toFixed(1)}%</span>
                                         </div>
                                     </div>
                                 </div>
@@ -580,6 +663,15 @@ export default function TestsPage() {
                         <Timer size={14} className="text-indigo-400" />
                         <span className="font-black text-[10px] md:text-xs text-indigo-400">{totalLaps} / 100 Voltas Totais</span>
                     </div>
+                  </div>
+                  {/* BOTÃO DE REINICIAR PLANNER */}
+                  <div className="flex items-center justify-end w-full md:w-auto">
+                      <button 
+                          onClick={handleResetPlanner}
+                          className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500 hover:text-rose-400 transition-colors px-3 py-2 bg-white/5 hover:bg-rose-500/10 border border-white/5 hover:border-rose-500/20 rounded-xl active:scale-95"
+                      >
+                          <RotateCcw size={12} /> Limpar Planner
+                      </button>
                   </div>
               </div>
               
