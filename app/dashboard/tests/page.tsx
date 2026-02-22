@@ -7,7 +7,8 @@ import { useGame } from '../../context/GameContext';
 import {
   Loader2, MapPin, ChevronDown, Search, X, ShieldCheck,
   Settings, Sun, CloudRain, ChevronLeft, ChevronRight, Zap, Timer, 
-  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert, Database, ArrowRight, Target
+  User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert, Database, ArrowRight, Target,
+  Gauge, CornerDownLeft, MoveRight, ChevronsUp, GitMerge, SlidersHorizontal, MousePointerClick
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,7 +25,6 @@ const TYRE_COMPOUNDS = [
   { id: 'Rain', label: 'Rain', img: 'chuva.png' },
 ];
 
-// Mapeamento para exibição em português no botão
 const COMPOUND_DISPLAY_NAMES: Record<string, string> = {
     'ExSoft': 'X Macio',
     'Soft': 'Macio',
@@ -34,6 +34,20 @@ const COMPOUND_DISPLAY_NAMES: Record<string, string> = {
 };
 
 const TEST_PRIORITIES = ["Nenhuma prioridade em especial", "Velocidade máxima", "Fazer curvas", "Cotovelos", "Frear", "Ultrapassagem", "Chicanes", "Testar os limites do carro", "Afinação do ajuste"];
+
+// Mapeamento de Ícones para Prioridades
+const PRIORITY_ICONS: Record<string, any> = {
+    "Nenhuma prioridade em especial": Target,
+    "Velocidade máxima": Zap,
+    "Fazer curvas": CornerDownLeft,
+    "Cotovelos": MoveRight,
+    "Frear": ChevronsUp,
+    "Ultrapassagem": ArrowRight,
+    "Chicanes": GitMerge,
+    "Testar os limites do carro": Gauge,
+    "Afinação do ajuste": SlidersHorizontal
+};
+
 const COMPONENTS = [ 
     { id: 'chassi', label: 'Chassi' }, { id: 'motor', label: 'Motor' }, { id: 'asaDianteira', label: 'Asa Dianteira' }, { id: 'asaTraseira', label: 'Asa Traseira' }, { id: 'assoalho', label: 'Assoalho' }, { id: 'laterais', label: 'Laterais' }, { id: 'radiador', label: 'Radiador' }, { id: 'cambio', label: 'Câmbio' }, { id: 'freios', label: 'Freios' }, { id: 'suspensao', label: 'Suspensão' }, { id: 'eletronicos', label: 'Eletrônicos' } 
 ];
@@ -42,7 +56,6 @@ const DRIVER_FIELDS = [
 ];
 const TEST_SETUP_PARTS = ['Asa Dianteira', 'Asa Traseira', 'Motor', 'Freios', 'Câmbio', 'Suspensão'];
 
-// --- MATEMÁTICA DE PONTOS DE TESTE (Por Volta) ---
 const PRIORITY_MULTIPLIERS: Record<string, { P: number, D: number, A: number }> = {
     "Nenhuma prioridade em especial": { P: 0.265, D: 0.265, A: 0.265 },
     "Velocidade máxima": { P: 0.645, D: 0.081, A: 0.081 },
@@ -56,6 +69,67 @@ const PRIORITY_MULTIPLIERS: Record<string, { P: number, D: number, A: number }> 
 };
 
 // --- COMPONENTES AUXILIARES ---
+
+// NOVO SELETOR CUSTOMIZADO PARA PRIORIDADES
+function PrioritySelector({ value, onChange }: { value: string, onChange: (val: string) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Fecha ao clicar fora
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef]);
+
+    const CurrentIcon = PRIORITY_ICONS[value] || Target;
+
+    return (
+        <div className="relative w-full" ref={dropdownRef}>
+            <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-xl py-3.5 px-4 text-[10px] md:text-xs font-black text-white outline-none uppercase active:bg-white/5 transition-all hover:border-white/20 group"
+            >
+                <div className="flex items-center gap-3 truncate">
+                    <CurrentIcon size={14} className="text-indigo-400 group-hover:text-white transition-colors" />
+                    <span className="truncate">{value.toUpperCase()}</span>
+                </div>
+                <ChevronDown size={16} className={`text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -5 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -5 }} 
+                        className="absolute top-full left-0 mt-2 w-full bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl z-[60] overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar"
+                    >
+                        {TEST_PRIORITIES.map(opt => {
+                            const Icon = PRIORITY_ICONS[opt] || Target;
+                            return (
+                                <button 
+                                    key={opt} 
+                                    onClick={() => { onChange(opt); setIsOpen(false); }} 
+                                    className={`w-full text-left px-4 py-3 text-[10px] md:text-xs font-black uppercase flex items-center gap-3 transition-colors ${value === opt ? 'bg-indigo-500/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                >
+                                    <Icon size={14} className={value === opt ? 'text-indigo-400' : 'text-slate-600'} />
+                                    {opt}
+                                    {value === opt && <Check size={12} className="ml-auto text-indigo-400" />}
+                                </button>
+                            );
+                        })}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
 function TrackSelector({ currentTrack, tracksList, onSelect }: any) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -565,12 +639,8 @@ export default function TestsPage() {
 
                         <div className="mb-6 w-full">
                             <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade do Teste</label>
-                            <div className="relative w-full">
-                                <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-[10px] md:text-xs font-black text-white outline-none uppercase cursor-pointer appearance-none active:bg-white/5 transition-colors">
-                                    {TEST_PRIORITIES.map(opt => <option key={opt} value={opt} className="bg-[#0F0F13] text-xs">{opt.toUpperCase()}</option>)}
-                                </select>
-                                <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"/>
-                            </div>
+                            {/* NOVO SELETOR DE PRIORIDADE CUSTOMIZADO */}
+                            <PrioritySelector value={priority} onChange={setPriority} />
                         </div>
 
                         <div className="mb-6 w-full">
