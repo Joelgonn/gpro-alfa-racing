@@ -64,11 +64,11 @@ function DriverStatRow({ label, value, onChange, max = 250 }: any) {
     const percentage = Math.min(100, Math.max(0, (value / max) * 100));
     return (
         <div className="flex items-center gap-3 h-8 w-full">
-            <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase w-20 md:w-24 truncate">{label}</span>
-            <div className="flex-1 h-2 bg-black/50 rounded-full overflow-hidden border border-white/5 relative">
+            <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase w-20 md:w-24 truncate shrink-0">{label}</span>
+            <div className="flex-1 h-2 bg-black/50 rounded-full overflow-hidden border border-white/5 relative min-w-0">
                 <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-cyan-400 transition-all duration-300" style={{ width: `${percentage}%` }}></div>
             </div>
-            <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-12 h-8 text-center bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white outline-none focus:border-indigo-500 transition-colors" />
+            <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-12 shrink-0 h-8 text-center bg-black/40 border border-white/10 rounded-lg text-xs font-bold text-white outline-none focus:border-indigo-500 transition-colors" />
         </div>
     );
 }
@@ -280,7 +280,8 @@ export default function TestsPage() {
   }
 
   return (
-    <div className="p-3 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto">
+    // IMPORTANTE: overflow-x-hidden adicionado aqui para garantir que nada passe da tela!
+    <div className="p-3 md:p-6 space-y-6 md:space-y-8 animate-fadeIn text-slate-300 pb-24 font-mono max-w-[1600px] mx-auto overflow-x-hidden">
       
       {/* HEADER MOBILE-FIRST */}
       <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 backdrop-blur-xl sticky top-2 md:top-4 z-40 shadow-2xl">
@@ -294,7 +295,7 @@ export default function TestsPage() {
                     {TRACK_FLAGS[testTrack] ? <img src={`/flags/${TRACK_FLAGS[testTrack]}.png`} className="w-full h-full object-cover" alt="flag" /> : <span className="text-xl">🏁</span>}
                   </div>
                </div>
-               <div className="flex flex-col flex-1 w-full">
+               <div className="flex flex-col flex-1 w-full min-w-0">
                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pista de Testes</span>
                  <TrackSelector currentTrack={testTrack} tracksList={tracks} onSelect={setTestTrack} />
                </div>
@@ -315,14 +316,14 @@ export default function TestsPage() {
       </div>
 
       <div className="space-y-6 md:space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 items-stretch w-full">
               
               {/* COLUNA 1: CONFIGURAÇÕES DE TESTE */}
-              <div className="space-y-6 flex flex-col">
+              <div className="space-y-6 flex flex-col w-full min-w-0">
                   <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl flex-1 flex flex-col justify-between relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl"></div>
                       
-                      <div className="relative z-10">
+                      <div className="relative z-10 w-full">
                         <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Settings size={16} className="text-indigo-500" /> Configuração</h2>
                         
                         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -336,9 +337,9 @@ export default function TestsPage() {
                             <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Pits</label><input type="number" value={inputs.pits} onChange={e => setInputs({...inputs, pits: Number(e.target.value)})} className="bg-transparent text-emerald-400 font-black text-sm md:text-base w-full text-center outline-none" /></div>
                         </div>
 
-                        <div className="mb-6">
+                        <div className="mb-6 w-full">
                             <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade do Teste</label>
-                            <div className="relative">
+                            <div className="relative w-full">
                                 <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-[10px] md:text-xs font-black text-white outline-none uppercase cursor-pointer appearance-none active:bg-white/5 transition-colors">
                                     {TEST_PRIORITIES.map(opt => <option key={opt} value={opt} className="bg-[#0F0F13] text-xs">{opt.toUpperCase()}</option>)}
                                 </select>
@@ -346,7 +347,7 @@ export default function TestsPage() {
                             </div>
                         </div>
 
-                        <div className="mb-6">
+                        <div className="mb-6 w-full">
                             <div className="bg-black/40 border border-white/10 rounded-2xl h-16 flex items-center justify-between px-2 overflow-hidden select-none">
                                 <button onClick={() => setSupplierIndex(prev => (prev - 1 + TYRE_SUPPLIERS.length) % TYRE_SUPPLIERS.length)} className="p-3 active:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"><ChevronLeft size={20}/></button>
                                 <div className="flex-1 flex justify-center"><img src={`/tyres/${TYRE_SUPPLIERS[supplierIndex].toLowerCase()}.gif`} alt="supplier" className="h-10 w-auto object-contain drop-shadow-md" /></div>
@@ -354,8 +355,8 @@ export default function TestsPage() {
                             </div>
                         </div>
 
-                        {/* CARROSSEL DE PNEUS - SCROLL HORIZONTAL MOBILE */}
-                        <div className="flex items-center gap-3 bg-black/20 p-3 rounded-2xl border border-white/5 overflow-x-auto snap-x custom-scrollbar pb-3">
+                        {/* CARROSSEL DE PNEUS - GARANTINDO QUE NÃO ESTOURE A LARGURA */}
+                        <div className="w-full flex items-center gap-3 bg-black/20 p-3 rounded-2xl border border-white/5 overflow-x-auto snap-x custom-scrollbar pb-3 min-w-0">
                             {TYRE_COMPOUNDS.map(comp => (
                                 <button key={comp.id} onClick={() => setSelectedCompound(comp.id)} className={`relative snap-center shrink-0 transition-all duration-300 ${selectedCompound === comp.id ? 'scale-110 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0 active:scale-95'}`}>
                                     <img src={`/compound/${comp.img}`} alt={comp.label} className={`w-12 h-12 md:w-14 md:h-14 object-contain rounded-full border-[3px] ${selectedCompound === comp.id ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'border-transparent'}`} />
@@ -382,12 +383,12 @@ export default function TestsPage() {
               </div>
 
               {/* COLUNA 2: ATRIBUTOS DO PILOTO */}
-              <div className="space-y-6 flex flex-col">
+              <div className="space-y-6 flex flex-col w-full min-w-0">
                  <div className="bg-[#0b0b10] rounded-2xl border border-white/5 p-5 md:p-6 shadow-2xl flex-1 flex flex-col relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 rounded-full blur-3xl"></div>
-                    <div className="relative z-10">
+                    <div className="relative z-10 w-full">
                         <h3 className="text-xs font-black text-white uppercase mb-6 pb-4 border-b border-white/5 flex items-center gap-2 tracking-widest"><User size={16} className="text-yellow-400"/> Atributos Piloto</h3>
-                        <div className="flex flex-col gap-y-4 md:gap-y-5 pt-2">
+                        <div className="flex flex-col gap-y-4 md:gap-y-5 pt-2 w-full">
                             {DRIVER_FIELDS.map(f => (
                                 <DriverStatRow key={f.key} label={f.label} value={localDriver[f.key] || 0} max={f.max} onChange={(val:any) => setLocalDriver({...localDriver, [f.key]: val})} />
                             ))}
@@ -396,8 +397,8 @@ export default function TestsPage() {
                  </div>
               </div>
 
-              {/* COLUNA 3: DESGASTE CARRO (REFATORADO PARA CARDS/FLEX EM VEZ DE TABELA) */}
-              <div className="space-y-6 flex flex-col">
+              {/* COLUNA 3: DESGASTE CARRO */}
+              <div className="space-y-6 flex flex-col w-full min-w-0">
                  <div className="bg-[#0b0b10] rounded-2xl border border-white/5 shadow-2xl flex-1 flex flex-col overflow-hidden">
                     <div className="p-5 md:p-6 border-b border-white/5 flex flex-col items-start gap-3 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl"></div>
@@ -412,8 +413,7 @@ export default function TestsPage() {
                         </AnimatePresence>
                     </div>
                     
-                    {/* LISTA DE COMPONENTES EM FORMATO DE CARDS COMPACTOS */}
-                    <div className="p-3 md:p-5 flex flex-col gap-2 overflow-y-auto custom-scrollbar max-h-[600px]">
+                    <div className="p-3 md:p-5 flex flex-col gap-2 overflow-y-auto custom-scrollbar max-h-[600px] w-full">
                         {/* Header da "Tabela Visual" para Desktop (Some no Mobile) */}
                         <div className="hidden md:flex items-center justify-between px-3 pb-2 text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">
                             <span className="w-1/3">Peça</span>
@@ -433,14 +433,12 @@ export default function TestsPage() {
                             const isBroken = preRace > 90.4;
 
                             return (
-                                <div key={part.id} className={`flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${isBroken ? 'bg-rose-500/10 border-rose-500/20' : 'bg-black/40 border-white/5 hover:bg-white/5'}`}>
-                                    {/* Esquerda: Nome e Info rápida no mobile */}
+                                <div key={part.id} className={`flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-xl border transition-colors w-full ${isBroken ? 'bg-rose-500/10 border-rose-500/20' : 'bg-black/40 border-white/5 hover:bg-white/5'}`}>
                                     <div className="flex justify-between items-center md:w-1/3">
                                         <span className={`text-[10px] md:text-xs font-black uppercase ${isBroken ? 'text-rose-400' : 'text-slate-300'}`}>{part.label}</span>
                                         <span className="md:hidden text-[10px] font-black text-amber-500 bg-amber-500/10 px-2 py-1 rounded">+{testWear.toFixed(1)}%</span>
                                     </div>
 
-                                    {/* Direita: Inputs e Resultado */}
                                     <div className="flex items-center justify-between md:justify-end gap-3 md:gap-4 md:w-2/3">
                                         <div className="flex flex-col items-center">
                                             <span className="md:hidden text-[8px] font-black text-slate-500 uppercase mb-1">Lvl</span>
@@ -466,13 +464,13 @@ export default function TestsPage() {
               </div>
           </div>
 
-          {/* SETUP HORIZONTAL (GRID ADAPTATIVO) */}
-          <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl relative overflow-hidden">
+          {/* SETUP HORIZONTAL */}
+          <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl relative overflow-hidden w-full">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-emerald-500/5 rounded-full blur-3xl"></div>
               <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-5 flex items-center gap-2 relative z-10"><Wrench size={16} className="text-emerald-500" /> Setup Ideal Estimado</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 relative z-10">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 relative z-10 w-full">
                   {TEST_SETUP_PARTS.map((label, idx) => (
-                      <div key={label} className="flex flex-col items-center justify-center gap-2 bg-black/40 border border-white/5 rounded-2xl p-4 active:scale-95 transition-transform group">
+                      <div key={label} className="flex flex-col items-center justify-center gap-2 bg-black/40 border border-white/5 rounded-2xl p-4 active:scale-95 transition-transform group w-full">
                           <span className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">{label}</span>
                           <span className="text-2xl md:text-3xl font-black text-emerald-400 font-mono drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">{setupIdeal[idx] ?? '--'}</span>
                       </div>
@@ -480,8 +478,8 @@ export default function TestsPage() {
               </div>
           </div>
 
-          {/* PLANEJAMENTO DE STINTS - CARROSSEL MOBILE FIRST */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm shadow-2xl">
+          {/* PLANEJAMENTO DE STINTS - AGORA EMPILHADO EM GRID */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm shadow-2xl w-full">
               <div className="bg-[#0c0c10] p-4 md:p-5 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                     <h3 className="font-black text-xs md:text-sm uppercase text-white tracking-[0.2em] flex items-center gap-2"><HardHat size={16} className="text-amber-500"/> Planner de Stints</h3>
@@ -492,15 +490,15 @@ export default function TestsPage() {
                   </div>
               </div>
               
-              {/* SCROLL HORIZONTAL DE CARDS (STINTS) */}
-              <div className="p-4 md:p-6 overflow-x-auto snap-x flex gap-4 md:gap-6 custom-scrollbar pb-6">
+              {/* GRID DOS CARDS: 1 coluna (Mobile), 2 colunas (Tablet), 4 colunas (Desktop) */}
+              <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 w-full">
                   {Array.from({ length: visibleStintsCount }).map((_, i) => {
                       const sk = `s${i+1}`;
                       const isLocked = lockedStints[i];
                       const data = isLocked ? frozenResults[i] : sheetData[i];
 
                       return (
-                          <div key={i} className={`snap-center shrink-0 w-[240px] md:w-[260px] flex flex-col gap-4 rounded-2xl p-5 border transition-all duration-300 ${isLocked ? 'bg-emerald-900/10 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-black/40 border-white/10 hover:border-white/20'}`}>
+                          <div key={i} className={`w-full flex flex-col gap-4 rounded-2xl p-4 border transition-all duration-300 ${isLocked ? 'bg-emerald-900/10 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'bg-black/40 border-white/10 hover:border-white/20'}`}>
                               
                               {/* Header do Card (Stint + Botão Travar) */}
                               <div className="flex justify-between items-center border-b border-white/5 pb-3">
@@ -510,33 +508,33 @@ export default function TestsPage() {
                                   </button>
                               </div>
 
-                              {/* Input de Voltas */}
-                              <div className="flex flex-col gap-2">
-                                  <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Nº de Voltas</label>
+                              {/* Input de Voltas (Horizontal e Compacto) */}
+                              <div className="flex items-center justify-between gap-3 bg-[#0F0F13]/50 p-2 rounded-xl border border-white/5">
+                                  <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest pl-2">Voltas</label>
                                   <input 
                                       type="number" 
                                       disabled={isLocked} 
                                       value={testStints[sk]} 
                                       onChange={e => handleStintChange(sk, e.target.value)} 
                                       onBlur={() => validateMinLaps(sk)} 
-                                      className={`w-full border rounded-xl p-3 text-center text-lg font-black transition-all outline-none ${isLocked ? 'bg-transparent border-transparent text-emerald-400 cursor-not-allowed' : 'bg-[#0F0F13] border-white/10 text-white focus:border-indigo-500 shadow-inner'}`} 
+                                      className={`w-20 border rounded-lg p-2 text-center text-lg font-black transition-all outline-none ${isLocked ? 'bg-transparent border-transparent text-emerald-400 cursor-not-allowed' : 'bg-black/60 border-white/10 text-white focus:border-indigo-500 shadow-inner'}`} 
                                       placeholder="0"
                                   />
                               </div>
 
-                              {/* Resultados Estimados */}
-                              <div className="flex flex-col gap-3 pt-3 border-t border-white/5">
-                                  <div className="flex justify-between items-center bg-[#0F0F13]/50 p-2.5 rounded-lg border border-white/5">
-                                      <div className="flex items-center gap-2 text-slate-500">
+                              {/* Resultados Estimados (Lado a Lado) */}
+                              <div className="grid grid-cols-2 gap-3">
+                                  <div className="flex flex-col items-center justify-center bg-[#0F0F13]/50 py-2.5 rounded-xl border border-white/5">
+                                      <div className="flex items-center gap-1.5 text-slate-500 mb-1">
                                           <Activity size={12}/>
-                                          <span className="text-[9px] font-black uppercase">Pneus</span>
+                                          <span className="text-[9px] font-black uppercase">Desgaste</span>
                                       </div>
                                       <span className={`text-sm font-black ${isLocked ? 'text-emerald-400' : 'text-rose-500'}`}>
                                           {typeof data?.wear === 'number' ? `${data.wear.toFixed(1)}%` : '-'}
                                       </span>
                                   </div>
-                                  <div className="flex justify-between items-center bg-[#0F0F13]/50 p-2.5 rounded-lg border border-white/5">
-                                      <div className="flex items-center gap-2 text-slate-500">
+                                  <div className="flex flex-col items-center justify-center bg-[#0F0F13]/50 py-2.5 rounded-xl border border-white/5">
+                                      <div className="flex items-center gap-1.5 text-slate-500 mb-1">
                                           <Fuel size={12}/>
                                           <span className="text-[9px] font-black uppercase">Comb.</span>
                                       </div>
