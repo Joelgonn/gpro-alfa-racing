@@ -8,8 +8,8 @@ import { useGame } from '../../context/GameContext';
 
 import {
   Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin,
-  Sparkles, ChevronLeft, ChevronRight, Fuel, Wind, TrendingUp,
-  ChevronDown, Search, X, ShieldCheck, ShieldAlert
+  Sparkles, ChevronLeft, ChevronRight, Fuel, TrendingUp,
+  ChevronDown, Search, X, ShieldCheck, ShieldAlert, ChevronsRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,6 +27,14 @@ const TRACK_FLAGS: { [key: string]: string } = {
   "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
   "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
   "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp", "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt", "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa", "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it", "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at", "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl", "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar", "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk", "Valencia": "es", "Vallelunga": "it", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
+};
+
+const TYRE_NAMES: Record<string, string> = {
+    "Extra Soft": "X Macio",
+    "Soft": "Macio",
+    "Medium": "Médio",
+    "Hard": "Duro",
+    "Rain": "Chuva"
 };
 
 // --- COMPONENTES AUXILIARES ---
@@ -61,8 +69,16 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
     );
 }
 
-// SIMPLIFICADO: Sem setas, input full width para não quebrar no mobile
-function ConfigInput({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) {
+function ConfigInput({ label, value, onChange, max }: { label: string, value: number, onChange: (v: number) => void, max?: number }) {
+    
+    // Função que barra valores negativos ou acima do limite máximo
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let val = Number(e.target.value);
+        if (val < 0) val = 0; // Impede números negativos
+        if (max !== undefined && val > max) val = max; // Trava no limite máximo
+        onChange(val);
+    };
+
     return (
         <div className="bg-black/40 p-3 rounded-lg border border-white/5">
             <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">{label}</label>
@@ -70,7 +86,9 @@ function ConfigInput({ label, value, onChange }: { label: string, value: number,
                 <input 
                     type="number" 
                     value={value} 
-                    onChange={(e) => onChange(Number(e.target.value))} 
+                    onChange={handleChange} 
+                    min="0"
+                    max={max}
                     className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0 placeholder-slate-700"
                     placeholder="0"
                 />
@@ -79,7 +97,6 @@ function ConfigInput({ label, value, onChange }: { label: string, value: number,
     );
 }
 
-// CORRIGIDO: Fallback para texto e .toLowerCase() para produção
 function SupplierCarousel({ options, value, onChange }: { options: string[], value: string, onChange: (val: string) => void }) {
     const [imgError, setImgError] = useState(false);
 
@@ -146,31 +163,30 @@ function BoostSection({ inputs, handleInput, outputs, className }: { inputs: Inp
 }
 
 function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Function, className?: string }) {
-    // Adicionamos o CTR à lista de itens
+    // CORREÇÃO AQUI: 'ultrapassagem' é a chave correta, não 'ultrapassagem_str'
     const items = [
-        { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={14}/> }, 
-        { l: "Combustível", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={14}/> }, 
-        { l: "Desgaste", v: outputs?.race_calculated_data?.desgaste_pneu_str, i: <Wind size={14}/> }, 
-        { l: "Tempo Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={14}/> }, 
-        { l: "TCD Total", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <TrendingUp size={14}/> },
-        // NOVO CARD: GANHO CTR
+        { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={12}/> }, 
+        { l: "Combustível", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={12}/> }, 
+        { l: "Ultrapass.", v: outputs?.race_calculated_data?.ultrapassagem, i: <ChevronsRight size={12}/> }, 
+        { l: "Tempo Pit", v: outputs?.race_calculated_data?.pit_io, unit: "s", i: <Zap size={12}/> }, 
+        { l: "TCD Total", v: outputs?.race_calculated_data?.tcd_corrida, unit: "s", i: <TrendingUp size={12}/> },
         { 
             l: "Ganho CTR", 
             v: outputs?.race_calculated_data?.ganho_ctr_total, 
             unit: "s", 
-            i: <Sparkles size={14} className="text-emerald-400"/>,
+            i: <Sparkles size={12} className="text-emerald-400"/>,
             isCtr: true 
         },
     ];
 
     return (
-        <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 ${className}`}>
+        <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3 ${className}`}>
             {items.map((item, idx) => (
-                <div key={idx} className={`bg-white/[0.02] border ${item.isCtr ? 'border-emerald-500/20' : 'border-white/5'} p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm`}>
-                    <span className={`text-[8px] font-black uppercase tracking-widest mb-2 flex items-center gap-1.5 ${item.isCtr ? 'text-emerald-500' : 'text-slate-600'}`}>
+                <div key={idx} className={`bg-white/[0.02] border ${item.isCtr ? 'border-emerald-500/20' : 'border-white/5'} p-2 rounded-2xl flex flex-col items-center justify-center shadow-sm h-[70px] md:h-[80px]`}>
+                    <span className={`text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5 ${item.isCtr ? 'text-emerald-500' : 'text-slate-600'}`}>
                         {item.i} {item.l}
                     </span>
-                    <span className={`text-lg md:text-xl font-black ${item.isCtr ? 'text-emerald-400' : 'text-white'}`}>
+                    <span className={`text-base md:text-lg font-black ${item.isCtr ? 'text-emerald-400' : 'text-white'}`}>
                         {item.isCtr && item.v > 0 ? '-' : ''}{fmt(item.v, 3, item.unit)}
                     </span>
                 </div>
@@ -515,23 +531,44 @@ return (
             <div className="p-4 md:p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">{["Dry", "Wet"].map(c => (<button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c? (c === 'Dry' ? 'bg-orange-500 text-white shadow-lg' : 'bg-indigo-600 text-white shadow-lg'): 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}</button>))}</div>
                 <div className="grid grid-cols-3 gap-3 md:gap-4">
-                    {/* Temperatura */}
+                   {/* Temperatura (Máx 65) - Corrigido para facilitar digitação */}
                     <div className="bg-black/40 p-3 rounded-lg border border-white/5">
                         <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp.</label>
                         <div className="flex items-center justify-between">
                             <input 
                                 type="number" 
+                                // Usamos o valor bruto para permitir a digitação de múltiplos dígitos
                                 value={inputs.race_options.avg_temp ?? ''} 
-                                onChange={(e) => handleInput('race_options', 'avg_temp', Number(e.target.value))} 
+                                step="0.1" 
+                                min="0"
+                                max="60"
+                                onChange={(e) => {
+                                    const valStr = e.target.value;
+                                    
+                                    // Permite apagar o campo totalmente
+                                    if (valStr === '') {
+                                        handleInput('race_options', 'avg_temp', 0);
+                                        return;
+                                    }
+
+                                    let val = parseFloat(valStr);
+                                    
+                                    // Validações de limites
+                                    if (val < 0) val = 0;
+                                    if (val > 65) val = 65;
+
+                                    // Atualiza o estado sem forçar formatação de texto no meio da digitação
+                                    handleInput('race_options', 'avg_temp', val);
+                                }} 
                                 className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0" 
                             />
                             <span className="text-[10px] text-indigo-500 font-bold ml-1">°C</span>
                         </div>
                     </div>
 
-                    {/* Risco com Feedback CTR Volta */}
+                    {/* Risco (Máx 100) com Feedback CTR Volta */}
                     <div className="relative group">
-                        <ConfigInput label="Risco" value={inputs.race_options.ct_valor} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
+                        <ConfigInput label="Risco" value={inputs.race_options.ct_valor} max={100} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
                         
                         <AnimatePresence>
                             {outputs?.race_calculated_data?.ganho_ctr_volta > 0 && (
@@ -551,11 +588,33 @@ return (
                         </AnimatePresence>
                     </div>
 
-                    {/* Pits */}
-                    <ConfigInput label="Pits" value={inputs.race_options.pitstops_num} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
+                    {/* Pits (Máx 8) */}
+                    <ConfigInput label="Pits" value={inputs.race_options.pitstops_num} max={8} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
                 </div>
                 <div><label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Fornecedor de Pneus</label><SupplierCarousel options={tyreSuppliers} value={inputs.race_options.pneus_fornecedor} onChange={(val: string) => handleInput('race_options', 'pneus_fornecedor', val)} /></div>
-                <div><label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Seleção de Composto</label><div className="flex justify-between items-center gap-2 bg-black/20 p-3 rounded-xl border border-white/5 overflow-x-auto">{["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(p => { const isSelected = inputs.race_options.tipo_pneu === p; const img = p === 'Extra Soft' ? 'super macio' : p === 'Soft' ? 'macio' : p === 'Medium' ? 'medio' : p === 'Hard' ? 'duro' : 'chuva'; return ( <button key={p} onClick={() => handleInput('race_options', 'tipo_pneu', p)} className={`relative group shrink-0 transition-all duration-500 ${isSelected ? 'scale-110' : 'opacity-30 grayscale hover:opacity-100 hover:grayscale-0'}`}>{isSelected && <motion.div layoutId="pneu-select" className="absolute -inset-2 bg-indigo-500/20 rounded-full blur-md" />}<img src={`/compound/${img}.png`} alt={p} className={`w-10 h-10 object-contain rounded-full relative z-10 border-2 ${isSelected ? 'border-indigo-500' : 'border-transparent'}`} /></button> ) })}</div></div>
+                
+                {/* COMPOUND SELECTION MODIFIED */}
+                <div>
+                    <label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Seleção de Composto</label>
+                    <div className="grid grid-cols-5 gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                        {["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(p => { 
+                            const isSelected = inputs.race_options.tipo_pneu === p; 
+                            const img = p === 'Extra Soft' ? 'super macio' : p === 'Soft' ? 'macio' : p === 'Medium' ? 'medio' : p === 'Hard' ? 'duro' : 'chuva'; 
+                            return ( 
+                                <button key={p} onClick={() => handleInput('race_options', 'tipo_pneu', p)} className={`relative group flex flex-col items-center justify-center gap-2 transition-all duration-500 ${isSelected ? 'scale-105 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0'}`}>
+                                    <div className="relative">
+                                        {isSelected && <motion.div layoutId="pneu-select" className="absolute -inset-2 bg-indigo-500/20 rounded-full blur-md" />}
+                                        <img src={`/compound/${img}.png`} alt={p} className={`w-9 h-9 md:w-10 md:h-10 object-contain rounded-full relative z-10 border-2 ${isSelected ? 'border-indigo-500' : 'border-transparent'}`} />
+                                    </div>
+                                    <span className={`text-[8px] font-black uppercase tracking-wide leading-none ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`}>
+                                        {TYRE_NAMES[p] || p}
+                                    </span>
+                                </button> 
+                            ) 
+                        })}
+                    </div>
+                </div>
+
                 <div className="bg-black/40 p-4 rounded-xl border border-white/5"><div className="flex justify-between mb-3"><label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Margem: (Desgaste)</label><span className="text-xs font-black text-indigo-400">{inputs.race_options.desgaste_pneu_percent}%</span></div><input type="range" min="0" max="100" value={inputs.race_options.desgaste_pneu_percent} onChange={e => handleInput('race_options', 'desgaste_pneu_percent', Number(e.target.value))} className="w-full h-2 md:h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-indigo-500" /></div>
             </div>
           </section>
@@ -567,40 +626,40 @@ return (
             {/* --- NOVA SESSÃO: SETUP IDEAL (ÁREA VERDE DA IMAGEM) --- */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 {!idealSetup ? (
-                    // CÁLCULO AUSENTE (ALERTA)
-                    <div className="p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-amber-500/5">
+                    // CÁLCULO AUSENTE (ALERTA) - Também levemente reduzido
+                    <div className="p-3 md:p-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-amber-500/5">
                         <div className="flex items-center gap-4 text-center md:text-left">
-                            <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20 mx-auto md:mx-0">
-                                <ShieldAlert size={18} className="text-amber-500" />
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20 mx-auto md:mx-0">
+                                <ShieldAlert size={16} className="text-amber-500" />
                             </div>
                             <div>
                                 <h4 className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-1">Atenção: Setup Ideal Ausente</h4>
-                                <p className="text-slate-400 text-[10px] max-w-md leading-relaxed">
+                                <p className="text-slate-400 text-[9px] md:text-[10px] max-w-md leading-relaxed">
                                     O setup mecânico ideal para esta pista ainda não foi calculado. Vá até a Setup Calculadora para definir os ajustes.
                                 </p>
                             </div>
                         </div>
                         <button 
                             onClick={() => router.push('/dashboard/setup')} 
-                            className="shrink-0 w-full md:w-auto px-5 py-3 md:py-2.5 bg-amber-500/10 hover:bg-amber-500 hover:text-white border border-amber-500/20 rounded-xl text-amber-500 font-black text-[9px] uppercase transition-all shadow-lg hover:shadow-amber-500/25"
+                            className="shrink-0 w-full md:w-auto px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500 hover:text-white border border-amber-500/20 rounded-xl text-amber-500 font-black text-[9px] uppercase transition-all shadow-lg hover:shadow-amber-500/25"
                         >
                             Ir para Setup Calculadora
                         </button>
                     </div>
                 ) : (
-                    // CÁLCULO PRESENTE (COCKPIT SEMÁFORO)
+                    // CÁLCULO PRESENTE (COCKPIT SEMÁFORO) - ALTURA REDUZIDA
                     <div className="p-4 md:p-5">
-                        <div className="flex items-center justify-between mb-4 px-1">
+                        <div className="flex items-center justify-between mb-3 px-1">
                             <div className="flex items-center gap-2">
                                 <Settings size={14} className="text-emerald-400" />
-                                <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Setup Ideal Recomendado</span>
+                                <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Setup Recomendado</span>
                             </div>
-                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md">
+                            <span className="text-[7px] md:text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md">
                                 Sincronizado
                             </span>
                         </div>
                         
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 md:gap-3">
                             {[
                                 { id: 'asaDianteira', label: 'Asa Diant.' },
                                 { id: 'asaTraseira', label: 'Asa Tras.' },
@@ -609,14 +668,14 @@ return (
                                 { id: 'cambio', label: 'Câmbio' },
                                 { id: 'suspensao', label: 'Suspensão' }
                             ].map(part => (
-                                <div key={part.id} className="bg-black/40 p-3 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col items-center text-center group">
-                                    <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-wider mb-2 group-hover:text-slate-300 transition-colors">{part.label}</span>
+                                <div key={part.id} className="bg-black/40 p-2 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col items-center text-center group">
+                                    <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1 group-hover:text-slate-300 transition-colors">{part.label}</span>
                                     
                                     {/* CORRIDA: VERDE e MENOR */}
-                                    <span className="text-sm md:text-base font-black text-emerald-400 leading-none mb-2">{idealSetup[part.id]?.race || '-'}</span>
+                                    <span className="text-xs md:text-sm font-black text-emerald-400 leading-none mb-2">{idealSetup[part.id]?.race || '-'}</span>
                                     
                                     {/* Q1 e Q2: VERMELHO E AMARELO, MAIORES */}
-                                    <div className="flex items-center gap-3 text-[8px] md:text-[9px] font-black w-full justify-center pt-2 border-t border-white/5">
+                                    <div className="flex items-center gap-2 md:gap-4 text-[11px] md:text-[9px] font-black w-full justify-center pt-1.5 border-t border-white/5">
                                         <span className="text-rose-500" title="Qualificação 1">Q1: {idealSetup[part.id]?.q1 || '-'}</span>
                                         <span className="text-amber-400" title="Qualificação 2">Q2: {idealSetup[part.id]?.q2 || '-'}</span>
                                     </div>
@@ -651,7 +710,7 @@ return (
                                     <tr key={c} className={`transition-colors hover:bg-white/[0.02] ${isBest ? 'bg-emerald-500/[0.03]' : ''}`}>
                                         <td className="p-4 font-black text-white flex items-center gap-3"><div className={`w-2 h-2 rounded-full shadow-[0_0_8px] shrink-0 ${c==='Extra Soft'?'bg-rose-500 shadow-rose-500':c==='Soft'?'bg-amber-400 shadow-amber-400':c==='Medium'?'bg-white shadow-white':c==='Hard'?'bg-sky-400 shadow-sky-400':'bg-blue-500 shadow-blue-500'}`}></div>{c.replace("Extra Soft", "Ex. Soft")}</td>
                                         <td className="p-4 text-center font-black text-slate-400">{fmt(d?.req_stops, 0)}</td>
-                                        <td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, 'L')}</td>
+                                        <td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, ' s')}</td>
                                         <td className="p-4 text-center text-slate-500 font-bold">{fmt(d?.tyre_wear, 1, '%')}</td>
                                         <td className="p-4 text-center font-black">{isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20 text-[9px]">Ideal</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}</td>
                                     </tr> 
