@@ -8,7 +8,7 @@ import {
   Loader2, MapPin, ChevronDown, Search, X, ShieldCheck,
   Settings, Sun, CloudRain, ChevronLeft, ChevronRight, Zap, Timer, 
   User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert, Database, ArrowRight, Target,
-  Gauge, CornerDownLeft, MoveRight, ChevronsUp, GitMerge, SlidersHorizontal, MousePointerClick
+  Gauge, CornerDownLeft, MoveRight, ChevronsUp, GitMerge, SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -35,7 +35,6 @@ const COMPOUND_DISPLAY_NAMES: Record<string, string> = {
 
 const TEST_PRIORITIES = ["Nenhuma prioridade em especial", "Velocidade máxima", "Fazer curvas", "Cotovelos", "Frear", "Ultrapassagem", "Chicanes", "Testar os limites do carro", "Afinação do ajuste"];
 
-// Mapeamento de Ícones para Prioridades
 const PRIORITY_ICONS: Record<string, any> = {
     "Nenhuma prioridade em especial": Target,
     "Velocidade máxima": Zap,
@@ -70,12 +69,10 @@ const PRIORITY_MULTIPLIERS: Record<string, { P: number, D: number, A: number }> 
 
 // --- COMPONENTES AUXILIARES ---
 
-// NOVO SELETOR CUSTOMIZADO PARA PRIORIDADES
 function PrioritySelector({ value, onChange }: { value: string, onChange: (val: string) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Fecha ao clicar fora
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -89,7 +86,8 @@ function PrioritySelector({ value, onChange }: { value: string, onChange: (val: 
     const CurrentIcon = PRIORITY_ICONS[value] || Target;
 
     return (
-        <div className="relative w-full" ref={dropdownRef}>
+        // ADICIONADO z-50 PARA GARANTIR QUE O MENU FIQUE SOBRE OS OUTROS ELEMENTOS
+        <div className="relative w-full z-50" ref={dropdownRef}>
             <button 
                 onClick={() => setIsOpen(!isOpen)} 
                 className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-xl py-3.5 px-4 text-[10px] md:text-xs font-black text-white outline-none uppercase active:bg-white/5 transition-all hover:border-white/20 group"
@@ -104,10 +102,11 @@ function PrioritySelector({ value, onChange }: { value: string, onChange: (val: 
             <AnimatePresence>
                 {isOpen && (
                     <motion.div 
-                        initial={{ opacity: 0, y: -5 }} 
-                        animate={{ opacity: 1, y: 0 }} 
-                        exit={{ opacity: 0, y: -5 }} 
-                        className="absolute top-full left-0 mt-2 w-full bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl z-[60] overflow-hidden max-h-[300px] overflow-y-auto custom-scrollbar"
+                        initial={{ opacity: 0, y: 5, scale: 0.98 }} 
+                        animate={{ opacity: 1, y: 0, scale: 1 }} 
+                        exit={{ opacity: 0, y: 5, scale: 0.98 }} 
+                        // AJUSTADO max-h PARA 220px E ADICIONADO overscroll-contain
+                        className="absolute top-full left-0 mt-2 w-full bg-[#15151a] border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] z-[100] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar ring-1 ring-white/5 overscroll-contain"
                     >
                         {TEST_PRIORITIES.map(opt => {
                             const Icon = PRIORITY_ICONS[opt] || Target;
@@ -115,7 +114,7 @@ function PrioritySelector({ value, onChange }: { value: string, onChange: (val: 
                                 <button 
                                     key={opt} 
                                     onClick={() => { onChange(opt); setIsOpen(false); }} 
-                                    className={`w-full text-left px-4 py-3 text-[10px] md:text-xs font-black uppercase flex items-center gap-3 transition-colors ${value === opt ? 'bg-indigo-500/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                    className={`w-full text-left px-4 py-3 text-[10px] md:text-xs font-black uppercase flex items-center gap-3 transition-colors ${value === opt ? 'bg-indigo-600/20 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
                                 >
                                     <Icon size={14} className={value === opt ? 'text-indigo-400' : 'text-slate-600'} />
                                     {opt}
@@ -261,7 +260,6 @@ function SkyViewRainOverlay() {
 export default function TestsPage() {
   const router = useRouter(); 
   
-  // PUXANDO DADOS E STATUS DO CONTEXTO GLOBAL
   const { 
       driver: globalDriver, 
       car: globalCar, 
@@ -294,10 +292,8 @@ export default function TestsPage() {
   const [lockedStints, setLockedStints] = useState<Record<number, boolean>>({});
   const [frozenResults, setFrozenResults] = useState<any[]>(Array(8).fill(null));
 
-  // HISTÓRICO ATUALIZADO: Guarda o desgaste gerado E os Pontos PDA de cada Stint Ticado
   const [stintHistory, setStintHistory] = useState<Record<number, { wear: Record<string, number>, points: { P: number, D: number, A: number } }>>({});
 
-  // --- VERIFICAÇÃO RIGOROSA DE DADOS ---
   const isContextValid = useMemo(() => {
     const driverOk = globalDriver && typeof globalDriver.talento === 'number' && globalDriver.talento > 0;
     const carOk = Array.isArray(globalCar) && globalCar.length >= 11 && globalCar[0].lvl > 0;
@@ -310,7 +306,6 @@ export default function TestsPage() {
 
   const totalLaps = useMemo(() => Object.values(testStints).reduce((acc: number, val) => acc + (Number(val) || 0), 0), [testStints]);
 
-  // CASCATA PASSO 1: Somamos as voltas apenas dos stints DESTRAVADOS para projetar o novo desgaste.
   const activePlannedLaps = useMemo(() => {
       return Object.entries(testStints).reduce((acc: number, [key, val]) => {
           const index = parseInt(key.replace('s', '')) - 1;
@@ -319,7 +314,6 @@ export default function TestsPage() {
       }, 0);
   }, [testStints, lockedStints]);
 
-  // CÁLCULO DE PONTOS DE TESTE ACUMULADOS (SOMENTE STINTS TICADOS)
   const lockedPointsTotal = useMemo(() => {
       let P = 0, D = 0, A = 0;
       Object.values(stintHistory).forEach(history => {
@@ -330,17 +324,14 @@ export default function TestsPage() {
       return { P, D, A };
   }, [stintHistory]);
 
-  // CASCATA (TRAVAR E DESTRAVAR)
   const toggleLock = (index: number) => {
     const isLocked = lockedStints[index];
     
     if (!isLocked) {
-        // AÇÃO: TRAVAR (Absorver desgaste do stint e contabilizar Pontos)
         const newFrozen = [...frozenResults];
         newFrozen[index] = { ...sheetData[index] };
         setFrozenResults(newFrozen);
 
-        // Calcula Pontos desse stint específico
         const laps = Number(testStints[`s${index + 1}`]) || 0;
         const pdaMult = PRIORITY_MULTIPLIERS[priority] || PRIORITY_MULTIPLIERS["Nenhuma prioridade em especial"];
         const generatedPoints = {
@@ -351,7 +342,6 @@ export default function TestsPage() {
 
         if (partWearDetails) {
             const addedWearForThisStint: Record<string, number> = {};
-            
             const updatedCar = localCar.map((carPart, i) => {
                 const comp = COMPONENTS[i];
                 if (comp) {
@@ -359,44 +349,32 @@ export default function TestsPage() {
                     if (details && details.test_wear !== undefined) {
                         const wearToAdd = details.test_wear;
                         addedWearForThisStint[comp.id] = wearToAdd; 
-                        
                         const novoDesgasteAtual = carPart.wear + wearToAdd;
                         return { ...carPart, wear: parseFloat(novoDesgasteAtual.toFixed(1)) };
                     }
                 }
                 return carPart;
             });
-            
-            setStintHistory(prev => ({ 
-                ...prev, 
-                [index]: { wear: addedWearForThisStint, points: generatedPoints } 
-            }));
-            
+            setStintHistory(prev => ({ ...prev, [index]: { wear: addedWearForThisStint, points: generatedPoints } }));
             setLocalCar(updatedCar); 
         }
     } else {
-        // AÇÃO: DESTRAVAR (Desfazer desgaste e remover Pontos)
         const history = stintHistory[index];
         if (history) {
             const updatedCar = localCar.map((carPart, i) => {
                 const comp = COMPONENTS[i];
                 if (comp && history.wear[comp.id] !== undefined) {
-                    // Subtrai exatamente o desgaste que esse stint havia adicionado
                     const restoredWear = Math.max(0, carPart.wear - history.wear[comp.id]);
                     return { ...carPart, wear: parseFloat(restoredWear.toFixed(1)) };
                 }
                 return carPart;
             });
-            
             setLocalCar(updatedCar);
-            
-            // Remove o histórico desse stint (Desgaste e Pontos somem do banco)
             const newHistory = { ...stintHistory };
             delete newHistory[index];
             setStintHistory(newHistory);
         }
     }
-    
     setLockedStints(prev => ({ ...prev, [index]: !isLocked }));
   };
 
@@ -431,7 +409,6 @@ export default function TestsPage() {
       return Object.values(partWearDetails).some((part: any) => part.pre_race && part.pre_race > 90.4);
   }, [partWearDetails]);
 
-  // --- BOTÕES DE RESET ---
   const handleResetTests = () => {
       if (!isContextValid) return;
       setLocalDriver({...globalDriver}); 
@@ -451,7 +428,6 @@ export default function TestsPage() {
       setStintHistory({});
   };
 
-  // --- SINCRONIZAÇÃO INTELIGENTE: GLOBAL -> LOCAL ---
   useEffect(() => {
     if (globalDriver && globalDriver.talento > 0) {
         if (!localDriver.talento || localDriver.talento === 0) setLocalDriver({...globalDriver});
@@ -480,7 +456,6 @@ export default function TestsPage() {
     fetch('/api/python?action=tracks').then(res => res.json()).then(data => setTracks(data.tracks || []));
   }, [router]);
 
-  // O Motor roda com o novo Carro e gera o Novo Setup.
   const runCalculations = useCallback(async () => {
     if (!userId || !testTrack || !isContextValid || !isDataSynced) return;
 
@@ -531,7 +506,6 @@ export default function TestsPage() {
     return 'text-emerald-400';
   };
 
-  // 1. CARREGANDO
   if (isAuthLoading || isGlobalLoading) {
     return (
         <div className="flex h-screen items-center justify-center bg-[#050507]">
@@ -543,7 +517,6 @@ export default function TestsPage() {
     );
   }
 
-  // 2. BLOQUEIO
   if (!isDataSynced) {
     return (
         <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-slate-300 p-6 relative overflow-hidden">
@@ -620,8 +593,12 @@ export default function TestsPage() {
               
               {/* COLUNA 1: CONFIGURAÇÕES DE TESTE */}
               <div className="space-y-6 flex flex-col w-full min-w-0">
-                  <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl flex-1 flex flex-col justify-between relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl"></div>
+                  <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl flex-1 flex flex-col justify-between relative">
+                      
+                      {/* EFEITOS DE FUNDO (AGORA EM DIV SEPARADA COM OVERFLOW HIDDEN) */}
+                      <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl"></div>
+                      </div>
                       
                       <div className="relative z-10 w-full">
                         <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Settings size={16} className="text-indigo-500" /> Configuração</h2>
@@ -639,8 +616,10 @@ export default function TestsPage() {
 
                         <div className="mb-6 w-full">
                             <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade do Teste</label>
-                            {/* NOVO SELETOR DE PRIORIDADE CUSTOMIZADO */}
-                            <PrioritySelector value={priority} onChange={setPriority} />
+                            <div className="relative w-full">
+                                {/* SELETOR CUSTOMIZADO - AGORA SEM OVERFLOW QUE CORTA */}
+                                <PrioritySelector value={priority} onChange={setPriority} />
+                            </div>
                         </div>
 
                         <div className="mb-6 w-full">
