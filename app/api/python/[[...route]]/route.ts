@@ -195,16 +195,48 @@ export async function GET(request: Request, context: any) {
         const userId = request.headers.get('user-id');
 
         if (action.includes('tracks')) {
-             return await calculationMutex.runExclusive(async () => {
-                 const tracks = [];
-                 const sid = sheetIdMap['Tracks'];
-                 if (!sid) return NextResponse.json({ sucesso: true, tracks: [] });
-                 for (let r = 4; r <= 1000; r++) {
-                     const val = hf.getCellValue({ sheet: sid, col: 0, row: r - 1 });
-                     if (val) tracks.push(val);
-                 }
-                 return NextResponse.json({ sucesso: true, tracks });
-             });
+            return await calculationMutex.runExclusive(async () => {
+                const tracks = [];
+                const sid = sheetIdMap['Tracks'];
+                if (!sid) return NextResponse.json({ sucesso: true, tracks: [] });
+
+                // Loop começando da linha 4 (row 3 no índice HyperFormula)
+                for (let r = 4; r <= 1000; r++) {
+                    const name = hf.getCellValue({ sheet: sid, col: 0, row: r - 1 }); // Coluna A (Name)
+                    if (!name) break; // Para quando acabar a lista
+
+                    // Os 4 pilares da Energia
+                    const length = hf.getCellValue({ sheet: sid, col: 6, row: r - 1 });       // Col G
+                    const laps = hf.getCellValue({ sheet: sid, col: 7, row: r - 1 });         // Col H
+                    const distance = hf.getCellValue({ sheet: sid, col: 8, row: r - 1 });     // Col I
+                    const trackFactor = hf.getCellValue({ sheet: sid, col: 13, row: r - 1 }); // Col N
+
+                    // Bônus: Dados valiosos para Setup, Pneus e Ultrapassagem (já carregados pro Front)
+                    const downforce = hf.getCellValue({ sheet: sid, col: 1, row: r - 1 });    // Col B
+                    const overtaking = hf.getCellValue({ sheet: sid, col: 2, row: r - 1 });   // Col C
+                    const tyreWear = hf.getCellValue({ sheet: sid, col: 5, row: r - 1 });     // Col F
+                    const grip = hf.getCellValue({ sheet: sid, col: 16, row: r - 1 });        // Col Q
+                    
+                    // --- NOVAS VARIÁVEIS PARA O MOTOR DE ENERGIA REVERSO ---
+                    const avgSpeed = hf.getCellValue({ sheet: sid, col: 12, row: r - 1 });    // Col M
+                    const corners = hf.getCellValue({ sheet: sid, col: 14, row: r - 1 });     // Col O
+
+                    tracks.push({ 
+                        name: String(name), 
+                        length: Number(length) || 0, 
+                        laps: Number(laps) || 0,
+                        distance: Number(distance) || 0,
+                        trackFactor: Number(trackFactor) || 0,
+                        downforce: String(downforce || ''),
+                        overtaking: String(overtaking || ''),
+                        tyreWear: String(tyreWear || ''),
+                        grip: String(grip || ''),
+                        avgSpeed: Number(avgSpeed) || 0,
+                        corners: Number(corners) || 0
+                    });
+                }
+                return NextResponse.json({ sucesso: true, tracks });
+            });
         }
 
         if (action.includes('tyre_suppliers')) {
@@ -236,6 +268,7 @@ export async function GET(request: Request, context: any) {
 
         if (!userId) return NextResponse.json({ sucesso: false, error: "Login necessário" }, { status: 401 });
 
+        // No arquivo route.ts, procure por esta parte e adicione a linha indicada:
         if (action.includes('get_state')) {
             const userState = await getUserState(userId);
             return NextResponse.json({
@@ -248,7 +281,8 @@ export async function GET(request: Request, context: any) {
                     race_options: userState.race_options,
                     weather: userState.weather,
                     tech_director: userState.tech_director,
-                    staff_facilities: userState.staff_facilities
+                    staff_facilities: userState.staff_facilities,
+                    energy_coeffs: userState.energy_coeffs // <-- CORREÇÃO: ADICIONAR ESTA LINHA
                 }
             });
         }

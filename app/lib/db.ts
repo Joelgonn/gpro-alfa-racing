@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData } from '@/app/context/GameContext';
+import { EnergyCoefficients, DEFAULT_COEFFS } from '@/app/services/engine/regressionEngine';
 
 // --- CONFIGURAÇÃO SUPABASE ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -15,19 +16,31 @@ export interface UserState {
   car: CarPart[];
   tech_director: TechDirector;
   staff_facilities: StaffFacilities;
-  test_points: {
-    power: number;
-    handling: number;
-    accel: number;
-  };
+  test_points: { power: number; handling: number; accel: number; };
   race_options: any;
   weather: WeatherData;
   desgasteModifier: number;
-  // NOVO CAMPO: Banco de dados de patrocinadores salvos
   sponsors_database: any[]; 
+  energy_coeffs: EnergyCoefficients; // Coeficientes de calibração
+  // NOVOS CAMPOS PARA SNAPSHOT DA ÚLTIMA IMPORTAÇÃO GPRO
+  // CORRIGIDO: test_points adicionado como opcional para compatibilidade com snapshots antigos
+  last_import_snapshot?: {
+    driver: Driver;
+    car: CarPart[];
+    tech_director: TechDirector;
+    staff_facilities: StaffFacilities;
+    weather: WeatherData;
+    track: string;
+    test_points?: {
+      power: number;
+      handling: number;
+      accel: number;
+    };
+  } | null;
+  last_import_at?: string | null;
 }
 
-// --- VALORES PADRÃO (FALLBACKS) ---
+// --- VALORES PADRÃO ---
 const DEFAULT_DRIVER: Driver = {
     concentracao: 150, talento: 200, agressividade: 0, experiencia: 50, tecnica: 50,
     resistencia: 50, carisma: 50, motivacao: 10, reputacao: 0, peso: 65, idade: 20, energia: 100, total: 0
@@ -42,20 +55,6 @@ const DEFAULT_CAR: CarPart[] = [
     { name: "Eletrônicos", lvl: 1, wear: 0 },
 ];
 
-const DEFAULT_TECH_DIRECTOR: TechDirector = {
-    rdMecanico: 0, rdEletronico: 0, rdAerodinamico: 0, experiencia: 0, pitCoord: 0
-};
-
-const DEFAULT_STAFF: StaffFacilities = {
-    toleranciaPressao: 0, concentracao: 0
-};
-
-const DEFAULT_WEATHER: WeatherData = {
-    tempQ1: 20, weatherQ1: 'Dry', tempQ2: 20, weatherQ2: 'Dry', weatherRace: 'Dry',
-    r1_temp_min: 20, r1_temp_max: 20, r2_temp_min: 20, r2_temp_max: 20,
-    r3_temp_min: 20, r3_temp_max: 20, r4_temp_min: 20, r4_temp_max: 20,
-};
-
 /**
  * Busca o estado completo do usuário no Supabase.
  */
@@ -66,21 +65,29 @@ export async function getUserState(userId: string): Promise<UserState> {
         .from('user_state')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
+    // Retorna valores padrão caso não exista registro ou ocorra erro
     if (error || !data) {
         return {
             role: 'user',
             track: 'Selecionar Pista',
             driver: DEFAULT_DRIVER,
             car: DEFAULT_CAR,
-            tech_director: DEFAULT_TECH_DIRECTOR,
-            staff_facilities: DEFAULT_STAFF,
+            tech_director: { rdMecanico: 0, rdEletronico: 0, rdAerodinamico: 0, experiencia: 0, pitCoord: 0 },
+            staff_facilities: { toleranciaPressao: 0, concentracao: 0 },
             test_points: { power: 0, handling: 0, accel: 0 },
             race_options: {},
-            weather: DEFAULT_WEATHER,
+            weather: {
+                tempQ1: 20, weatherQ1: 'Dry', tempQ2: 20, weatherQ2: 'Dry', weatherRace: 'Dry',
+                r1_temp_min: 20, r1_temp_max: 20, r2_temp_min: 20, r2_temp_max: 20,
+                r3_temp_min: 20, r3_temp_max: 20, r4_temp_min: 20, r4_temp_max: 20,
+            },
             desgasteModifier: 0,
-            sponsors_database: [] // Inicializa vazio
+            sponsors_database: [],
+            energy_coeffs: DEFAULT_COEFFS,
+            last_import_snapshot: null,
+            last_import_at: null,
         };
     }
 
@@ -89,14 +96,20 @@ export async function getUserState(userId: string): Promise<UserState> {
         track: data.track || 'Interlagos',
         driver: data.driver_json || DEFAULT_DRIVER,
         car: data.car_json || DEFAULT_CAR,
-        tech_director: data.tech_director_json || DEFAULT_TECH_DIRECTOR,
-        staff_facilities: data.staff_facilities_json || DEFAULT_STAFF,
+        tech_director: data.tech_director_json || { rdMecanico: 0, rdEletronico: 0, rdAerodinamico: 0, experiencia: 0, pitCoord: 0 },
+        staff_facilities: data.staff_facilities_json || { toleranciaPressao: 0, concentracao: 0 },
         test_points: data.test_points_json || { power: 0, handling: 0, accel: 0 },
         race_options: data.race_options_json || {},
-        weather: data.weather_data || DEFAULT_WEATHER,
+        weather: data.weather_data || {
+                tempQ1: 20, weatherQ1: 'Dry', tempQ2: 20, weatherQ2: 'Dry', weatherRace: 'Dry',
+                r1_temp_min: 20, r1_temp_max: 20, r2_temp_min: 20, r2_temp_max: 20,
+                r3_temp_min: 20, r3_temp_max: 20, r4_temp_min: 20, r4_temp_max: 20,
+            },
         desgasteModifier: data.desgaste_modifier || 0,
-        // Mapeia a coluna do banco para a propriedade do código
         sponsors_database: data.sponsors_database_json || [],
+        energy_coeffs: data.energy_coeffs_json || DEFAULT_COEFFS,
+        last_import_snapshot: data.last_import_snapshot || null,
+        last_import_at: data.last_import_at || null,
     };
 }
 
@@ -111,7 +124,7 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
         updated_at: new Date().toISOString()
     };
 
-    // Mapeamento manual para colunas do Banco de Dados
+    // Mapeamento dinâmico para garantir que apenas campos fornecidos sejam atualizados
     if (data.track !== undefined) payload.track = data.track;
     if (data.driver) payload.driver_json = data.driver;
     if (data.car) payload.car_json = data.car;
@@ -121,11 +134,12 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
     if (data.race_options) payload.race_options_json = data.race_options;
     if (data.weather) payload.weather_data = data.weather;
     if (data.desgasteModifier !== undefined) payload.desgaste_modifier = data.desgasteModifier;
+    if (data.sponsors_database) payload.sponsors_database_json = data.sponsors_database;
+    if (data.energy_coeffs) payload.energy_coeffs_json = data.energy_coeffs;
     
-    // Sincroniza o banco de patrocinadores com a coluna correta no Supabase
-    if (data.sponsors_database) {
-        payload.sponsors_database_json = data.sponsors_database;
-    }
+    // NOVOS CAMPOS: persistência do snapshot da última importação GPRO
+    if (data.last_import_snapshot !== undefined) payload.last_import_snapshot = data.last_import_snapshot;
+    if (data.last_import_at !== undefined) payload.last_import_at = data.last_import_at;
 
     const { error } = await supabase
         .from('user_state')

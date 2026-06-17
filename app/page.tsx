@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link'; // <-- 1. IMPORTAMOS O COMPONENTE LINK AQUI
 import { useState, useRef } from 'react';
 import { 
   FaDiscord, 
@@ -14,7 +15,7 @@ import {
 
 export default function LandingPage() {
   const [copied, setCopied] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Estado para o menu mobile
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
 
   const handleCopyEmail = () => {
@@ -30,7 +31,6 @@ export default function LandingPage() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  // Função para fechar o menu ao clicar em um link
   const closeMenu = () => {
     setIsMobileMenuOpen(false);
   };
@@ -42,18 +42,18 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 w-full z-50 bg-gray-950/90 backdrop-blur-md shadow-lg border-b border-gray-800/50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           
-          {/* Logo / Brand (Opcional - adicionei um texto placeholder se não tiver logo) */}
           <div className="text-xl font-bold text-yellow-500 tracking-wider">
             ALFA RACING
           </div>
 
           {/* Menu Desktop */}
           <div className="hidden md:flex space-x-8 items-center">
-            <a href="/login" className="text-white hover:text-yellow-400 font-medium transition-colors duration-300">Login @</a>
-            <a href="#sobre" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Sobre</a>
-            <a href="#conquistas" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Conquistas</a>
-            <a href="#junte-se" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Junte-se</a>
-            <a href="#contato" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Contato</a>
+            {/* 2. TROCAMOS AS TAGS <a> POR <Link> */}
+            <Link href="/login" className="text-white hover:text-yellow-400 font-medium transition-colors duration-300">Login @</Link>
+            <Link href="#sobre" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Sobre</Link>
+            <Link href="#conquistas" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Conquistas</Link>
+            <Link href="#junte-se" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Junte-se</Link>
+            <Link href="#contato" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Contato</Link>
           </div>
 
           {/* Botão Menu Mobile */}
@@ -69,18 +69,18 @@ export default function LandingPage() {
         {/* Menu Mobile Dropdown */}
         <div className={`md:hidden absolute w-full bg-gray-950/95 backdrop-blur-xl border-b border-gray-800 shadow-2xl transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none'}`}>
           <div className="flex flex-col items-center py-6 space-y-6 text-lg">
-            <a href="/login" onClick={closeMenu} className="text-yellow-400 font-semibold tracking-wide">Login @</a>
-            <a href="#sobre" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Sobre</a>
-            <a href="#conquistas" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Conquistas</a>
-            <a href="#junte-se" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Junte-se</a>
-            <a href="#contato" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Contato</a>
+            {/* 3. TROCAMOS AQUI TAMBÉM */}
+            <Link href="/login" onClick={closeMenu} className="text-yellow-400 font-semibold tracking-wide">Login @</Link>
+            <Link href="#sobre" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Sobre</Link>
+            <Link href="#conquistas" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Conquistas</Link>
+            <Link href="#junte-se" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Junte-se</Link>
+            <Link href="#contato" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Contato</Link>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
       <section id="home" className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed" style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}>
-        {/* Overlay Escuro */}
         <div className="absolute inset-0 bg-black/60 md:bg-black/70 flex flex-col items-center justify-center p-6 pt-20">          
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white leading-tight animate-fade-in-up drop-shadow-lg">
             ALFA RACING <br className="md:hidden"/> <span className="text-yellow-500">BRASIL</span>
@@ -89,17 +89,18 @@ export default function LandingPage() {
             A paixão pela velocidade e a estratégia do GPRO se encontram aqui.
             Domine as pistas conosco!
           </p>
-          <a
+          <Link
             href="#junte-se"
             className="mt-10 px-8 py-4 bg-yellow-500 text-gray-900 text-lg font-bold rounded-full shadow-yellow-500/20 shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 active:scale-95 animate-bounce-in delay-500"
           >
             Seja um Lobo Alfa!
-          </a>
+          </Link>
         </div>
       </section>
 
       {/* Sobre Nós */}
       <section id="sobre" className="py-16 px-6 md:px-12 bg-gradient-to-b from-gray-900 to-blue-900">
+        {/* ... (O RESTO DO CONTEÚDO CONTINUA IGUAL) ... */}
         <div className="max-w-6xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-left">Sobre a Alfa Racing Brasil</h2>
           <p className="text-base md:text-lg text-gray-300 mb-12 animate-fade-in-left delay-100 max-w-3xl mx-auto leading-relaxed">
@@ -121,7 +122,6 @@ export default function LandingPage() {
             </div>
             
             <div className="p-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-xl hover:shadow-2xl hover:border-yellow-500/30 transition-all duration-300 animate-fade-in-up delay-200">
-               {/* Fallback caso a imagem não exista, use um container ou ícone */}
                <div className="mx-auto mb-6 relative w-24 h-24 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center">
                   <Image
                     src="/images/bandeira-brasil.png"
@@ -129,7 +129,6 @@ export default function LandingPage() {
                     width={80}
                     height={80}
                     className="object-cover w-full h-full"
-                    // Adicione um placeholder se quiser evitar layout shift
                   />
                </div>
               <h3 className="text-xl font-semibold mb-3 text-white">Orgulho Brasileiro</h3>
@@ -145,7 +144,6 @@ export default function LandingPage() {
           <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-10 animate-fade-in-right">Nossas Conquistas</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Card 1 */}
             <div className="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-lg flex flex-col items-center text-center animate-fade-in-right">
               <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
                 <FaTrophy className="text-4xl text-yellow-500" />
@@ -161,7 +159,6 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* Card 2 */}
             <div className="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-lg flex flex-col items-center text-center animate-fade-in-right delay-100">
               <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
                 <FaChartLine className="text-4xl text-yellow-500" />
@@ -182,7 +179,6 @@ export default function LandingPage() {
 
       {/* Junte-se à Equipe */}
       <section id="junte-se" className="py-20 px-6 md:px-12 bg-gradient-to-r from-blue-900 to-gray-900 text-center relative overflow-hidden">
-        {/* Decorative background element */}
         <div className="absolute top-0 left-0 w-full h-full bg-pattern opacity-10 pointer-events-none"></div>
 
         <div className="max-w-4xl mx-auto relative z-10">
@@ -211,6 +207,7 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* O DISCORD CONTINUA COM A TAG <a> POIS É UM LINK EXTERNO AO SEU SITE */}
           <a
             href="https://discord.gg/SEULINKDISCORD" 
             target="_blank"
@@ -273,7 +270,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-center items-center gap-3 md:gap-6 mt-6">
             <a href="https://gpro.net/gb/gpro.asp" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">GPRO Official</a>
             <span className="hidden md:inline text-gray-700">|</span>
-            <a href="#" className="hover:text-yellow-500 transition-colors">Política de Privacidade</a>
+            <Link href="/privacidade" className="hover:text-yellow-500 transition-colors">Política de Privacidade</Link>
           </div>
         </div>
       </footer>

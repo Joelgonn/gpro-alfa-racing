@@ -8,7 +8,7 @@ import {
   Loader2, MapPin, ChevronDown, Search, X, ShieldCheck,
   Settings, Sun, CloudRain, ChevronLeft, ChevronRight, Zap, Timer, 
   User, CarFront, Wrench, HardHat, Fuel, Activity, Check, Lock, RotateCcw, ShieldAlert, Database, ArrowRight, Target,
-  Gauge, CornerDownLeft, MoveRight, ChevronsUp, GitMerge, SlidersHorizontal
+  Gauge, CornerDownLeft, MoveRight, ChevronsUp, GitMerge, SlidersHorizontal, Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -67,6 +67,46 @@ const PRIORITY_MULTIPLIERS: Record<string, { P: number, D: number, A: number }> 
     "Afinação do ajuste": { P: 0.02, D: 0.02, A: 0.02 }
 };
 
+// --- HELPERS ---
+
+/**
+ * Mapeia o clima bruto da API GPRO para o formato interno Dry/Wet
+ * 
+ * @param weatherRaw - String do clima vinda da API (ex: "Sunny", "Partially Cloudy", "Rain")
+ * @returns 'Dry' | 'Wet' - Clima mapeado para o sistema interno
+ * 
+ * Regras de mapeamento:
+ * - "Rain" → "Wet"
+ * - "Rainy" → "Wet"  
+ * - "Wet" → "Wet"
+ * - Qualquer outro valor → "Dry" (inclui "Sunny", "Partially Cloudy", "Cloudy", etc.)
+ */
+function mapTestingWeather(weatherRaw: string): 'Dry' | 'Wet' {
+  if (!weatherRaw) return 'Dry';
+  
+  const normalized = weatherRaw.trim().toLowerCase();
+
+  if (
+    normalized === 'rain' ||
+    normalized === 'rainy' ||
+    normalized === 'wet'
+  ) {
+    return 'Wet';
+  }
+
+  return 'Dry';
+}
+
+/**
+ * Valida se um valor pode ser convertido para número finito
+ * Usado para validar temperatura vinda da API
+ */
+function isValidNumber(value: any): boolean {
+  if (value === undefined || value === null) return false;
+  if (value === '') return false;
+  return Number.isFinite(Number(value));
+}
+
 // --- COMPONENTES AUXILIARES ---
 
 function PrioritySelector({ value, onChange }: { value: string, onChange: (val: string) => void }) {
@@ -86,7 +126,6 @@ function PrioritySelector({ value, onChange }: { value: string, onChange: (val: 
     const CurrentIcon = PRIORITY_ICONS[value] || Target;
 
     return (
-        // ADICIONADO z-50 PARA GARANTIR QUE O MENU FIQUE SOBRE OS OUTROS ELEMENTOS
         <div className="relative w-full z-50" ref={dropdownRef}>
             <button 
                 onClick={() => setIsOpen(!isOpen)} 
@@ -105,7 +144,6 @@ function PrioritySelector({ value, onChange }: { value: string, onChange: (val: 
                         initial={{ opacity: 0, y: 5, scale: 0.98 }} 
                         animate={{ opacity: 1, y: 0, scale: 1 }} 
                         exit={{ opacity: 0, y: 5, scale: 0.98 }} 
-                        // AJUSTADO max-h PARA 220px E ADICIONADO overscroll-contain
                         className="absolute top-full left-0 mt-2 w-full bg-[#15151a] border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] z-[100] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar ring-1 ring-white/5 overscroll-contain"
                     >
                         {TEST_PRIORITIES.map(opt => {
@@ -132,22 +170,46 @@ function PrioritySelector({ value, onChange }: { value: string, onChange: (val: 
 function TrackSelector({ currentTrack, tracksList, onSelect }: any) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
-    const filteredTracks = useMemo(() => tracksList.filter((t: any) => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
+    
+    const filteredTracks = useMemo(() => tracksList.filter((t: any) => {
+        const name = typeof t === 'object' ? (t.name || "") : (t || "");
+        return name.toLowerCase().includes(search.toLowerCase());
+    }), [tracksList, search]);
+
     return (
         <div className="relative z-50 w-full md:w-auto">
             <button onClick={() => setIsOpen(!isOpen)} className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 text-xs md:text-sm text-white font-black tracking-tighter bg-black/40 px-4 py-2.5 rounded-xl border border-white/10 uppercase outline-none active:scale-95 transition-transform">
-                <span className="truncate">{currentTrack !== "" ? currentTrack : "Selecionar Pista"}</span> <ChevronDown size={16} />
+                <span className="truncate">
+                    {currentTrack || "SELECIONAR PISTA"}
+                </span> 
+                <ChevronDown size={16} />
             </button>
             <AnimatePresence>
                 {isOpen && (
                     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-full md:w-64 bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl z-[60] overflow-hidden">
-                        <div className="p-3 border-b border-white/5"><input autoFocus type="text" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white outline-none focus:border-indigo-500" /></div>
-                        <div className="max-h-[300px] overflow-y-auto p-1 custom-scrollbar">{filteredTracks.map((track: any) => (
-                          <button key={track} onClick={() => { onSelect(track); setIsOpen(false); }} className="w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase text-slate-400 hover:bg-white/5 hover:text-white flex items-center gap-3">
-                             {TRACK_FLAGS[track] && <img src={`/flags/${TRACK_FLAGS[track]}.png`} className="w-5 h-3.5 object-cover rounded-sm" alt="flag"/>}
-                             {track}
-                          </button>
-                        ))}</div>
+                        <div className="p-3 border-b border-white/5">
+                            <input autoFocus type="text" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white outline-none focus:border-indigo-500" />
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto p-1 custom-scrollbar">
+                            {filteredTracks.map((t: any) => {
+                                const name = typeof t === 'object' ? t.name : t;
+                                return (
+                                    <button 
+                                        key={name} 
+                                        onClick={() => { 
+                                            // Garante que o valor seja sempre string
+                                            const trackName = typeof t === 'object' ? t.name : t;
+                                            onSelect(trackName); 
+                                            setIsOpen(false); 
+                                        }} 
+                                        className="w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase text-slate-400 hover:bg-white/5 hover:text-white flex items-center gap-3"
+                                    >
+                                        {TRACK_FLAGS[name] && <img src={`/flags/${TRACK_FLAGS[name]}.png`} className="w-5 h-3.5 object-cover rounded-sm" alt="flag"/>}
+                                        {name}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -275,10 +337,17 @@ export default function TestsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const [testTrack, setTestTrack] = useState<string>("Adelaide"); 
+  // --- ESTADOS DE TESTE ---
+  const [testTrack, setTestTrack] = useState<string>("Adelaide");
+  
+  // Clima bruto da API (preserva valor original do GPRO)
+  const [testWeatherRaw, setTestWeatherRaw] = useState<string>("");
+  
+  // Clima mapeado para o sistema interno (Dry/Wet)
+  const [weather, setWeather] = useState<'Dry' | 'Wet'>('Dry');
+  
   const [localDriver, setLocalDriver] = useState<any>({});
   const [localCar, setLocalCar] = useState<any[]>([]);
-  const [weather, setWeather] = useState<'Dry' | 'Wet'>('Dry');
   const [inputs, setInputs] = useState({ temp: 24.4, risk: 80, pits: 1 });
   const [priority, setPriority] = useState(TEST_PRIORITIES[0]); 
   const [supplierIndex, setSupplierIndex] = useState(0);
@@ -447,14 +516,95 @@ export default function TestsPage() {
     else setInputs(prev => ({ ...prev, risk: 80 }));
   }, [priority]);
 
+  // --- EFFECT 1: AUTH E TRACKS ---
   useEffect(() => {
+    let mounted = true;
+
+    // 1. Autenticação
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return router.push('/login');
+      if (!mounted) return;
+
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
       setUserId(session.user.id);
       setIsAuthLoading(false);
     });
-    fetch('/api/python?action=tracks').then(res => res.json()).then(data => setTracks(data.tracks || []));
+
+    // 2. Lista de pistas
+    fetch('/api/python?action=tracks')
+      .then(res => res.json())
+      .then(data => {
+        if (!mounted) return;
+        setTracks(data.tracks || []);
+      })
+      .catch(err => {
+        if (!mounted) return;
+        console.warn('Erro ao carregar pistas:', err);
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
+
+  // --- EFFECT 2: CARREGAR DADOS DE TESTE DO GPRO ---
+  useEffect(() => {
+    if (!userId) return;
+
+    let mounted = true;
+
+    const loadTestingData = async () => {
+      try {
+        const response = await fetch('/api/gpro/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+        
+        const data = await response.json();
+        
+        if (!mounted) return;
+        
+        if (data.success && data.testing) {
+          // Atualiza pista de teste (sempre com fallback)
+          setTestTrack(data.testing.track || 'Adelaide');
+          
+          // Preserva o clima bruto da API (sempre atualiza, mesmo se for vazio)
+          setTestWeatherRaw(data.testing.weather || '');
+          
+          // Mapeia o clima para o formato interno (Dry/Wet)
+          setWeather(mapTestingWeather(data.testing.weather || ''));
+          
+          // Atualiza temperatura com validação robusta
+          if (isValidNumber(data.testing.temp)) {
+            setInputs(prev => ({
+              ...prev,
+              temp: Number(data.testing.temp)
+            }));
+          }
+        } else {
+          // Se não tiver dados de teste, limpa os estados
+          setTestWeatherRaw('');
+          setWeather('Dry');
+        }
+      } catch (error) {
+        if (!mounted) return;
+        console.warn('⚠️ Não foi possível carregar dados de testes do GPRO:', error);
+        // Mantém valores padrão (Adelaide, Dry, 24.4°C)
+        setTestWeatherRaw('');
+        setWeather('Dry');
+      }
+    };
+
+    loadTestingData();
+
+    return () => {
+      mounted = false;
+    };
+  }, [userId]);
 
   const runCalculations = useCallback(async () => {
     if (!userId || !testTrack || !isContextValid || !isDataSynced) return;
@@ -562,8 +712,15 @@ export default function TestsPage() {
                <div className="relative group shrink-0">
                   <div className="absolute -inset-2 bg-indigo-500/20 blur-xl rounded-full"></div>
                   <div className="w-12 h-10 md:w-16 md:h-12 bg-zinc-900 border border-white/10 rounded-lg flex items-center justify-center overflow-hidden relative z-10 shadow-lg">
-                    {TRACK_FLAGS[testTrack] ? <img src={`/flags/${TRACK_FLAGS[testTrack]}.png`} className="w-full h-full object-cover" alt="flag" /> : <span className="text-xl">🏁</span>}
-                  </div>
+                        {(() => {
+                            const trackName = testTrack || "";
+                            return trackName && TRACK_FLAGS[trackName] ? (
+                                <img src={`/flags/${TRACK_FLAGS[trackName]}.png`} className="w-full h-full object-cover" alt="flag" />
+                            ) : (
+                                <span className="text-xl">🏁</span>
+                            );
+                        })()}
+                   </div>
                </div>
                <div className="flex flex-col flex-1 w-full min-w-0">
                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pista de Testes</span>
@@ -595,7 +752,6 @@ export default function TestsPage() {
               <div className="space-y-6 flex flex-col w-full min-w-0">
                   <div className="bg-[#0b0b10] border border-white/5 rounded-2xl p-5 md:p-6 shadow-2xl flex-1 flex flex-col justify-between relative">
                       
-                      {/* EFEITOS DE FUNDO (AGORA EM DIV SEPARADA COM OVERFLOW HIDDEN) */}
                       <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
                           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl"></div>
                       </div>
@@ -604,9 +760,27 @@ export default function TestsPage() {
                         <h2 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6 border-b border-white/5 pb-4 flex items-center gap-2"><Settings size={16} className="text-indigo-500" /> Configuração</h2>
                         
                         <div className="grid grid-cols-2 gap-3 mb-6">
-                            <button onClick={() => setWeather('Dry')} className={`py-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${weather === 'Dry' ? 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400 shadow-[0_0_20px_rgba(249,115,22,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 active:bg-white/5'}`}><Sun size={20} /><span className="text-[10px] font-black tracking-wider">SECO</span></button>
-                            <button onClick={() => setWeather('Wet')} className={`py-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${weather === 'Wet' ? 'bg-gradient-to-br from-indigo-500 to-blue-600 border-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 active:bg-white/5'}`}><CloudRain size={20} /><span className="text-[10px] font-black tracking-wider">CHUVA</span></button>
+                            <button onClick={() => setWeather('Dry')} className={`py-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${weather === 'Dry' ? 'bg-gradient-to-br from-orange-500 to-amber-600 border-orange-400 shadow-[0_0_20px_rgba(249,115,22,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 active:bg-white/5'}`}>
+                                <Sun size={20} />
+                                <span className="text-[10px] font-black tracking-wider">SECO</span>
+                            </button>
+                            <button onClick={() => setWeather('Wet')} className={`py-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${weather === 'Wet' ? 'bg-gradient-to-br from-indigo-500 to-blue-600 border-indigo-400 shadow-[0_0_20px_rgba(79,70,229,0.3)] text-white' : 'bg-black/40 border-white/5 text-slate-500 active:bg-white/5'}`}>
+                                <CloudRain size={20} />
+                                <span className="text-[10px] font-black tracking-wider">CHUVA</span>
+                            </button>
                         </div>
+
+                        {/* Badge de clima bruto da API - visível quando há dados */}
+                        {testWeatherRaw && (
+                            <div className="flex justify-center mb-4">
+                                <div className="bg-black/60 border border-white/10 rounded-full px-3 py-1">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Info size={12} className="text-indigo-400" />
+                                        Clima GPRO: <span className="text-white">{testWeatherRaw}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-3 gap-3 mb-6">
                             <div className="bg-black/40 border border-white/5 rounded-xl p-3 flex flex-col justify-center items-center group"><label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Temp</label><input type="number" value={inputs.temp} onChange={e => setInputs({...inputs, temp: Number(e.target.value)})} onFocus={(e) => e.target.select()} className="bg-transparent text-white font-black text-sm md:text-base w-full text-center outline-none" /></div>
@@ -617,7 +791,6 @@ export default function TestsPage() {
                         <div className="mb-6 w-full">
                             <label className="text-[9px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Prioridade do Teste</label>
                             <div className="relative w-full">
-                                {/* SELETOR CUSTOMIZADO - AGORA SEM OVERFLOW QUE CORTA */}
                                 <PrioritySelector value={priority} onChange={setPriority} />
                             </div>
                         </div>
@@ -630,7 +803,6 @@ export default function TestsPage() {
                             </div>
                         </div>
 
-                        {/* CARROSSEL DE PNEUS COM TEXTO (X MACIO, ETC) */}
                         <div className="w-full flex items-center gap-3 bg-black/20 p-3 rounded-2xl border border-white/5 overflow-x-auto snap-x custom-scrollbar pb-3 min-w-0">
                             {TYRE_COMPOUNDS.map(comp => (
                                 <button key={comp.id} onClick={() => setSelectedCompound(comp.id)} className={`relative flex flex-col items-center gap-2 snap-center shrink-0 transition-all duration-300 ${selectedCompound === comp.id ? 'scale-110 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0 active:scale-95'}`}>
@@ -679,7 +851,6 @@ export default function TestsPage() {
               <div className="space-y-6 flex flex-col w-full min-w-0">
                  <div className="bg-[#0b0b10] rounded-2xl border border-white/5 shadow-2xl flex-1 flex flex-col overflow-hidden relative">
                     
-                    {/* CABEÇALHO DO CARRO */}
                     <div className="p-5 md:p-6 border-b border-white/5 flex flex-col items-start gap-3 relative overflow-hidden shrink-0">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl"></div>
                         <h3 className="text-xs font-black text-white uppercase flex items-center gap-2 tracking-widest relative z-10"><CarFront size={16} className="text-indigo-400"/> Desgaste Pós-Teste</h3>
@@ -693,7 +864,6 @@ export default function TestsPage() {
                         </AnimatePresence>
                     </div>
                     
-                    {/* LISTA ROLÁVEL DAS PEÇAS */}
                     <div className="p-3 md:p-5 flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1 max-h-[500px]">
                         <div className="hidden md:flex items-center justify-between px-3 pb-2 text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">
                             <span className="w-1/3">Peça</span>
@@ -741,7 +911,6 @@ export default function TestsPage() {
                         })}
                     </div>
                     
-                    {/* PAINEL FIXO DE PONTOS ACUMULADOS (PDA) */}
                     <div className="bg-[#0F0F13] border-t border-white/5 p-4 shrink-0 flex items-center justify-between shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20">
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
@@ -835,7 +1004,6 @@ export default function TestsPage() {
 
                               <div className="flex items-center justify-between gap-3 bg-[#0F0F13]/50 p-2 rounded-xl border border-white/5">
                                   <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest pl-2">Voltas</label>
-                                  {/* Input do Stint com Seleção Automática */}
                                   <input 
                                       type="number" 
                                       disabled={isLocked} 
@@ -869,7 +1037,6 @@ export default function TestsPage() {
                                   </div>
                               </div>
                               
-                              {/* BARRINHA DE PROJEÇÃO PDA COM CORES */}
                               <div className={`mt-1 flex items-center justify-between bg-[#0F0F13]/80 px-3 py-2 rounded-lg border ${isLocked ? 'border-emerald-500/20' : 'border-white/5'} transition-all`}>
                                   <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
                                       {isLocked ? 'Gerou' : 'Projeção'}

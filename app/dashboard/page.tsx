@@ -1,13 +1,13 @@
-// --- START OF FILE app/dashboard/page.tsx (ou o caminho equivalente) ---
 'use client';
 import { ChangeEvent, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGame } from '../context/GameContext'; 
 import { supabase } from '../lib/supabase';
+import { saveUserState, getUserState } from '../lib/db';
 import { 
   User, Car, Zap, Activity, MapPin, 
   RefreshCw, Loader2, ChevronDown, ShieldCheck, Cpu, Search, X, LogOut,
-  Lock, Unlock, Edit3, Briefcase, Users
+  Lock, Unlock, Edit3, Briefcase, Users, History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -52,7 +52,12 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const filteredTracks = useMemo(() => tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
+    const filteredTracks = useMemo(() => {
+        return tracksList.filter((track: any) => {
+            const name = typeof track === 'object' ? (track.name || "") : (track || "");
+            return name.toLowerCase().includes(search.toLowerCase());
+        });
+    }, [tracksList, search]);
 
     return (
         <div className="relative w-full md:w-auto" ref={dropdownRef}>
@@ -76,15 +81,27 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
                             </div>
                         </div>
                         <div className="max-h-[250px] overflow-y-auto custom-scrollbar p-2 space-y-1">
-                            {filteredTracks.map((track) => (
-                                <button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }} className={`w-full text-left px-4 py-3 rounded-lg text-xs md:text-sm font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10'}`}>
-                                    <div className="flex items-center gap-4">
-                                        {TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-6 h-4 object-cover rounded shadow-sm" /> : <div className="w-6 h-4 bg-white/10 rounded"></div>}
-                                        {track}
-                                    </div>
-                                    {currentTrack === track && <ShieldCheck size={14} />}
-                                </button>
-                            ))}
+                            {filteredTracks.map((track: any) => {
+                                const name = typeof track === 'object' ? track.name : track;
+                                
+                                return (
+                                    <button 
+                                        key={name}
+                                        onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }} 
+                                        className="w-full flex items-center justify-between px-3 py-2 rounded-md text-[11px] font-bold uppercase text-slate-300 hover:bg-indigo-500/20 transition-all group"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {TRACK_FLAGS[name] ? (
+                                                <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-5 h-3 object-cover rounded-sm" />
+                                            ) : (
+                                                <div className="w-5 h-3 bg-white/10 rounded-sm"></div>
+                                            )}
+                                            <span className="truncate max-w-[200px]">{name}</span>
+                                        </div>
+                                        {currentTrack === name && <ShieldCheck size={12} className="text-indigo-400" />}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </motion.div>
                 )}
@@ -96,16 +113,18 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 // --- SUBCOMPONENTES ---
 
 function TelemetryInput({ label, value, max, onChange, disabled, isEnergy }: any) {
-    const pct = Math.min(100, (value / max) * 100);
+    const safeValue = value ?? 0;
+    const pct = Math.min(100, (safeValue / max) * 100);
     return (
         <div className={`flex items-center justify-between h-7 group transition-colors ${disabled ? 'opacity-50' : 'hover:bg-white/[0.02]'}`}>
             <label className={`text-[10px] font-black uppercase tracking-tighter truncate w-32 flex items-center gap-2 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-yellow-400'}`}>
-                {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}{label}
+                {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500"} />}
+                {label}
             </label>
             <div className={`flex-1 mx-3 h-1.5 rounded-full overflow-hidden flex relative transition-colors ${disabled ? 'bg-white/5' : 'bg-white/10'}`}>
                 <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full transition-colors ${disabled ? 'bg-slate-700' : (isEnergy ? 'bg-gradient-to-r from-indigo-500 to-cyan-400' : 'bg-indigo-500')}`} />
             </div>
-            <input disabled={disabled} type="number" value={value} onChange={onChange} className="w-12 h-6 bg-black/40 text-center text-xs font-black rounded border border-white/10 text-white outline-none focus:border-yellow-500" />
+            <input disabled={disabled} type="number" value={safeValue} onChange={onChange} className="w-12 h-6 bg-black/40 text-center text-xs font-black rounded border border-white/10 text-white outline-none focus:border-yellow-500" />
         </div>
     )
 }
@@ -127,6 +146,8 @@ function CarRow({ part, finalWear, onLvl, onWear, disabled }: any) {
 }
 
 function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
+    console.log('RENDER TEST', label, test);
+    
     const diff = (data?.carro || 0) - (data?.pista || 0);
     const isOk = diff >= 0;
     const pctPista = Math.min(100, ((data?.pista || 0) / 200) * 100);
@@ -158,7 +179,6 @@ function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
 export default function DashboardHome() {
   const router = useRouter();
   
-  // PUXANDO TUDO DO CONTEXTO INCLUINDO OS NOVOS ESTADOS GLOBAIS
   const { 
       driver, updateDriver, 
       car, updateCar, 
@@ -168,29 +188,29 @@ export default function DashboardHome() {
       tracksList,
       techDirector, updateTechDirector,      
       staffFacilities, updateStaffFacilities, 
-      testPoints, updateTestPoints, // <-- AGORA VEM DO CONTEXTO
-      isGlobalLoading               // <-- AGORA VEM DO CONTEXTO
+      testPoints, updateTestPoints,
+      isGlobalLoading
   } = useGame();
   
   const [performanceData, setPerformanceData] = useState(MOCK_PERFORMANCE_DATA);
   const [calculatedWear, setCalculatedWear] = useState<number[]>([]);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // 1. Check Session
   useEffect(() => {
     async function checkSession() {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) router.push('/login'); else setUserId(session.user.id);
+        if (!session) router.push('/login'); 
+        else setUserId(session.user.id);
     }
     checkSession();
   }, [router]);
 
-  // 2. Auto-save (Debounced) - Salva os dados do Contexto no banco
   const persistState = useCallback(async () => {
-    // Só salva se o app já terminou de carregar os dados reais do banco
     if (isGlobalLoading || !userId) return; 
     
     setIsSyncing(true);
@@ -218,12 +238,10 @@ export default function DashboardHome() {
     return () => clearTimeout(timer);
   }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, persistState, isGlobalLoading, userId]);
 
-  // 3. Calculations (Performance + Wear)
   const fetchCalculations = useCallback(async () => {
     if (!track || track === "Selecionar Pista" || !userId || isGlobalLoading) return;
     setIsPerformanceLoading(true);
     try {
-        // PERFORMANCE
         const resPerf = await fetch('/api/python?action=performance', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'user-id': userId }, 
@@ -239,7 +257,6 @@ export default function DashboardHome() {
         const dataPerf = await resPerf.json();
         if (dataPerf.sucesso && dataPerf.data) setPerformanceData(dataPerf.data);
 
-        // SETUP & WEAR
         const resSetup = await fetch('/api/python?action=setup_calculate', {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'user-id': userId }, 
@@ -280,7 +297,261 @@ export default function DashboardHome() {
     }
   }, [track, driver, car, testPoints, desgasteModifier, fetchCalculations, isGlobalLoading, userId]);
 
-  // --- TELA DE CARREGAMENTO GLOBAL ---
+  // ============================================
+  // PIPELINE ÚNICO - O MESMO QUE A IMPORTAÇÃO USA
+  // CORRIGIDO: usa test_points em vez de testPoints
+  // ============================================
+  const applyGproPayload = useCallback((payload: {
+    driver?: any;
+    car?: any[];
+    techDirector?: any;
+    staff?: any;
+    weather?: any;
+    track?: string;
+    test_points?: any;
+  }) => {
+    console.log('Aplicando payload GPRO:', payload);
+    
+    // Driver
+    if (payload.driver) {
+      Object.entries(payload.driver).forEach(([key, value]) => {
+        if (key !== 'total' && value !== undefined && typeof value === 'number') {
+          updateDriver(key as any, value);
+        }
+      });
+    }
+    
+    // Carro - MESMO PADRÃO
+    if (payload.car && Array.isArray(payload.car)) {
+      payload.car.forEach((part: any, index: number) => {
+        if (part.lvl !== undefined && part.lvl !== null) {
+          updateCar(index, 'lvl', part.lvl);
+        }
+        if (part.wear !== undefined && part.wear !== null) {
+          updateCar(index, 'wear', part.wear);
+        }
+      });
+    }
+    
+    // Diretor Técnico
+    if (payload.techDirector) {
+      updateTechDirector(payload.techDirector);
+    }
+    
+    // Staff
+    if (payload.staff) {
+      updateStaffFacilities(payload.staff);
+    }
+    
+    // Weather
+    if (payload.weather) {
+      updateWeather(payload.weather);
+    }
+    
+    // Track
+    if (payload.track && payload.track !== track && payload.track !== "") {
+      updateTrack(payload.track);
+    }
+    
+    // ============================================
+    // TEST POINTS - CORRIGIDO: usa test_points
+    // ============================================
+    if (payload.test_points) {
+      updateTestPoints(payload.test_points);
+    }
+    
+  }, [updateDriver, updateCar, updateTechDirector, updateStaffFacilities, updateWeather, updateTrack, track, updateTestPoints]);
+
+  // Função para importar dados do GPRO
+  const handleImportGPRO = async () => {
+    setIsImporting(true);
+    
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error('Erro ao obter usuário:', userError);
+        throw new Error('Usuário não autenticado. Faça login novamente.');
+      }
+      
+      console.log('Usuário logado ID:', user.id);
+      
+      const { data: userState, error: fetchError } = await supabase
+        .from('user_state')
+        .select('gpro_token')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (fetchError) {
+        console.error('Erro ao buscar user_state:', fetchError);
+        throw new Error('Erro ao buscar token GPRO: ' + fetchError.message);
+      }
+      
+      const token = userState?.gpro_token;
+      
+      if (!token) {
+        alert('Configure o token GPRO em Configurações → Integração GPRO primeiro');
+        return;
+      }
+      
+      const response = await fetch('/api/gpro/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMsg = `Erro ${response.status}`;
+        try {
+          const errorData = JSON.parse(text);
+          errorMsg = errorData.error || errorMsg;
+        } catch(e) {
+          errorMsg = text || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao importar dados do GPRO');
+      }
+      
+      console.log('Dados importados com sucesso:', data);
+      console.log(
+        'TEST POINTS API:',
+        JSON.stringify(data.test_points, null, 2)
+      );
+      
+      // ============================================
+      // FASE 2A: CRIAR E SALVAR SNAPSHOT
+      // CORRIGIDO: usa test_points em vez de testPoints
+      // ============================================
+      const importSnapshot = {
+        driver: data.driver || null,
+        car: data.car || null,
+        tech_director: data.techDirector || null,
+        staff_facilities: data.staff || null,
+        weather: data.weather || null,
+        track: data.track || null,
+        test_points: data.test_points || null
+      };
+      
+      const importTimestamp = new Date().toISOString();
+      
+      await saveUserState(user.id, {
+        last_import_snapshot: importSnapshot,
+        last_import_at: importTimestamp
+      });
+      
+      // ============================================
+      // USAR O PIPELINE ÚNICO PARA APLICAR OS DADOS
+      // CORRIGIDO: passa test_points em vez de testPoints
+      // ============================================
+      applyGproPayload(data);
+      
+      // Força uma atualização dos cálculos após a importação
+      setTimeout(() => {
+        fetchCalculations();
+      }, 500);
+      
+      setTimeout(() => persistState(), 500);
+      alert('Dados importados com sucesso do GPRO!');
+      
+    } catch (error) {
+      console.error('Erro detalhado na importação GPRO:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao importar dados do GPRO');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Função para restaurar dados do snapshot
+  const handleRestoreImportSnapshot = async () => {
+    if (!userId) {
+      alert('Usuário não autenticado.');
+      return;
+    }
+    
+    setIsRestoring(true);
+    
+    try {
+      const userState = await getUserState(userId);
+      
+      if (!userState || !userState.last_import_snapshot) {
+        alert('Nenhum snapshot de importação encontrado. Faça uma importação primeiro.');
+        return;
+      }
+      
+      const snapshot = userState.last_import_snapshot;
+      const importDate = userState.last_import_at;
+      
+      console.log('Restaurando snapshot de:', importDate);
+      console.log('Snapshot:', snapshot);
+      
+      // NORMALIZAR SNAPSHOT PARA O FORMATO DA API
+      const normalizedPayload = {
+        driver: snapshot.driver,
+        car: snapshot.car,
+        techDirector: snapshot.tech_director,
+        staff: snapshot.staff_facilities,
+        weather: snapshot.weather,
+        track: snapshot.track,
+        test_points: snapshot.test_points
+      };
+      
+      // USAR O MESMO PIPELINE DA IMPORTAÇÃO
+      applyGproPayload(normalizedPayload);
+      
+      setTimeout(() => persistState(), 500);
+      
+      alert(`Dados restaurados com sucesso do snapshot de ${importDate ? new Date(importDate).toLocaleString() : 'data desconhecida'}`);
+      
+    } catch (error) {
+      console.error('Erro detalhado na restauração do snapshot:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao restaurar dados do snapshot');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  // Debug
+  useEffect(() => {
+    async function debugUser() {
+      if (!isGlobalLoading && userId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log('=== DEBUG DASHBOARD ===');
+          console.log('User ID logado:', user.id);
+          console.log(
+            'TEST POINTS ESTADO:',
+            JSON.stringify(testPoints, null, 2)
+          );
+          
+          const { data: userState } = await supabase
+            .from('user_state')
+            .select('user_id, gpro_token, last_import_snapshot, last_import_at')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          if (userState) {
+            console.log('Token encontrado:', userState.gpro_token ? 'SIM' : 'NÃO');
+            console.log('Snapshot encontrado:', userState.last_import_snapshot ? 'SIM' : 'NÃO');
+            if (userState.last_import_at) {
+              console.log('Última importação:', new Date(userState.last_import_at).toLocaleString());
+            }
+            if (userState.last_import_snapshot) {
+              console.log('Test Points no snapshot:', userState.last_import_snapshot.test_points);
+            }
+          }
+        }
+      }
+    }
+    
+    debugUser();
+  }, [isGlobalLoading, userId, testPoints]);
+
   if (isGlobalLoading) return (
     <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#050507] text-indigo-500 font-mono text-xs gap-4">
         <Loader2 className="animate-spin w-8 h-8" />
@@ -308,18 +579,54 @@ export default function DashboardHome() {
                 </div>
                 
                 <div className="flex items-center gap-6">
-                    <button onClick={persistState} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform">
-                         <div className={`p-2 rounded-lg border bg-white/5 border-white/10 ${isSyncing ? 'animate-spin border-amber-500 text-amber-500' : 'text-slate-400 group-hover:text-indigo-400'}`}><RefreshCw size={18} /></div>
-                         <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Salvar</span>
-                    </button>
-                    <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="group flex flex-col items-center gap-1 active:scale-95">
-                         <div className="p-2 rounded-lg border bg-white/5 border-white/10 text-slate-400 group-hover:text-red-400 transition-colors"><LogOut size={18} /></div>
-                         <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Sair</span>
-                    </button>
-                    <button onClick={() => setIsEditMode(!isEditMode)} className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${isEditMode ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400' : 'bg-white/5 border-white/10 text-slate-400'}`}>
-                        {isEditMode ? <Unlock size={14} /> : <Lock size={14} />}
-                        <div className="flex flex-col text-left"><span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Modo Edição</span><span className="text-[10px] font-bold">{isEditMode ? 'DESBLOQUEADO' : 'BLOQUEADO'}</span></div>
-                    </button>
+                  {/* Botão RESTAURAR SNAPSHOT */}
+                  <button 
+                    onClick={handleRestoreImportSnapshot} 
+                    disabled={isRestoring}
+                    className="group flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                  >
+                    <div className={`p-2 rounded-lg border transition-all ${isRestoring ? 'animate-spin border-amber-500 text-amber-500' : 'text-slate-400 group-hover:text-indigo-400 border-white/10 bg-white/5'}`}>
+                      {isRestoring ? <Loader2 size={18} /> : <History size={18} />}
+                    </div>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
+                      {isRestoring ? 'RESTAURANDO' : 'RESTAURAR'}
+                    </span>
+                  </button>
+                  
+                  {/* Botão IMPORTAR GPRO */}
+                  <button 
+                    onClick={handleImportGPRO} 
+                    disabled={isImporting}
+                    className="group flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                  >
+                    <div className={`p-2 rounded-lg border bg-white/5 border-white/10 transition-all ${isImporting ? 'animate-spin border-green-500 text-green-500' : 'text-slate-400 group-hover:text-green-400 group-hover:border-green-500/30'}`}>
+                      {isImporting ? <Loader2 size={18} /> : <Zap size={18} />}
+                    </div>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
+                      {isImporting ? 'IMPORTANDO' : 'IMPORTAR'}
+                    </span>
+                  </button>
+                  
+                  {/* Botão Salvar */}
+                  <button onClick={persistState} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform">
+                     <div className={`p-2 rounded-lg border bg-white/5 border-white/10 ${isSyncing ? 'animate-spin border-amber-500 text-amber-500' : 'text-slate-400 group-hover:text-indigo-400'}`}><RefreshCw size={18} /></div>
+                     <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">SALVAR</span>
+                  </button>
+                  
+                  {/* Botão Sair */}
+                  <button onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }} className="group flex flex-col items-center gap-1 active:scale-95">
+                     <div className="p-2 rounded-lg border bg-white/5 border-white/10 text-slate-400 group-hover:text-red-400 transition-colors"><LogOut size={18} /></div>
+                     <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">SAIR</span>
+                  </button>
+                  
+                  {/* Botão Modo Edição */}
+                  <button onClick={() => setIsEditMode(!isEditMode)} className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${isEditMode ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400' : 'bg-white/5 border-white/10 text-slate-400'}`}>
+                      {isEditMode ? <Unlock size={14} /> : <Lock size={14} />}
+                      <div className="flex flex-col text-left">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">MODO</span>
+                        <span className="text-[10px] font-bold">{isEditMode ? 'EDIÇÃO' : 'BLOQUEADO'}</span>
+                      </div>
+                  </button>
                 </div>
             </div>
         </motion.div>
@@ -331,17 +638,17 @@ export default function DashboardHome() {
             <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-gray-900/60 border-yellow-500/20 shadow-yellow-500/5' : 'bg-gray-900/40 border-white/5'}`}>
                 {!isEditMode && <div className="absolute top-2 right-2 text-slate-700 opacity-20 pointer-events-none"><Lock size={80} /></div>}
                 <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
-                    <div className="flex items-center gap-3">{isEditMode ? <Edit3 size={18} className="text-yellow-400 animate-pulse"/> : <Cpu size={18} className="text-slate-600"/>}<h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Piloto</h3></div>
+                    <div className="flex items-center gap-3">{isEditMode ? <Edit3 size={18} className="text-yellow-400 animate-pulse"/> : <Cpu size={18} className="text-slate-600"/>}<h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">PILOTO</h3></div>
                     <div className="bg-indigo-500/10 px-3 py-1.5 rounded-lg border border-indigo-500/20 text-lg font-black text-white">{Number(driver.total).toFixed(1)}</div>
                 </div>
                 <div className="flex flex-col gap-1">
-                    <TelemetryInput label="Energia" value={driver.energia} max={100} onChange={(e:any)=>updateDriver('energia', Number(e.target.value))} disabled={!isEditMode} isEnergy />
+                    <TelemetryInput label="ENERGIA" value={driver.energia} max={100} onChange={(e:any)=>updateDriver('energia', Number(e.target.value))} disabled={!isEditMode} isEnergy />
                     {['concentracao', 'talento', 'agressividade', 'experiencia', 'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao'].map((skill) => (
-                        <TelemetryInput key={skill} label={skill} value={(driver as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e:any)=>updateDriver(skill as any, Number(e.target.value))} disabled={!isEditMode} />
+                        <TelemetryInput key={skill} label={skill.toUpperCase()} value={(driver as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e:any)=>updateDriver(skill as any, Number(e.target.value))} disabled={!isEditMode} />
                     ))}
                     <div className="flex items-center gap-3 h-7 mt-2 border-t border-white/5 pt-2">
-                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5"><span className="text-[9px] font-black text-slate-500 uppercase">Peso</span><input disabled={!isEditMode} type="number" value={driver.peso} onChange={(e)=>updateDriver('peso', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" /></div>
-                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5"><span className="text-[9px] font-black text-slate-500 uppercase">Idade</span><input disabled={!isEditMode} type="number" value={driver.idade} onChange={(e)=>updateDriver('idade', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" /></div>
+                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5"><span className="text-[9px] font-black text-slate-500 uppercase">PESO</span><input disabled={!isEditMode} type="number" value={driver.peso} onChange={(e)=>updateDriver('peso', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" /></div>
+                         <div className="flex-1 flex items-center justify-between bg-black/20 rounded px-2 border border-white/5"><span className="text-[9px] font-black text-slate-500 uppercase">IDADE</span><input disabled={!isEditMode} type="number" value={driver.idade} onChange={(e)=>updateDriver('idade', Number(e.target.value))} className="w-10 bg-transparent text-right text-xs font-black text-white outline-none" /></div>
                     </div>
                 </div>
             </div>
@@ -349,7 +656,7 @@ export default function DashboardHome() {
             {/* COLUNA 2: CARRO */}
             <section className="bg-gray-900/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col shadow-xl h-full">
                 <div className="bg-white/[0.02] p-4 border-b border-white/5 flex justify-between items-center mb-1">
-                    <h3 className="text-[10px] font-black uppercase text-white flex items-center gap-2"><Car size={14} className="text-slate-400"/> Carro</h3>
+                    <h3 className="text-[10px] font-black uppercase text-white flex items-center gap-2"><Car size={14} className="text-slate-400"/> CARRO</h3>
                     <div className="flex gap-4 pr-1 text-[8px] font-black text-slate-500 uppercase">
                         <span className="w-10 text-center">NVL</span>
                         <span className="w-10 text-center">DSG%</span>
@@ -365,21 +672,21 @@ export default function DashboardHome() {
 
             {/* COLUNA 3: TELEMETRIA */}
             <section className="bg-gray-900/40 border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl h-full space-y-8">
-                <div className="flex items-center gap-3 border-b border-white/5 pb-4"><Activity size={16} className="text-indigo-400"/><h3 className="text-[10px] font-black uppercase text-white tracking-widest">Telemetria de Performance</h3></div>
+                <div className="flex items-center gap-3 border-b border-white/5 pb-4"><Activity size={16} className="text-indigo-400"/><h3 className="text-[10px] font-black uppercase text-white tracking-widest">TELEMETRIA</h3></div>
                 {['power', 'handling', 'accel'].map((key) => (
                     <PerformanceMetric 
                         key={key} 
-                        label={key} 
+                        label={key.toUpperCase()} 
                         data={(performanceData as any)[key]} 
                         test={(testPoints as any)[key]} 
-                        onTest={(v: number) => updateTestPoints({ [key]: v })} // ATUALIZADO
+                        onTest={(v: number) => updateTestPoints({ [key]: v })} 
                         disabled={!isEditMode} 
                     />
                 ))}
             </section>
         </div>
 
-        {/* SECOND ROW: TECH & FACILITIES - USANDO CONTEXTO */}
+        {/* SECOND ROW: TECH & FACILITIES */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-0">
             
             {/* DIRETOR TÉCNICO */}
@@ -387,15 +694,15 @@ export default function DashboardHome() {
                  <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
                     <div className="flex items-center gap-3">
                         <Briefcase size={18} className={isEditMode ? "text-yellow-400" : "text-slate-600"}/>
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Diretor Técnico</h3>
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">DIRETOR TÉCNICO</h3>
                     </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                    <TelemetryInput label="R&D Mecânico" value={techDirector.rdMecanico} max={200} onChange={(e:any)=>updateTechDirector({ rdMecanico: Number(e.target.value) })} disabled={!isEditMode} />
-                    <TelemetryInput label="R&D Eletrônico" value={techDirector.rdEletronico} max={200} onChange={(e:any)=>updateTechDirector({ rdEletronico: Number(e.target.value) })} disabled={!isEditMode} />
-                    <TelemetryInput label="R&D Aerodinâmico" value={techDirector.rdAerodinamico} max={200} onChange={(e:any)=>updateTechDirector({ rdAerodinamico: Number(e.target.value) })} disabled={!isEditMode} />
-                    <TelemetryInput label="Experiência" value={techDirector.experiencia} max={200} onChange={(e:any)=>updateTechDirector({ experiencia: Number(e.target.value) })} disabled={!isEditMode} />
-                    <TelemetryInput label="Cord. de Pit" value={techDirector.pitCoord} max={200} onChange={(e:any)=>updateTechDirector({ pitCoord: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="R&D MECÂNICO" value={techDirector.rdMecanico} max={200} onChange={(e:any)=>updateTechDirector({ rdMecanico: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="R&D ELETRÔNICO" value={techDirector.rdEletronico} max={200} onChange={(e:any)=>updateTechDirector({ rdEletronico: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="R&D AERODINÂMICO" value={techDirector.rdAerodinamico} max={200} onChange={(e:any)=>updateTechDirector({ rdAerodinamico: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="EXPERIÊNCIA" value={techDirector.experiencia} max={200} onChange={(e:any)=>updateTechDirector({ experiencia: Number(e.target.value) })} disabled={!isEditMode} />
+                    <TelemetryInput label="PIT COORD" value={techDirector.pitCoord} max={200} onChange={(e:any)=>updateTechDirector({ pitCoord: Number(e.target.value) })} disabled={!isEditMode} />
                 </div>
             </div>
 
@@ -404,12 +711,12 @@ export default function DashboardHome() {
                  <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
                     <div className="flex items-center gap-3">
                         <Users size={18} className={isEditMode ? "text-yellow-400" : "text-slate-600"}/>
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">Pessoal e Instalações</h3>
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">STAFF</h3>
                     </div>
                 </div>
                 <div className="flex flex-col gap-1 mt-2">
-                     <TelemetryInput label="Tolerância a Pressão" value={staffFacilities.toleranciaPressao} max={200} onChange={(e:any)=>updateStaffFacilities({ toleranciaPressao: Number(e.target.value) })} disabled={!isEditMode} />
-                     <TelemetryInput label="Concentração" value={staffFacilities.concentracao} max={200} onChange={(e:any)=>updateStaffFacilities({ concentracao: Number(e.target.value) })} disabled={!isEditMode} />
+                     <TelemetryInput label="TOLERÂNCIA" value={staffFacilities.toleranciaPressao} max={200} onChange={(e:any)=>updateStaffFacilities({ toleranciaPressao: Number(e.target.value) })} disabled={!isEditMode} />
+                     <TelemetryInput label="CONCENTRAÇÃO" value={staffFacilities.concentracao} max={200} onChange={(e:any)=>updateStaffFacilities({ concentracao: Number(e.target.value) })} disabled={!isEditMode} />
                 </div>
             </div>
 

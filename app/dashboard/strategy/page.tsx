@@ -1,4 +1,3 @@
-// --- START OF FILE app/strategy/StrategyPage.tsx ---
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { useGame } from '../../context/GameContext';
 import {
   Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin,
   Sparkles, ChevronLeft, ChevronRight, Fuel, TrendingUp,
-  ChevronDown, Search, X, ShieldCheck, ShieldAlert, ChevronsRight
+  ChevronDown, ShieldCheck, ShieldAlert, ChevronsRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -37,31 +36,80 @@ const TYRE_NAMES: Record<string, string> = {
     "Rain": "Chuva"
 };
 
+/**
+ * Helper para limitar valores de setup aos limites operacionais do GPRO
+ * 
+ * LIMITES:
+ * - Mínimo: 0
+ * - Máximo: 999
+ * 
+ * APLICAÇÃO APENAS NA RENDERIZAÇÃO
+ * Não altera os dados originais do cálculo
+ */
+const clampSetupDisplay = (value: unknown): unknown => {
+  const num = Number(value);
+  
+  // Se não for um número válido, retorna o valor original (preserva "-" e strings)
+  if (Number.isNaN(num)) {
+    return value;
+  }
+  
+  // Aplica os limites: mínimo 0, máximo 999
+  return Math.max(0, Math.min(999, num));
+};
+
 // --- COMPONENTES AUXILIARES ---
 
-function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
+function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: any[], onSelect: (t: string) => void, placeholder?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [dropdownRef]);
-    const filteredTracks = useMemo(() => tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
+    
+    const filteredTracks = useMemo(() => {
+        return tracksList.filter((track: any) => {
+            const name = typeof track === 'object' ? (track.name || "") : (track || "");
+            return name.toLowerCase().includes(search.toLowerCase());
+        });
+    }, [tracksList, search]);
+
     return (
         <div className="relative z-50 w-full md:w-auto" ref={dropdownRef}>
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 text-xl md:text-2xl text-white font-black tracking-tighter hover:text-indigo-400 transition-colors outline-none group bg-white/5 md:bg-transparent p-2 md:p-0 rounded-lg">
-                <span className="truncate">{currentTrack && currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : "SELECIONAR PISTA"}</span>
-                <ChevronDown className={`transition-transform duration-300 text-slate-500 group-hover:text-indigo-400 shrink-0 ${isOpen ? 'rotate-180' : ''}`} size={20} />
+            <button onClick={() => setIsOpen(!isOpen)} className="w-full md:w-auto flex items-center justify-between gap-3 text-white font-black hover:text-indigo-400 outline-none group bg-black/40 px-3 py-2 rounded-lg border border-white/10">
+                <span className="truncate">{currentTrack && currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : placeholder}</span>
+                <ChevronDown size={16} />
             </button>
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-full md:w-[300px] bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl z-50">
-                        <div className="p-3 border-b border-white/5 bg-white/[0.02]"><div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" /><input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-3 md:py-2 text-sm md:text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase" />{search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}</div></div>
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">{filteredTracks.map(track => (<button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }} className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><div className="flex items-center gap-3">{TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-5 h-3 object-cover rounded-sm shadow-sm" /> : <div className="w-5 h-3 bg-white/10 rounded-sm"></div>}{track}</div>{currentTrack === track && <ShieldCheck size={12} />}</button>))}</div>
+                    <motion.div className="absolute top-full left-0 mt-2 w-full md:w-[300px] bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[60]">
+                        <div className="p-3 border-b border-white/5 bg-white/[0.02]">
+                            <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white" />
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto p-1">
+                            {filteredTracks.map((track: any) => {
+                                const name = typeof track === 'object' ? track.name : track;
+                                return (
+                                    <button 
+                                        key={name} 
+                                        onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }} 
+                                        className="w-full flex items-center justify-between p-3 text-xs text-left hover:bg-white/[0.02] text-white transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {TRACK_FLAGS[name] ? (
+                                                <img 
+                                                    src={`/flags/${TRACK_FLAGS[name]}.png`} 
+                                                    alt={name} 
+                                                    className="w-5 h-3 object-cover rounded-sm shadow-sm" 
+                                                />
+                                            ) : (
+                                                <div className="w-5 h-3 bg-white/10 rounded-sm"></div>
+                                            )}
+                                            {name}
+                                        </div>
+                                        {currentTrack === name && <ShieldCheck size={12} />}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -70,7 +118,6 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
 }
 
 function ConfigInput({ label, value, onChange, max }: { label: string, value: number, onChange: (v: number) => void, max?: number }) {
-    
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const valStr = e.target.value;
         if (valStr === '') {
@@ -89,10 +136,10 @@ function ConfigInput({ label, value, onChange, max }: { label: string, value: nu
             <div className="flex items-center">
                 <input 
                     type="number" 
-                    inputMode="numeric" // Força teclado numérico no mobile
+                    inputMode="numeric"
                     value={value || ''} 
                     onChange={handleChange}
-                    onFocus={(e) => e.target.select()} // Seleciona tudo ao tocar (ideal para mobile)
+                    onFocus={(e) => e.target.select()}
                     className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0"
                     placeholder="0"
                 />
@@ -167,7 +214,6 @@ function BoostSection({ inputs, handleInput, outputs, className }: { inputs: Inp
 }
 
 function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Function, className?: string }) {
-    // CORREÇÃO AQUI: 'ultrapassagem' é a chave correta, não 'ultrapassagem_str'
     const items = [
         { l: "Voltas", v: outputs?.race_calculated_data?.voltas, i: <BarChart3 size={12}/> }, 
         { l: "Combustível", v: outputs?.race_calculated_data?.consumo_combustivel, i: <Fuel size={12}/> }, 
@@ -224,7 +270,7 @@ function SkyViewRainOverlay() {
     const resetDrop = (d: any) => {
       d.x = (Math.random() - 0.5) * 2;
       d.y = (Math.random() - 0.5) * 2;
-      d.z = 1; // Z=1 é perto do olho (grande), Z=5 é o chão (longe)
+      d.z = 1; 
       d.size = Math.random() * 4 + 1;
     };
 
@@ -249,7 +295,6 @@ function SkyViewRainOverlay() {
         const x = cx + d.x * w * perspective;
         const y = cy + d.y * h * perspective;
 
-        // Calcula rastro
         const pPrev = 1 / (d.z - 0.1);
         const xPrev = cx + d.x * w * pPrev;
         const yPrev = cy + d.y * h * pPrev;
@@ -287,17 +332,16 @@ function SkyViewRainOverlay() {
 export default function StrategyPage() {
   const router = useRouter(); 
   
-  // Extraímos os novos campos e o Ideal Setup do contexto
   const {
     track, updateTrack, tracksList, tyreSuppliers,
-    updateWeather, driver, updateDriver, car, updateCar,
+    weather, updateWeather, driver, updateDriver, car, updateCar,
     techDirector, updateTechDirector,      
     staffFacilities, updateStaffFacilities, 
     idealSetup 
   } = useGame();
 
   const [inputs, setInputs] = useState<InputsState>({
-    race_options: { desgaste_pneu_percent: 18, condicao: "Dry", pneus_fornecedor: "Pipirelli", tipo_pneu: "Medium", pitstops_num: 2, ct_valor: 0, avg_temp: 0 },
+    race_options: { desgaste_pneu_percent: 15, condicao: "Dry", pneus_fornecedor: "Pipirelli", tipo_pneu: "Extra Soft", pitstops_num: 1, ct_valor: 0, avg_temp: 0 },
     compound_options: { "Extra Soft": { forcar_pits: "", forcar_ct: "" }, "Soft": { forcar_pits: "", forcar_ct: "" }, "Medium": { forcar_pits: "", forcar_ct: "" }, "Hard": { forcar_pits: "", forcar_ct: "" } },
     boost_laps: { boost1: { volta: null }, boost2: { volta: null }, boost3: { volta: null } },
     personal_stint_voltas: { stint1: null, stint2: null, stint3: null, stint4: null, stint5: null, stint6: null, stint7: null, stint8: null }
@@ -310,6 +354,98 @@ export default function StrategyPage() {
   
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('Gerente'); 
+
+  // Memoização por string para quebrar dependências de referências instáveis do contexto
+  const driverStr = useMemo(() => JSON.stringify(driver), [driver]);
+  const carStr = useMemo(() => JSON.stringify(car), [car]);
+  const techDirectorStr = useMemo(() => JSON.stringify(techDirector), [techDirector]);
+  const staffFacilitiesStr = useMemo(() => JSON.stringify(staffFacilities), [staffFacilities]);
+
+  const raceOptionsStr = useMemo(() => JSON.stringify(inputs.race_options), [inputs.race_options]);
+  const boostLapsStr = useMemo(() => JSON.stringify(inputs.boost_laps), [inputs.boost_laps]);
+  const personalStintVoltasStr = useMemo(() => JSON.stringify(inputs.personal_stint_voltas), [inputs.personal_stint_voltas]);
+
+  // PONTO 2: Derivação SOMENTE LEITURA da Melhor Estratégia
+  // Usa a MESMA lógica da tabela para identificar o vencedor (baseado em isBest)
+  const bestStrategy = useMemo(() => {
+    const compounds = outputs?.compound_details_outputs;
+    if (!compounds) return { compound: null, pits: null };
+    
+    const isWetCondition = inputs.race_options.condicao === "Wet";
+    
+    let winnerCompound: string | null = null;
+    let winnerPits: number | null = null;
+    
+    // Função auxiliar para extrair pits de forma segura (igual à tabela)
+    const getPits = (data: any): number | null => {
+      if (!data) return null;
+      const pits = data.req_stops;
+      if (pits === undefined || pits === null) return null;
+      const numPits = Number(pits);
+      return isNaN(numPits) ? null : numPits;
+    };
+    
+    if (isWetCondition) {
+      // Em chuva, usa o composto Rain (igual à tabela)
+      if (compounds["Rain"]) {
+        winnerCompound = "Rain";
+        winnerPits = getPits(compounds["Rain"]);
+      }
+    } else {
+      // Em pista seca, encontra o composto com isBest = true (MESMA LÓGICA DA TABELA)
+      const dryCompounds = ["Extra Soft", "Soft", "Medium", "Hard"];
+      let bestFound = false;
+      
+      for (const compound of dryCompounds) {
+        const data = compounds[compound];
+        if (data) {
+          const isBest = data?.total?.toString().toLowerCase() === "best" || data?.total === 0;
+          if (isBest) {
+            winnerCompound = compound;
+            winnerPits = getPits(data);
+            bestFound = true;
+            break;
+          }
+        }
+      }
+      
+      // Fallback: se nenhum for "best", pega o de menor tempo (como fallback)
+      if (!bestFound) {
+        let lowestTime: number | null = null;
+        for (const compound of dryCompounds) {
+          const data = compounds[compound];
+          if (data && data.total !== undefined && data.total !== null) {
+            let totalTime: number;
+            if (typeof data.total === 'string' && data.total.toLowerCase() === 'best') {
+              totalTime = 0;
+            } else {
+              totalTime = Number(data.total);
+            }
+            
+            if (!isNaN(totalTime) && (lowestTime === null || totalTime < lowestTime)) {
+              lowestTime = totalTime;
+              winnerCompound = compound;
+              winnerPits = getPits(data);
+            }
+          }
+        }
+      }
+    }
+    
+    return {
+      compound: winnerCompound,
+      pits: winnerPits
+    };
+  }, [outputs?.compound_details_outputs, inputs.race_options.condicao]);
+
+  // DEBUG: Temporário para verificar dados em chuva
+  useEffect(() => {
+    if (inputs.race_options.condicao === "Wet" && outputs?.compound_details_outputs) {
+      console.log('=== DEBUG CHUVA ===');
+      console.log('Rain compound data:', outputs?.compound_details_outputs?.["Rain"]);
+      console.log('bestStrategy:', bestStrategy);
+    }
+  }, [inputs.race_options.condicao, outputs, bestStrategy]);
 
   // Auth Check
   useEffect(() => {
@@ -324,7 +460,7 @@ export default function StrategyPage() {
     checkSession();
   }, [router]);
 
-  // Load State
+  // Load State - Depende apenas do userId para evitar loops de hidratação
   useEffect(() => {
     async function loadState() {
       if (!userId) return;
@@ -339,7 +475,6 @@ export default function StrategyPage() {
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           
-          // Hidratação dos novos campos
           if (d.tech_director) updateTechDirector(d.tech_director);
           if (d.staff_facilities) updateStaffFacilities(d.staff_facilities);
           
@@ -353,12 +488,13 @@ export default function StrategyPage() {
           }
 
           const savedStrategyTemp = Number(d.race_options?.avg_temp);
-          const finalAvgTemp = (savedStrategyTemp && savedStrategyTemp > 0) ? savedStrategyTemp : dbCalcAvg;
+          const hasWeatherTemps = Boolean(d.weather) && dbCalcAvg > 0;
+          const finalAvgTemp = hasWeatherTemps
+            ? dbCalcAvg
+            : (savedStrategyTemp && savedStrategyTemp > 0 ? savedStrategyTemp : 0);
 
           setInputs(prev => ({ 
               ...prev, 
-              boost_laps: d.race_options?.boost_laps ?? prev.boost_laps,
-              personal_stint_voltas: d.race_options?.personal_stint_voltas ?? prev.personal_stint_voltas,
               race_options: { 
                   ...prev.race_options, 
                   desgaste_pneu_percent: d.race_options?.desgaste_pneu_percent ?? prev.race_options.desgaste_pneu_percent,
@@ -375,51 +511,92 @@ export default function StrategyPage() {
       finally { setIsSyncing(false); }
     }
     loadState();
-  }, [userId, updateTrack, updateWeather, updateDriver, updateCar, updateTechDirector, updateStaffFacilities]); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); 
 
-  // Calculation Logic (ATUALIZADO COM NOVOS CAMPOS)
+  // Weather Sync
+  useEffect(() => {
+    if (!userId || isSyncing || !track || track === "Selecionar Pista") return;
+
+    const weatherQ2 = String(weather.weatherQ2 || '').toLowerCase();
+    const isWet = weatherQ2.includes('wet') || weatherQ2.includes('rain') || weatherQ2.includes('chuva');
+    const nextCondition = isWet ? 'Wet' : 'Dry';
+    const nextTyre = isWet ? 'Rain' : 'Extra Soft';
+
+    setInputs(prev => {
+      const same =
+        prev.race_options.ct_valor === 0 &&
+        prev.race_options.pitstops_num === 1 &&
+        prev.race_options.desgaste_pneu_percent === 15 &&
+        prev.race_options.condicao === nextCondition &&
+        prev.race_options.tipo_pneu === nextTyre;
+
+      if (same) return prev;
+
+      return {
+        ...prev,
+        race_options: {
+          ...prev.race_options,
+          ct_valor: 0,
+          pitstops_num: 1,
+          desgaste_pneu_percent: 15,
+          condicao: nextCondition,
+          tipo_pneu: nextTyre,
+        },
+      };
+    });
+  }, [weather.weatherQ2, track, userId, isSyncing]);
+
+  // Função de Cálculo Memoizada - Depende de variáveis primitivas estáveis
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
     if (!userId || !currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
     
     setLoading(true);
     try {
+      const payload = {
+          pista: currentTrack, 
+          driver: JSON.parse(driverStr), 
+          car: JSON.parse(carStr), 
+          tech_director: JSON.parse(techDirectorStr),
+          staff_facilities: JSON.parse(staffFacilitiesStr),
+          race_options: currInputs.race_options, 
+          compound_options: currInputs.compound_options, 
+          boost_laps: currInputs.boost_laps, 
+          personal_stint_voltas: currInputs.personal_stint_voltas 
+      };
+
       const res = await fetch('/api/python?action=strategy_calculate', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json', 'user-id': userId }, 
-          body: JSON.stringify({ 
-              pista: currentTrack, 
-              driver: driver, 
-              car: car, 
-              tech_director: techDirector,       // Passando ao cálculo
-              staff_facilities: staffFacilities, // Passando ao cálculo
-              race_options: currInputs.race_options, 
-              compound_options: currInputs.compound_options, 
-              boost_laps: currInputs.boost_laps, 
-              personal_stint_voltas: currInputs.personal_stint_voltas 
-          }) 
+          body: JSON.stringify(payload) 
       });
       const data = await res.json();
-      if (data.sucesso) setOutputs(data.data);
+      if (data.sucesso) {
+        setOutputs(data.data);
+      }
     } catch (e) { console.error("Erro calc:", e); }
     finally { setLoading(false); }
-  }, [userId, isSyncing, driver, car, techDirector, staffFacilities]);
+  }, [userId, isSyncing, driverStr, carStr, techDirectorStr, staffFacilitiesStr]);
 
-  // Trigger Calculation
+  // Trigger Calculation - Executa quando as inputs sofrem modificações reais de valor
   useEffect(() => {
     if (!isSyncing && userId && track && track !== "Selecionar Pista") {
-      const timer = setTimeout(() => fetchStrategy(inputs, track), 700);
+      const timer = setTimeout(() => {
+        fetchStrategy(inputs, track);
+      }, 700);
       return () => clearTimeout(timer);
     }
-  }, [inputs, track, fetchStrategy, isSyncing, userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceOptionsStr, boostLapsStr, personalStintVoltasStr, track, fetchStrategy, isSyncing, userId]);
 
-  // Persistence Logic (ATUALIZADO COM NOVOS CAMPOS)
+  // Persistência em Banco de Dados
   const persistStrategyState = useCallback(async () => {
       if (!userId || isSyncing) return;
       try {
           const raceOptionsWithExtras = {
-              ...inputs.race_options,
-              boost_laps: inputs.boost_laps,
-              personal_stint_voltas: inputs.personal_stint_voltas
+              ...JSON.parse(raceOptionsStr),
+              boost_laps: JSON.parse(boostLapsStr),
+              personal_stint_voltas: JSON.parse(personalStintVoltasStr)
           };
 
           await fetch('/api/python?action=update_state', {
@@ -428,19 +605,19 @@ export default function StrategyPage() {
               body: JSON.stringify({
                   track: track, 
                   race_options: raceOptionsWithExtras,
-                  tech_director: techDirector,     // Adicionado
-                  staff_facilities: staffFacilities // Adicionado 
+                  tech_director: JSON.parse(techDirectorStr),     
+                  staff_facilities: JSON.parse(staffFacilitiesStr) 
               })
           });
       } catch(e) { console.error("Erro save:", e); }
-  }, [userId, isSyncing, track, inputs.race_options, inputs.boost_laps, inputs.personal_stint_voltas, techDirector, staffFacilities]); 
+  }, [userId, isSyncing, track, raceOptionsStr, boostLapsStr, personalStintVoltasStr, techDirectorStr, staffFacilitiesStr]); 
 
   useEffect(() => {
       if (!isSyncing && userId) {
           const timer = setTimeout(() => persistStrategyState(), 2000);
           return () => clearTimeout(timer);
       }
-  }, [inputs.race_options, inputs.boost_laps, inputs.personal_stint_voltas, track, techDirector, staffFacilities, persistStrategyState, isSyncing, userId]);
+  }, [raceOptionsStr, boostLapsStr, personalStintVoltasStr, track, techDirectorStr, staffFacilitiesStr, persistStrategyState, isSyncing, userId]);
 
   const handleInput = (section: keyof InputsState, field: string, value: any, subKey?: string) => {
     setInputs(prev => {
@@ -459,14 +636,12 @@ export default function StrategyPage() {
     return n.toFixed(d).replace('.', ',') + s;
   };
 
-  // --- LÓGICA DE COLUNAS DINÂMICAS (STINTS) ---
   const visibleStints = useMemo(() => {
       const totalVoltas = outputs?.race_calculated_data?.voltas 
           ? Number(String(outputs.race_calculated_data.voltas).replace(',', '.')) 
           : 999; 
 
       if (activeTab === 'auto') {
-          // MODO AUTO: Conta stints com valor > 0
           if (!outputs?.stints_predefined?.voltas) return 1;
           let count = 0;
           for (let i = 1; i <= 8; i++) {
@@ -475,7 +650,6 @@ export default function StrategyPage() {
           }
           return Math.max(1, count);
       } else {
-          // MODO MANUAL: Lógica progressiva
           let count = 1;
           let currentSum = 0;
           for (let i = 1; i < 8; i++) {
@@ -497,21 +671,22 @@ export default function StrategyPage() {
 
   const currentStintData = activeTab === 'manual' ? outputs?.stints_personal : outputs?.stints_predefined;
 
-  
-return (
-  <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono relative">       
-    <AnimatePresence>
-    {inputs.race_options.condicao === "Wet" && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }}>
-        
-       
-        <SkyViewRainOverlay /> 
-        
-        </motion.div>
-    )}
-    </AnimatePresence>
- 
+  // Helper para exibir valor do setup com clamp (0-999)
+  const displaySetupValue = (value: any): string => {
+    const clamped = clampSetupDisplay(value);
+    return clamped === '-' || clamped === null || clamped === undefined ? '-' : String(clamped);
+  };
 
+  return (
+    <div className="p-4 md:p-6 space-y-4 md:space-y-8 text-slate-300 pb-24 font-mono relative">       
+      <AnimatePresence>
+      {inputs.race_options.condicao === "Wet" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }}>
+            <SkyViewRainOverlay /> 
+          </motion.div>
+      )}
+      </AnimatePresence>
+   
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] border border-white/5 rounded-2xl p-1 shadow-2xl relative z-40">
         <div className="bg-black/40 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 backdrop-blur-xl">
           <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 w-full md:w-auto">
@@ -535,16 +710,15 @@ return (
             <div className="p-4 md:p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">{["Dry", "Wet"].map(c => (<button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c? (c === 'Dry' ? 'bg-orange-500 text-white shadow-lg' : 'bg-indigo-600 text-white shadow-lg'): 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}</button>))}</div>
                 <div className="grid grid-cols-3 gap-3 md:gap-4">
-                   {/* Temperatura (Máx 65) - Versão Otimizada Mobile */}
                     <div className="bg-black/40 p-3 rounded-lg border border-white/5">
                         <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp.</label>
                         <div className="flex items-center justify-between">
                             <input 
                                 type="number" 
-                                inputMode="decimal" // Teclado com números e ponto/vírgula
+                                inputMode="decimal"
                                 value={inputs.race_options.avg_temp ?? ''} 
                                 step="0.1" 
-                                onFocus={(e) => e.target.select()} // Facilita muito a troca de valor no toque
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
                                     const valStr = e.target.value;
                                     if (valStr === '') {
@@ -562,7 +736,6 @@ return (
                         </div>
                     </div>
 
-                    {/* Risco (Máx 100) com Feedback CTR Volta */}
                     <div className="relative group">
                         <ConfigInput label="Risco" value={inputs.race_options.ct_valor} max={100} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
                         
@@ -584,12 +757,10 @@ return (
                         </AnimatePresence>
                     </div>
 
-                    {/* Pits (Máx 8) */}
                     <ConfigInput label="Pits" value={inputs.race_options.pitstops_num} max={8} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
                 </div>
                 <div><label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Fornecedor de Pneus</label><SupplierCarousel options={tyreSuppliers} value={inputs.race_options.pneus_fornecedor} onChange={(val: string) => handleInput('race_options', 'pneus_fornecedor', val)} /></div>
                 
-                {/* COMPOUND SELECTION MODIFIED */}
                 <div>
                     <label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Seleção de Composto</label>
                     <div className="grid grid-cols-5 gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
@@ -619,10 +790,9 @@ return (
         <div className="xl:col-span-8 space-y-4 md:space-y-8">
             <StatsGrid outputs={outputs} fmt={fmt} className="hidden xl:grid" />
             
-            {/* --- NOVA SESSÃO: SETUP IDEAL (ÁREA VERDE DA IMAGEM) --- */}
+            {/* Bloco Setup Recomendado com clamp nos valores */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 {!idealSetup ? (
-                    // CÁLCULO AUSENTE (ALERTA) - Também levemente reduzido
                     <div className="p-3 md:p-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-amber-500/5">
                         <div className="flex items-center gap-4 text-center md:text-left">
                             <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20 mx-auto md:mx-0">
@@ -643,7 +813,6 @@ return (
                         </button>
                     </div>
                 ) : (
-                    // CÁLCULO PRESENTE (COCKPIT SEMÁFORO) - ALTURA REDUZIDA
                     <div className="p-4 md:p-5">
                         <div className="flex items-center justify-between mb-3 px-1">
                             <div className="flex items-center gap-2">
@@ -666,14 +835,10 @@ return (
                             ].map(part => (
                                 <div key={part.id} className="bg-black/40 p-2 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col items-center text-center group">
                                     <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1 group-hover:text-slate-300 transition-colors">{part.label}</span>
-                                    
-                                    {/* CORRIDA: VERDE e MENOR */}
-                                    <span className="text-xs md:text-sm font-black text-emerald-400 leading-none mb-2">{idealSetup[part.id]?.race || '-'}</span>
-                                    
-                                    {/* Q1 e Q2: VERMELHO E AMARELO, MAIORES */}
+                                    <span className="text-xs md:text-sm font-black text-emerald-400 leading-none mb-2">{displaySetupValue(idealSetup[part.id]?.race)}</span>
                                     <div className="flex items-center gap-2 md:gap-4 text-[11px] md:text-[9px] font-black w-full justify-center pt-1.5 border-t border-white/5">
-                                        <span className="text-rose-500" title="Qualificação 1">Q1: {idealSetup[part.id]?.q1 || '-'}</span>
-                                        <span className="text-amber-400" title="Qualificação 2">Q2: {idealSetup[part.id]?.q2 || '-'}</span>
+                                        <span className="text-rose-500" title="Qualificação 1">Q1: {displaySetupValue(idealSetup[part.id]?.q1)}</span>
+                                        <span className="text-amber-400" title="Qualificação 2">Q2: {displaySetupValue(idealSetup[part.id]?.q2)}</span>
                                     </div>
                                 </div>
                             ))}
@@ -682,10 +847,45 @@ return (
                 )}
             </section>
             
+            {/* PONTO 3 e 4: Seção Análise da Performance com cabeçalho modificado - CORRIGIDO PARA CHUVA */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
-                <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Gauge size={14} className="text-emerald-400"/> Análise da Performance</h3></div>
+                <div className="bg-white/5 p-4 border-b border-white/5">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white">
+                            <Gauge size={14} className="text-emerald-400"/> Análise da Performance
+                        </h3>
+                        
+                        {/* Exibição da Melhor Estratégia e Botão Aplicar - CORRIGIDO PARA ACEITAR PITS NULL EM CHUVA */}
+                        {/* Agora exibe mesmo se pits for null, usando fallback "--" */}
+                        {bestStrategy.compound && (
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                                    {inputs.race_options.condicao === "Wet" ? (
+                                        <span className="text-[9px] font-black text-blue-400 uppercase tracking-wider">🌧 Melhor Estratégia de Chuva</span>
+                                    ) : (
+                                        <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider">🏆 Melhor Estratégia</span>
+                                    )}
+                                    <span className="text-[10px] font-black text-white">
+                                        {bestStrategy.compound} • {bestStrategy.pits !== null ? `${bestStrategy.pits} ${bestStrategy.pits === 1 ? 'pit' : 'pits'}` : '-- pits'}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        handleInput('race_options', 'tipo_pneu', bestStrategy.compound);
+                                        // Se pits for null, mantém o valor atual
+                                        if (bestStrategy.pits !== null) {
+                                            handleInput('race_options', 'pitstops_num', bestStrategy.pits);
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-black text-[9px] uppercase transition-all flex items-center gap-1.5 shadow-lg shadow-indigo-500/20"
+                                >
+                                    <Sparkles size={10} /> Aplicar Estratégia
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
                 <div className="overflow-x-auto custom-scrollbar">
-                    {/* TABELA LIMPA: SEM COLUNAS FORÇAR E COM SCROLL SUAVE NO MOBILE */}
                     <table className="w-full text-xs min-w-[350px]">
                         <thead>
                             <tr className="bg-black/20 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-white/5">
@@ -708,9 +908,24 @@ return (
                                         <td className="p-4 text-center font-black text-slate-400">{fmt(d?.req_stops, 0)}</td>
                                         <td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, ' s')}</td>
                                         <td className="p-4 text-center text-slate-500 font-bold">{fmt(d?.tyre_wear, 1, '%')}</td>
-                                        <td className="p-4 text-center font-black">{isBest ? <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20 text-[9px]">Ideal</span> : <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>}</td>
-                                    </tr> 
-                                ) 
+                                        <td className="p-4 text-center font-black">
+                                            {isBest ? (
+                                                <button
+                                                    onClick={() => {
+                                                        handleInput('race_options', 'tipo_pneu', c);
+                                                        handleInput('race_options', 'pitstops_num', Number(d?.req_stops ?? 0));
+                                                    }}
+                                                    className="text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg border border-emerald-500/20 text-[9px] font-black transition-all flex items-center gap-1.5 mx-auto"
+                                                    title="Clique para carregar esta configuração ideal no formulário"
+                                                >
+                                                    <Sparkles size={10} /> Ideal (Aplicar)
+                                                </button>
+                                            ) : (
+                                                <span className="text-slate-500 tracking-tighter">+{fmt(d?.total, 1, 's')}</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
                             })}
                         </tbody>
                     </table>
@@ -721,7 +936,6 @@ return (
                 <div className="bg-white/5 p-3 flex flex-col md:flex-row items-stretch md:items-center gap-2 border-b border-white/5 px-4"><button onClick={() => setActiveTab('auto')} className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}><Sparkles size={14}/> Automático</button><button onClick={() => setActiveTab('manual')} className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}><HardHat size={14}/> Manual</button></div>
                 
                 <div className="overflow-x-auto p-4 custom-scrollbar">
-                    {/* TABELA DINÂMICA: GERA APENAS COLUNAS NECESSÁRIAS */}
                     <table className="w-full text-[10px] border-separate border-spacing-y-1">
                         <thead>
                             <tr className="text-slate-600 uppercase font-black text-[8px] tracking-widest">
@@ -749,8 +963,8 @@ return (
                                             ) : ( 
                                                 <span className="font-black text-white block animate-fadeIn">{fmt(currentStintData?.voltas?.[st], 0)}</span> 
                                             )}
-                                        </td> 
-                                    ) 
+                                        </td>
+                                    );
                                 })}
                                 <td className="p-4 text-right font-black text-white bg-indigo-500/20 rounded-b-lg">
                                     {activeTab === 'manual' 
@@ -768,7 +982,7 @@ return (
                                 <tr key={row.k} className="hover:bg-white/[0.01] transition-colors">
                                     <td className="p-4 font-bold text-slate-500 uppercase sticky left-0 bg-[#0F0F13] z-10 border-r border-white/5 shadow-lg whitespace-nowrap">{row.l}</td>
                                     {Array.from({length: visibleStints}).map((_, i) => ( 
-                                        <td key={i} className={`p-2 text-center font-bold ${row.c}`}>{fmt(currentStintData?.[row.k]?.[`stint${i+1}`], 1, row.u)}</td> 
+                                        <td key={i} className={`p-2 text-center font-bold ${row.c}`}>{fmt(currentStintData?.[row.k]?.[`stint${i+1}`], 1, row.u)}</td>
                                     ))}
                                     <td className={`p-4 text-right font-black bg-white/5 ${row.k === 'voltas_em_bad' ? 'text-rose-500' : 'text-white'}`}>{fmt(currentStintData?.[row.k]?.total, 1, row.u)}</td>
                                 </tr>

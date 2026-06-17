@@ -1,4 +1,3 @@
-// --- START OF FILE app/setup/SetupPage.tsx ---
 'use client';
 
 import { useState, useEffect, ChangeEvent, useCallback, useRef, useMemo } from 'react';
@@ -9,9 +8,12 @@ import { useGame } from '../../context/GameContext';
 import {
   Loader2, Settings, ShieldAlert,
   MapPin, ChevronDown, Search, X, ShieldCheck, 
-  CloudSun, Thermometer, Sun, CloudRain, FlaskConical, Timer, Wind, Gauge, Snowflake, Flame
+  CloudSun, Thermometer, Sun, CloudRain, FlaskConical, Timer, Wind, Gauge, Snowflake, Flame, Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// ALTERAÇÃO 1: Import do novo service
+import { calculateSetupService } from "@/services/setupService";
 
 // --- MAPEAMENTOS ---
 const TRACK_FLAGS: { [key: string]: string } = { "A1-Ring": "at", "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar", "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp", "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt", "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa", "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it", "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at", "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl", "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar", "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk", "Valencia": "es", "Vallelunga": "it", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be" };
@@ -30,16 +32,46 @@ const COMPONENTS = [
     { id: 'eletronicos', label: 'Eletrônicos' } 
 ];
 
-// --- SELETOR DE PISTA ---
-function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void, placeholder?: string }) {
+/**
+ * Helper para limitar valores de setup aos limites operacionais do GPRO
+ * 
+ * LIMITES:
+ * - Mínimo: 0
+ * - Máximo: 999
+ * 
+ * APLICAÇÃO APENAS NA RENDERIZAÇÃO
+ * Não altera os dados originais do cálculo
+ */
+const clampSetupDisplay = (value: unknown): unknown => {
+  const num = Number(value);
+  
+  // Se não for um número válido, retorna o valor original (preserva strings como "-")
+  if (Number.isNaN(num)) {
+    return value;
+  }
+  
+  // Aplica os limites: mínimo 0, máximo 999
+  return Math.max(0, Math.min(999, num));
+};
+
+// --- SELETOR DE PISTA CORRIGIDO ---
+function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: any[], onSelect: (t: string) => void, placeholder?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
+    
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) { if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false); }
         document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dropdownRef]);
-    const filteredTracks = useMemo(() => tracksList.filter(t => t.toLowerCase().includes(search.toLowerCase())), [tracksList, search]);
+
+    const filteredTracks = useMemo(() => {
+        return tracksList.filter((track: any) => {
+            const name = typeof track === 'object' ? (track.name || "") : (track || "");
+            return name.toLowerCase().includes(search.toLowerCase());
+        });
+    }, [tracksList, search]);
+
     return (
         <div className="relative z-50" ref={dropdownRef}>
             <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-3 text-xs md:text-sm text-white font-black tracking-tighter hover:text-indigo-400 transition-colors outline-none group bg-black/40 px-3 py-2 rounded-lg border border-white/10">
@@ -49,8 +81,31 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
             <AnimatePresence>
                 {isOpen && (
                     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-64 bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl z-[60]">
-                        <div className="p-3 border-b border-white/5 bg-white/[0.02]"><div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" /><input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase" />{search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}</div></div>
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">{filteredTracks.map(track => (<button key={track} onClick={() => { onSelect(track); setIsOpen(false); setSearch(""); }} className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === track ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}><div className="flex items-center gap-3">{TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-5 h-3 object-cover rounded-sm shadow-sm" /> : <div className="w-5 h-3 bg-white/10 rounded-sm"></div>}{track}</div>{currentTrack === track && <ShieldCheck size={12} />}</button>))}</div>
+                        <div className="p-3 border-b border-white/5 bg-white/[0.02]">
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                                <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase" />
+                                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={12} /></button>}
+                            </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                            {filteredTracks.map((track: any) => {
+                                const name = typeof track === 'object' ? track.name : track;
+                                return (
+                                    <button 
+                                        key={name} 
+                                        onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }} 
+                                        className={`w-full text-left px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === name ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {TRACK_FLAGS[name] ? <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-5 h-3 object-cover rounded-sm shadow-sm" /> : <div className="w-5 h-3 bg-white/10 rounded-sm"></div>}
+                                            {name}
+                                        </div>
+                                        {currentTrack === name && <ShieldCheck size={12} />}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -64,7 +119,6 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
 function HUDInput({ value, name, onChange, label }: any) { 
     const val = Number(value);
     
-    // Lógica de cor baseada na temperatura
     const getIconColor = () => {
         if (!value) return "text-slate-600";
         if (val < 15) return "text-cyan-400";
@@ -95,12 +149,11 @@ function HUDInput({ value, name, onChange, label }: any) {
     ) 
 }
 
-// 2. WeatherSwitch Animado
-function WeatherSwitch({ name, value, onChange }: any) { 
+// 2. WeatherSwitch Editável (para Q1 e Q2)
+function WeatherSwitchEditable({ name, value, onChange }: any) { 
     const isDry = value === 'Dry'; 
     return (
         <div className="flex bg-black/40 p-1 rounded-lg border border-white/5 h-10 w-full overflow-hidden relative">
-            
             <motion.button 
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onChange({ target: { name, value: 'Dry' } })} 
@@ -108,7 +161,7 @@ function WeatherSwitch({ name, value, onChange }: any) {
                     isDry ? 'text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
                 }`}
             >
-                {isDry && <motion.div layoutId="bg-weather" className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600 rounded-md -z-10" />}
+                {isDry && <motion.div layoutId={`bg-weather-${name}`} className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600 rounded-md -z-10" />}
                 <Sun size={14} className={isDry ? "animate-[spin_10s_linear_infinite]" : ""} /> Seco
             </motion.button>
 
@@ -119,16 +172,44 @@ function WeatherSwitch({ name, value, onChange }: any) {
                     !isDry ? 'text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'
                 }`}
             >
-                {!isDry && <motion.div layoutId="bg-weather" className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-md -z-10" />}
+                {!isDry && <motion.div layoutId={`bg-weather-${name}`} className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-md -z-10" />}
                 <CloudRain size={14} /> Chuva
             </motion.button>
         </div>
     ) 
 }
 
-// 3. SetupCard Compacto e Colorido (Vermelho, Amarelo, Verde)
+// 3. WeatherSwitch READ-ONLY (para Corrida - Fonte Oficial da API)
+function WeatherSwitchReadOnly({ value }: { value: string }) { 
+    const isDry = value === 'Dry'; 
+    return (
+        <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 h-10 w-full overflow-hidden relative opacity-80">
+            <div className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 relative z-10 ${
+                isDry ? 'text-white' : 'text-slate-500'
+            }`}>
+                {isDry && <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600 rounded-md -z-10 opacity-60" />}
+                <Sun size={14} className={isDry ? "animate-[spin_10s_linear_infinite]" : ""} /> Seco
+            </div>
+
+            <div className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 relative z-10 ${
+                !isDry ? 'text-white' : 'text-slate-500'
+            }`}>
+                {!isDry && <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-md -z-10 opacity-60" />}
+                <CloudRain size={14} /> Chuva
+            </div>
+        </div>
+    ) 
+}
+
+// 4. SetupCard Compacto e Colorido (Vermelho, Amarelo, Verde)
+// ALTERAÇÃO: Aplica clampSetupDisplay nos valores exibidos (mínimo 0, máximo 999)
 function SetupCard({ part, data }: { part: string, data: any }) {
     const safeRender = (val: any) => (val === null || val === undefined || typeof val === 'object') ? '-' : val;
+    
+    // Aplica o clamp APENAS na exibição (limites: 0 a 999)
+    const clampedQ1 = clampSetupDisplay(data?.q1);
+    const clampedQ2 = clampSetupDisplay(data?.q2);
+    const clampedRace = clampSetupDisplay(data?.race);
     
     return (
         <div className="bg-gradient-to-br from-white/[0.04] to-transparent border border-white/5 hover:border-white/10 rounded-xl p-2.5 transition-all group">
@@ -137,23 +218,20 @@ function SetupCard({ part, data }: { part: string, data: any }) {
             </div>
             
             <div className="grid grid-cols-3 gap-1.5">
-                {/* Q1 - RED */}
                 <div className="flex flex-col items-center p-1.5 rounded-lg bg-rose-500/5 border border-rose-500/20">
                     <span className="text-[7px] font-black text-rose-500/70 mb-0.5 uppercase">Q1</span>
-                    <span className="text-sm font-black text-rose-400 font-mono leading-none">{safeRender(data?.q1)}</span>
+                    <span className="text-sm font-black text-rose-400 font-mono leading-none">{safeRender(clampedQ1)}</span>
                 </div>
                 
-                {/* Q2 - YELLOW/AMBER */}
                 <div className="flex flex-col items-center p-1.5 rounded-lg bg-amber-500/5 border border-amber-500/20">
                     <span className="text-[7px] font-black text-amber-500/70 mb-0.5 uppercase">Q2</span>
-                    <span className="text-sm font-black text-amber-400 font-mono leading-none">{safeRender(data?.q2)}</span>
+                    <span className="text-sm font-black text-amber-400 font-mono leading-none">{safeRender(clampedQ2)}</span>
                 </div>
 
-                {/* RACE - GREEN */}
                 <div className="flex flex-col items-center p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 relative overflow-hidden shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                     <div className="absolute top-0 right-0 w-2 h-2 bg-emerald-500 blur-md opacity-40"></div>
                     <span className="text-[7px] font-black text-emerald-500 mb-0.5 uppercase tracking-widest">Corrida</span>
-                    <span className="text-base font-black text-white leading-none">{safeRender(data?.race)}</span>
+                    <span className="text-base font-black text-white leading-none">{safeRender(clampedRace)}</span>
                 </div>
             </div>
         </div>
@@ -174,6 +252,18 @@ export default function SetupPage() {
       staffFacilities, updateStaffFacilities,
       updateIdealSetup 
   } = useGame();
+
+  useEffect(() => {
+    console.log('SETUP WEATHER', weather);
+  }, [weather]);
+
+  console.log('SETUP RENDER VALUES', {
+    weatherQ1: weather.weatherQ1,
+    tempQ1: weather.tempQ1,
+    weatherQ2: weather.weatherQ2,
+    tempQ2: weather.tempQ2,
+    weatherRace: weather.weatherRace
+  });
   
   const [loading, setLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -184,12 +274,10 @@ export default function SetupPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('Gerente'); 
 
-  // --- NOVO ESTADO: Pista de Teste e Voltas ---
   const [testTrack, setTestTrack] = useState<string>("Selecionar Pista");
   const [testLaps, setTestLaps] = useState<number>(0);
   const [testResults, setTestResults] = useState<any>(null);
 
-  // --- LÓGICA DE AVISO (LIMIT 90%) ---
   const hasTestingLimitWarning = useMemo(() => {
       if (!testResults) return false;
       return Object.values(testResults).some((part: any) => {
@@ -271,29 +359,32 @@ export default function SetupPage() {
       return () => clearTimeout(timer);
   }, [track, weather, desgasteModifier, techDirector, staffFacilities, persistChanges, initialHydrationDone, userId]);
 
-  // 4. CALCULATION LOGIC
+  // 4. CALCULATION LOGIC - ALTERAÇÃO 2: usando o service
   const handleCalcular = useCallback(async () => { 
     if (!userId || !track || track === "Selecionar Pista" || !initialHydrationDone) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/python?action=setup_calculate', { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'user-id': userId },
-        body: JSON.stringify({ 
-            pista: track, 
-            driver, car, 
-            tech_director: techDirector,
-            staff_facilities: staffFacilities,
-            tempQ1: weather.tempQ1, tempQ2: weather.tempQ2, 
-            weatherQ1: weather.weatherQ1, weatherQ2: weather.weatherQ2, 
-            weatherRace: weather.weatherRace, 
-            raceAvgTemp, desgasteModifier 
-        })
-      });
-      const data = await res.json();
+      const data = await calculateSetupService(
+        {
+          pista: track,
+          driver,
+          car,
+          tech_director: techDirector,
+          staff_facilities: staffFacilities,
+          tempQ1: weather.tempQ1,
+          tempQ2: weather.tempQ2,
+          weatherQ1: weather.weatherQ1,
+          weatherQ2: weather.weatherQ2,
+          weatherRace: weather.weatherRace,
+          raceAvgTemp,
+          desgasteModifier
+        },
+        userId
+      );
+      
       if (data.sucesso) {
           setResultado(data.data);
-          updateIdealSetup(data.data); // <-- AQUI SALVAMOS GLOBALMENTE NO CONTEXTO
+          updateIdealSetup(data.data);
       }
     } catch (error) { console.error("Calc error:", error); }
     finally { setLoading(false); }
@@ -437,10 +528,10 @@ export default function SetupPage() {
                     <div className="bg-black/20 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qualificação 1</span>
-                        <span className="text-[8px] px-2 py-0.5 rounded bg-white/5 text-slate-500 font-bold">Sessão 1</span>
+                        <span className="text-[8px] px-2 py-0.5 rounded bg-white/5 text-slate-500 font-bold">Sessão 1 (Editável)</span>
                       </div>
                       <div className="space-y-3">
-                        <WeatherSwitch name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} />
+                        <WeatherSwitchEditable name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} />
                         <HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="Temperatura Q1" />
                       </div>
                     </div>
@@ -449,16 +540,16 @@ export default function SetupPage() {
                     <div className="bg-black/20 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qualificação 2</span>
-                        <span className="text-[8px] px-2 py-0.5 rounded bg-white/5 text-slate-500 font-bold">Sessão 2</span>
+                        <span className="text-[8px] px-2 py-0.5 rounded bg-white/5 text-slate-500 font-bold">Sessão 2 (Editável)</span>
                       </div>
                       <div className="space-y-3">
-                        <WeatherSwitch name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} />
+                        <WeatherSwitchEditable name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} />
                         <HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="Temperatura Q2" />
                       </div>
                     </div>
                   </div>
 
-                  {/* Card Direita: Corrida (OTIMIZADO MOBILE FIRST) */}
+                  {/* Card Direita: Corrida (READ-ONLY - Fonte Oficial API GPRO) */}
                 <div className="bg-gradient-to-br from-indigo-900/10 to-transparent rounded-xl border border-indigo-500/20 flex flex-col relative overflow-hidden h-full group">
                     
                     {/* Background Decorativo */}
@@ -484,8 +575,14 @@ export default function SetupPage() {
                             </div>
                         </div>
                         
-                        {/* Switch de Clima (Seco/Chuva) */}
-                        <WeatherSwitch name="weatherRace" value={weather.weatherRace} onChange={handleWeatherChange} />
+                        {/* Switch de Clima READ-ONLY (Fonte Oficial GPRO) */}
+                        <div className="relative">
+                            <div className="absolute -top-6 right-0 flex items-center gap-1 bg-indigo-500/20 px-2 py-0.5 rounded-full">
+                                <Info size={10} className="text-indigo-400" />
+                                <span className="text-[7px] font-black text-indigo-400 uppercase tracking-wider">Fonte: API GPRO</span>
+                            </div>
+                            <WeatherSwitchReadOnly value={weather.weatherRace} />
+                        </div>
                     </div>
 
                     {/* Grid de Inputs (2x2) - Visual de Telemetria */}
@@ -721,7 +818,6 @@ export default function SetupPage() {
                                     const testWearVal = testResults ? testResults[part.id]?.test_wear : 0;
                                     const preRaceVal = testResults ? testResults[part.id]?.pre_race : startWear; 
 
-                                    // Checa se ESSE componente estourou o limite
                                     const isLimitBroken = isTestActive && typeof preRaceVal === 'number' && preRaceVal > 90.4;
 
                                     let calculatedFinalWear = 0;
@@ -735,33 +831,28 @@ export default function SetupPage() {
 
                                     return (
                                         <tr key={part.id} className={`group transition-colors ${isLimitBroken ? 'bg-rose-500/5' : 'hover:bg-white/[0.02]'}`}>
-                                            {/* Coluna Fixa */}
                                             <td className="sticky left-0 bg-[#13131A] z-10 pl-3 pr-2 py-2 border-r border-white/5 font-black text-[9px] text-slate-300 uppercase shadow-[2px_0_5px_rgba(0,0,0,0.3)] whitespace-nowrap">
                                                 {part.label}
                                             </td>
 
-                                            {/* Nível */}
                                             <td className="px-1 py-1 text-center bg-black/20 w-min">
                                                 <div className="mx-auto w-6 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold text-slate-400 py-1">
                                                     {lvl}
                                                 </div>
                                             </td>
 
-                                            {/* Início */}
                                             <td className="px-1 py-1 text-center bg-black/20">
                                                 <div className={`mx-auto w-10 bg-[#0F0F13] border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(startWear).split(' ')[0]}`}>
                                                     {startWear}%
                                                 </div>
                                             </td>
 
-                                            {/* Colunas Extras (Teste Ativo) */}
                                             {isTestActive && (
                                                 <>
                                                     <td className="px-1 py-1 text-center bg-black/20 text-[10px] font-black text-amber-500 whitespace-nowrap">
                                                         +{typeof testWearVal === 'number' ? testWearVal.toFixed(1) : '0.0'}%
                                                     </td>
                                                     
-                                                    {/* Célula PRÉ-COR com aviso condicional */}
                                                     <td className="px-1 py-1 text-center bg-black/20 whitespace-nowrap relative">
                                                         <div className={`text-[10px] font-black transition-all ${isLimitBroken ? 'text-rose-500 scale-110' : 'text-indigo-400'}`}>
                                                             {typeof preRaceVal === 'number' ? preRaceVal.toFixed(1) : '0.0'}%
@@ -778,7 +869,6 @@ export default function SetupPage() {
                                                 </>
                                             )}
 
-                                            {/* Fim */}
                                             <td className="px-1 py-1 text-center bg-black/20">
                                                 <div className={`mx-auto w-10 bg-[#0F0F13]/50 border border-white/5 rounded text-[9px] font-bold py-1 ${getWearColor(calculatedFinalWear)}`}>
                                                     {calculatedFinalWear > 0 ? calculatedFinalWear.toFixed(1) + '%' : '-'}

@@ -3,13 +3,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Calendar as CalendarIcon, Save, Loader2, 
+  Calendar as CalendarIcon, Loader2, 
   Zap, Activity, Wind, Timer, 
-  Gauge, Move, Sparkles, CalendarDays, Cloud, ExternalLink
+  Gauge, Move, Sparkles, CalendarDays, ExternalLink, Star, CheckCircle,
+  Trophy, Flag, Rocket, Clock
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-// --- CONFIGURAÇÃO: IDs DAS PISTAS DO GPRO ---
+// --- CONFIGURAÇÃO: IDs DAS PISTAS DO GPRO (para links) ---
 const TRACK_IDS: Record<string, string> = {
   "buenos aires": "2", "rafaela oval": "54", "adelaide": "19", "melbourne": "34",
   "a1-ring": "12", "oesterreichring": "24", "baku city": "58", "sakhir": "29",
@@ -29,10 +30,33 @@ const TRACK_IDS: Record<string, string> = {
   "indianapolis oval": "46", "laguna seca": "35", "las vegas": "64", "miami": "62"
 };
 
-// --- HELPER: Normaliza texto para garantir matches (A1-Ring vs a1-ring) ---
+// --- HELPERS ---
+
+// Normaliza texto para garantir matches
 const normalizarTexto = (texto: string) => {
   if (!texto) return "";
   return texto.toString().trim().toLowerCase();
+};
+
+// Extrai nome da pista do formato "A1-Ring GP (Áustria)"
+const extrairNomePista = (trackName: string) => {
+  if (!trackName) return "";
+  return trackName.replace(/\s*GP\s*\([^)]*\)\s*$/i, '').trim();
+};
+
+// Limpa HTML do campo dateEvent
+const limparHtml = (texto: string) => {
+  if (!texto) return '';
+  return String(texto)
+    .replace(/<[^>]*>/g, '') // Remove todas as tags HTML
+    .replace(/\s+/g, ' ')    // Normaliza espaços
+    .trim();
+};
+
+// Verifica se a data contém "Hoje" (do HTML original)
+const contemHoje = (texto: string) => {
+  if (!texto) return false;
+  return String(texto).toLowerCase().includes('hoje');
 };
 
 // --- HELPER: Cores Vibrantes (Estilo Neon/Pílula) ---
@@ -44,18 +68,13 @@ const formatarDadosGPRO = (valor: any) => {
   const t = String(valor || "").toLowerCase().trim();
   
   const mapa: Record<string, { pt: string; cor: string }> = {
-    // Verdes (Vantajoso)
     "very low": { pt: "Muito Baixa", cor: "bg-emerald-500 text-black font-bold shadow-[0_0_15px_rgba(16,185,129,0.4)] border-emerald-400" },
     "low": { pt: "Baixo", cor: "bg-lime-400 text-black font-bold shadow-[0_0_15px_rgba(163,230,53,0.4)] border-lime-300" },
     "easy": { pt: "Fácil", cor: "bg-lime-400 text-black font-bold border-lime-300" },
     "very soft": { pt: "Muito Macia", cor: "bg-emerald-500 text-black font-bold border-emerald-400" },
     "soft": { pt: "Macia", cor: "bg-lime-400 text-black font-bold border-lime-300" },
-
-    // Amarelos (Médio)
     "medium": { pt: "Médio", cor: "bg-amber-400 text-black font-bold shadow-[0_0_15px_rgba(251,191,36,0.3)] border-amber-300" },
     "normal": { pt: "Normal", cor: "bg-amber-400 text-black font-bold border-amber-300" },
-
-    // Vermelhos (Desvantajoso/Difícil)
     "high": { pt: "Alto", cor: "bg-orange-500 text-white font-bold border-orange-400" },
     "very high": { pt: "Muito Alto", cor: "bg-rose-600 text-white font-bold shadow-[0_0_15px_rgba(225,29,72,0.5)] border-rose-500" },
     "very elevated": { pt: "Muito Elevado", cor: "bg-rose-600 text-white font-bold border-rose-500" },
@@ -68,156 +87,378 @@ const formatarDadosGPRO = (valor: any) => {
   return mapa[t] || { pt: valor, cor: "bg-zinc-800/80 text-zinc-300 border border-white/5" };
 };
 
-export default function CalendarioAlfaPremium() {
+export default function CalendarioOficialGPRO() {
   const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [allTracks, setAllTracks] = useState<any[]>([]);
-  const [seasonNum, setSeasonNum] = useState("109");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [seasonSlots, setSeasonSlots] = useState<{name: string, date: string}[]>(Array(17).fill({ name: "", date: "" }));
-  const [testTrackName, setTestTrackName] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // --- DADOS OFICIAIS DA GPRO ---
+  const [currentSeason, setCurrentSeason] = useState<any[]>([]);
+  const [nextSeason, setNextSeason] = useState<any[]>([]);
+  const [currentTestTrack, setCurrentTestTrack] = useState<{name: string, id: string} | null>(null);
+  const [nextTestTrack, setNextTestTrack] = useState<{name: string, id: string} | null>(null);
+  const [currentRaceIndex, setCurrentRaceIndex] = useState<number>(-1);
+  const [groupName, setGroupName] = useState<string>("");
+  
+  // --- TABS ---
+  const [activeTab, setActiveTab] = useState<'current' | 'next'>('current');
 
   useEffect(() => {
+    let mounted = true;
+
     async function carregarDados() {
       try {
-        const res = await fetch('/api/calendar');
-        const apiData = await res.json();
-        if (apiData.sucesso) setAllTracks(apiData.tracks);
+        // 1. Busca sessão do usuário
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id ?? null;
+        
+        if (!mounted) return;
+        setUserId(currentUserId);
 
-        const { data: cloudData } = await supabase.from('calendario_temporada').select('*').maybeSingle();
-        if (cloudData) {
-          setSeasonNum(cloudData.season_num);
-          setStartDate(cloudData.start_date);
-          setEndDate(cloudData.end_date);
-          setSeasonSlots(cloudData.tracks_json);
-          setTestTrackName(cloudData.test_track);
-        } else { setIsSetupOpen(true); }
-      } catch (e) { console.error(e); } finally { setLoading(false); }
+        // 2. Busca calendário (com userId)
+        const url = currentUserId 
+          ? `/api/calendar?userId=${currentUserId}`
+          : '/api/calendar';
+        
+        const res = await fetch(url);
+        const apiData = await res.json();
+        
+        if (!mounted) return;
+        
+        if (apiData.sucesso) {
+          const tracks = apiData.tracks || [];
+          setAllTracks(tracks);
+          
+          // 3. Processa o calendário da GPRO
+          if (apiData.calendarRaw?.events) {
+            const events = apiData.calendarRaw.events;
+            
+            // Separa eventos em corridas e teste
+            const raceEvents = events.filter((e: any) => e.eventType === 'R');
+            const testEvents = events.filter((e: any) => e.eventType === 'T' || e.eventType === 'Test');
+            
+            // Mapeia corridas
+            const mappedRaces = raceEvents.map((event: any, index: number) => {
+              const trackName = extrairNomePista(event.trackName || '');
+              const trackData = tracks.find((t: any) => 
+                normalizarTexto(t.name) === normalizarTexto(trackName)
+              );
+              
+              const rawDate = event.dateEvent || '';
+              const cleanDate = limparHtml(rawDate);
+              const isToday = contemHoje(rawDate);
+              
+              return {
+                race: Number(event.idx || index + 1),
+                trackId: String(event.trackId || ''),
+                trackName: trackName,
+                trackFullName: event.trackName || '',
+                date: cleanDate,
+                dateRaw: rawDate,
+                isToday: isToday,
+                current: Boolean(event.isCurrentRace),
+                favorite: Boolean(event.isFavTrack),
+                natCode: event.trackNatCode || '',
+                ...trackData
+              };
+            });
+            
+            setCurrentSeason(mappedRaces);
+            
+            // Encontra a corrida atual
+            const currentIdx = mappedRaces.findIndex((r: any) => r.current);
+            if (currentIdx !== -1) {
+              setCurrentRaceIndex(currentIdx);
+            }
+            
+            // Busca pista de testes atual
+            if (testEvents.length > 0) {
+              const testEvent = testEvents[0];
+              const testName = extrairNomePista(testEvent.trackName || '');
+              setCurrentTestTrack({
+                name: testName,
+                id: String(testEvent.trackId || '')
+              });
+            } else if (apiData.calendarRaw.testTrackName) {
+              // Fallback para o campo testTrackName se existir
+              setCurrentTestTrack({
+                name: extrairNomePista(apiData.calendarRaw.testTrackName),
+                id: String(apiData.calendarRaw.testTrackId || '')
+              });
+            }
+            
+            // Busca grupo do usuário
+            if (apiData.calendarRaw.group) {
+              setGroupName(apiData.calendarRaw.group);
+            }
+          }
+          
+          // 4. Processa a próxima temporada
+          if (apiData.calendarRaw?.nextSeasonEvents) {
+            const nextEvents = apiData.calendarRaw.nextSeasonEvents;
+            
+            // Separa eventos da próxima temporada
+            const nextRaceEvents = nextEvents.filter((e: any) => e.eventType === 'R');
+            const nextTestEvents = nextEvents.filter((e: any) => e.eventType === 'T' || e.eventType === 'Test');
+            
+            // Mapeia corridas da próxima temporada
+            const mappedNextRaces = nextRaceEvents.map((event: any, index: number) => {
+              const trackName = extrairNomePista(event.trackName || '');
+              const trackData = tracks.find((t: any) => 
+                normalizarTexto(t.name) === normalizarTexto(trackName)
+              );
+              
+              const rawDate = event.dateEvent || '';
+              const cleanDate = limparHtml(rawDate);
+              const isToday = contemHoje(rawDate);
+              
+              return {
+                race: Number(event.idx || index + 1),
+                trackId: String(event.trackId || ''),
+                trackName: trackName,
+                trackFullName: event.trackName || '',
+                date: cleanDate,
+                dateRaw: rawDate,
+                isToday: isToday,
+                current: false,
+                favorite: Boolean(event.isFavTrack),
+                natCode: event.trackNatCode || '',
+                ...trackData
+              };
+            });
+            
+            setNextSeason(mappedNextRaces);
+            
+            // Busca pista de testes da próxima temporada
+            if (nextTestEvents.length > 0) {
+              const testEvent = nextTestEvents[0];
+              const testName = extrairNomePista(testEvent.trackName || '');
+              setNextTestTrack({
+                name: testName,
+                id: String(testEvent.trackId || '')
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Erro ao carregar dados:', e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
+    
     carregarDados();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const trackNames = useMemo(() => allTracks.map(t => t.name).sort(), [allTracks]);
+  const currentRaces = useMemo(() => {
+    return currentSeason.map((race, index) => ({
+      ...race,
+      isHighlight: index === currentRaceIndex
+    }));
+  }, [currentSeason, currentRaceIndex]);
 
-  const gerarEGerenciar = async () => {
-    const datas: string[] = [];
-    let atual = new Date(startDate);
-    const fim = new Date(endDate);
-    atual.setMinutes(atual.getMinutes() + atual.getTimezoneOffset());
-    fim.setMinutes(fim.getMinutes() + fim.getTimezoneOffset());
-
-    while (atual <= fim) {
-      const dia = atual.getDay();
-      if (dia === 2 || dia === 5) datas.push(atual.toLocaleDateString('pt-BR'));
-      atual.setDate(atual.getDate() + 1);
-    }
-
-    const slotsAtualizados = seasonSlots.map((slot, i) => ({ ...slot, date: datas[i] || "TBD" }));
-    setSeasonSlots(slotsAtualizados);
-    setIsSetupOpen(false);
-    
-    setIsSaving(true);
-    await supabase.from('calendario_temporada').upsert({
-      id: '00000000-0000-0000-0000-000000000001',
-      season_num: seasonNum, start_date: startDate, end_date: endDate,
-      tracks_json: slotsAtualizados, test_track: testTrackName, updated_at: new Date()
-    });
-    setIsSaving(false);
-  };
+  // Determina qual pista de testes mostrar baseado na aba ativa
+  const activeTestTrack = activeTab === 'current' ? currentTestTrack : nextTestTrack;
+  const isNextTest = activeTab === 'next';
 
   if (loading) return <div className="flex h-screen items-center justify-center bg-[#050507]"><Loader2 className="animate-spin text-indigo-500" size={40} /></div>;
 
   return (
     <div className="p-4 md:p-8 space-y-8 md:space-y-10 pb-40 font-sans max-w-[1600px] mx-auto text-slate-200">
       
-      {/* HEADER RESPONSIVO (MOBILE/DESKTOP) */}
+      {/* HEADER */}
       <div className="bg-zinc-900/40 backdrop-blur-2xl border border-white/5 p-4 md:p-6 rounded-[24px] md:rounded-[32px] flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 shadow-2xl gap-4 md:gap-0">
-        <div className="flex items-center gap-3 md:gap-5 w-full md:w-auto justify-center md:justify-start">
+        <div className="flex items-center gap-3 md:gap-5 w-full md:w-auto justify-center md:justify-start flex-wrap">
           <CalendarIcon className="text-indigo-400 shrink-0" size={24} />
-          <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter text-center">Calendário Temporada</h1>
-          {isSaving && <Cloud className="text-amber-500 animate-bounce" size={16} />}
+          <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tighter text-center">
+            Calendário Oficial GPRO
+          </h1>
+          
+          <span className="hidden md:block text-zinc-600">•</span>
+          
+          {groupName && (
+            <span className="text-[9px] md:text-[10px] font-black text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
+              {groupName}
+            </span>
+          )}
+          
+          <span className="text-[9px] md:text-[10px] font-black text-zinc-300 bg-zinc-800/50 px-3 py-1 rounded-full border border-white/5">
+            Temporada 111
+          </span>
         </div>
         
-        <button 
-          onClick={() => setIsSetupOpen(!isSetupOpen)} 
-          className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 md:py-2.5 rounded-xl md:rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95"
-        >
-          {isSetupOpen ? "Fechar Configuração" : "Editar Temporada"}
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Pista de Testes - depende da aba ativa */}
+          {activeTestTrack && (
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+              isNextTest 
+                ? 'bg-purple-500/10 border-purple-500/20' 
+                : 'bg-amber-500/10 border-amber-500/20'
+            }`}>
+              <Rocket size={14} className={isNextTest ? 'text-purple-400' : 'text-amber-400'} />
+              <span className={`text-[9px] md:text-[10px] font-black uppercase whitespace-nowrap ${
+                isNextTest ? 'text-purple-400' : 'text-amber-400'
+              }`}>
+                {isNextTest ? 'Próximo Teste:' : 'Teste:'} {activeTestTrack.name}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* PAINEL EDIÇÃO */}
-      <AnimatePresence>
-        {isSetupOpen && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="bg-zinc-900/80 border border-indigo-500/20 rounded-[32px] md:rounded-[40px] p-6 md:p-8 space-y-8 shadow-2xl">
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <InputGroup label="Temporada" value={seasonNum} onChange={setSeasonNum} />
-                <InputGroup label="Início da Época" value={startDate} onChange={setStartDate} type="date" />
-                <InputGroup label="Fim da Época" value={endDate} onChange={setEndDate} type="date" />
-             </div>
-             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {seasonSlots.map((slot, i) => (
-                  <select key={i} value={slot.name} onChange={(e) => { const n = [...seasonSlots]; n[i] = { ...n[i], name: e.target.value }; setSeasonSlots(n); }}
-                    className="bg-black/40 border border-white/5 rounded-xl p-2.5 text-[10px] text-white outline-none">
-                    <option value="">Corrida #{i+1}</option>
-                    {trackNames.map(name => <option key={name} value={name}>{name}</option>)}
-                  </select>
-                ))}
-                <select value={testTrackName} onChange={(e) => setTestTrackName(e.target.value)} className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 text-[10px] text-amber-500 font-bold">
-                   <option value="">Pista de Testes...</option>
-                   {trackNames.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-             </div>
-             <button onClick={gerarEGerenciar} className="w-full bg-emerald-600 py-4 rounded-2xl text-xs font-black uppercase flex items-center justify-center gap-3 transition-all"><Sparkles size={18}/> Gerar e Salvar</button>
-          </motion.div>
+      {/* BADGE: CORRIDA ATUAL - só mostra na aba atual */}
+      {activeTab === 'current' && currentRaceIndex !== -1 && currentSeason[currentRaceIndex] && (
+        <div className="flex items-center justify-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-6 py-3 mx-auto w-fit">
+          <CheckCircle size={18} className="text-emerald-400" />
+          <span className="text-[10px] md:text-xs font-black text-emerald-400 uppercase tracking-widest">
+            Próxima Corrida: {currentSeason[currentRaceIndex].trackName}
+          </span>
+          {currentSeason[currentRaceIndex].isToday ? (
+            <span className="text-[9px] font-black text-yellow-400 animate-pulse">
+              HOJE
+            </span>
+          ) : (
+            <span className="text-[9px] text-emerald-400/60 font-bold">
+              {currentSeason[currentRaceIndex].date}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* TABS */}
+      <div className="flex items-center gap-4 border-b border-white/5 pb-4">
+        <button
+          onClick={() => setActiveTab('current')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+            activeTab === 'current'
+              ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <Flag size={16} />
+          Temporada Atual
+        </button>
+        {nextSeason.length > 0 && (
+          <button
+            onClick={() => setActiveTab('next')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+              activeTab === 'next'
+                ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Rocket size={16} />
+            Próxima Temporada
+          </button>
         )}
-      </AnimatePresence>
+      </div>
 
       {/* GRID EXIBIÇÃO */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-        {seasonSlots.map((slot, i) => (
-          <CardExibicao key={i} index={i + 1} slot={slot} allTracks={allTracks} />
-        ))}
-        <CardExibicao index="TESTE" slot={{name: testTrackName, date: "Pista Ativa"}} allTracks={allTracks} isTest />
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.3 }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8"
+        >
+          {(activeTab === 'current' ? currentRaces : nextSeason).map((race, i) => (
+            <CardExibicao 
+              key={i} 
+              index={race.race || i + 1}
+              slot={{name: race.trackName, date: race.date, isToday: race.isToday}} 
+              allTracks={allTracks}
+              isHighlight={race.isHighlight}
+              isFavorite={race.favorite}
+              trackId={race.trackId}
+              isNext={activeTab === 'next'}
+            />
+          ))}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* CARD DE TESTES - depende da aba ativa */}
+      {activeTestTrack && (
+        <div className="mt-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Rocket size={18} className={isNextTest ? 'text-purple-400' : 'text-amber-400'} />
+            <h2 className={`text-xs font-black uppercase tracking-widest ${
+              isNextTest ? 'text-purple-400' : 'text-white'
+            }`}>
+              {isNextTest ? 'Próxima Pista de Testes' : 'Pista de Testes Ativa'}
+            </h2>
+            {isNextTest && (
+              <span className="text-[8px] font-black text-purple-400/60 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
+                Inativa
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CardExibicao 
+              index={null}
+              slot={{name: activeTestTrack.name, date: isNextTest ? "Próxima Temporada" : "Pista Ativa", isToday: false}} 
+              allTracks={allTracks} 
+              isTest 
+              isNextTest={isNextTest}
+              trackId={activeTestTrack.id}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function CardExibicao({ index, slot, allTracks, isTest = false }: any) {
-  // 1. Encontra a pista ignorando case/espaços
+function CardExibicao({ index, slot, allTracks, isTest = false, isNextTest = false, isHighlight = false, isFavorite = false, trackId = null, isNext = false }: any) {
+  // Encontra a pista
   const pista = allTracks.find((t: any) => 
     normalizarTexto(t.name) === normalizarTexto(slot.name)
   );
   
-  // 2. Encontra o ID do GPRO para o Link
-  const trackId = pista ? TRACK_IDS[normalizarTexto(pista.name)] : null;
-  const gproUrl = trackId ? `https://www.gpro.net/br/TrackDetails.asp?id=${trackId}` : "#";
+  // Encontra o ID do GPRO para o Link
+  const finalTrackId = trackId || (pista ? TRACK_IDS[normalizarTexto(pista.name)] : null);
+  const gproUrl = finalTrackId ? `https://www.gpro.net/br/TrackDetails.asp?id=${finalTrackId}` : "#";
+
+  // Determina cor do card
+  let cardStyle = 'bg-gradient-to-br from-indigo-900/20 via-zinc-950 to-black border border-white/10 hover:border-indigo-500/30 hover:shadow-[0_0_30px_rgba(99,102,241,0.15)]';
+  
+  if (isTest && isNextTest) {
+    cardStyle = 'bg-gradient-to-br from-purple-900/30 via-zinc-950 to-black border border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.1)]';
+  } else if (isTest) {
+    cardStyle = 'bg-gradient-to-br from-amber-900/20 to-black border border-amber-500/30';
+  } else if (isHighlight) {
+    cardStyle = 'bg-gradient-to-br from-emerald-900/30 via-zinc-950 to-black border border-emerald-500/40 shadow-[0_0_40px_rgba(16,185,129,0.1)]';
+  } else if (isFavorite) {
+    cardStyle = 'bg-gradient-to-br from-yellow-900/20 via-zinc-950 to-black border border-yellow-500/30';
+  } else if (isNext) {
+    cardStyle = 'bg-gradient-to-br from-purple-900/20 via-zinc-950 to-black border border-purple-500/20 hover:border-purple-500/30';
+  }
 
   return (
     <motion.div 
       layout 
-      className={`
-        relative overflow-hidden rounded-[24px] md:rounded-[32px] transition-all duration-500 group
-        ${isTest 
-          ? 'bg-gradient-to-br from-amber-900/20 to-black border border-amber-500/30' 
-          : 'bg-gradient-to-br from-indigo-900/20 via-zinc-950 to-black border border-white/10 hover:border-indigo-500/30 hover:shadow-[0_0_30px_rgba(99,102,241,0.15)]'
-        }
-      `}
+      className={`relative overflow-hidden rounded-[24px] md:rounded-[32px] transition-all duration-500 group ${cardStyle}`}
     >
       {/* Efeito Glow Topo */}
-      <div className={`absolute top-0 left-0 right-0 h-32 bg-gradient-to-b ${isTest ? 'from-amber-500/10' : 'from-indigo-500/10'} to-transparent pointer-events-none`} />
+      <div className={`absolute top-0 left-0 right-0 h-32 bg-gradient-to-b ${isTest && isNextTest ? 'from-purple-500/20' : isTest ? 'from-amber-500/10' : isHighlight ? 'from-emerald-500/20' : isFavorite ? 'from-yellow-500/10' : isNext ? 'from-purple-500/10' : 'from-indigo-500/10'} to-transparent pointer-events-none`} />
 
       {/* HEADER DO CARD */}
       <div className="relative p-4 md:p-6 flex items-start justify-between z-10">
         <div className="flex items-center gap-3 md:gap-4">
           
-          {/* Badge (Bandeira) com Link */}
-          <a href={gproUrl} target="_blank" rel="noreferrer" className={`flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl ${isTest ? 'bg-amber-500/10 hover:bg-amber-500/20' : 'bg-white/5 hover:bg-indigo-500/20'} backdrop-blur-md border border-white/5 transition-colors cursor-pointer shrink-0`}>
-             <span className={`text-[9px] md:text-[10px] font-black leading-none mb-1 ${isTest ? 'text-amber-500' : 'text-indigo-400'}`}>
-               {isTest ? "TEST" : `#${index}`}
+          {/* Badge com Bandeira */}
+          <a href={gproUrl} target="_blank" rel="noreferrer" className={`flex flex-col items-center justify-center p-1.5 md:p-2 rounded-xl ${isTest ? 'bg-amber-500/10 hover:bg-amber-500/20' : 'bg-white/5 hover:bg-indigo-500/20'} backdrop-blur-md border border-white/5 transition-colors cursor-pointer shrink-0 relative`}>
+             <span className={`text-[9px] md:text-[10px] font-black leading-none mb-1 ${isTest && isNextTest ? 'text-purple-400' : isTest ? 'text-amber-500' : isHighlight ? 'text-emerald-400' : isFavorite ? 'text-yellow-400' : isNext ? 'text-purple-400' : 'text-indigo-400'}`}>
+               {isTest ? (
+                 isNextTest ? "🔮" : "TEST"
+               ) : (
+                 `#${index}`
+               )}
              </span>
              {pista?.flag && pista.flag !== 'xx' && (
                 <img 
@@ -227,48 +468,76 @@ function CardExibicao({ index, slot, allTracks, isTest = false }: any) {
                   onError={(e) => (e.currentTarget.style.display = 'none')} 
                 />
              )}
+             {isHighlight && (
+               <div className="absolute -top-1 -right-1">
+                 <div className="bg-emerald-500 rounded-full p-0.5 shadow-[0_0_10px_rgba(16,185,129,0.5)]">
+                   <CheckCircle size={10} className="text-black" />
+                 </div>
+               </div>
+             )}
+             {isFavorite && !isHighlight && (
+               <div className="absolute -top-1 -right-1">
+                 <div className="bg-yellow-500 rounded-full p-0.5 shadow-[0_0_10px_rgba(234,179,8,0.5)]">
+                   <Star size={10} className="text-black" fill="black" />
+                 </div>
+               </div>
+             )}
+             {(isNext || (isTest && isNextTest)) && !isHighlight && !isFavorite && (
+               <div className="absolute -top-1 -right-1">
+                 <div className="bg-purple-500 rounded-full p-0.5 shadow-[0_0_10px_rgba(168,85,247,0.5)]">
+                   <Clock size={10} className="text-black" />
+                 </div>
+               </div>
+             )}
           </a>
 
-          {/* Nome da Pista com Link */}
+          {/* Nome da Pista */}
           <div className="flex flex-col min-w-0">
             <a href={gproUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 group-hover:opacity-80 transition-opacity">
-               <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter italic leading-none hover:text-indigo-400 transition-colors cursor-pointer truncate">
+               <h2 className={`text-xl md:text-2xl font-black uppercase tracking-tighter italic leading-none hover:text-indigo-400 transition-colors cursor-pointer truncate ${isTest && isNextTest ? 'text-purple-400' : isTest ? 'text-amber-400' : isHighlight ? 'text-emerald-400' : isFavorite ? 'text-yellow-400' : isNext ? 'text-purple-400' : 'text-white'}`}>
                  {slot.name || "---"}
                </h2>
-               {trackId && <ExternalLink size={12} className="text-zinc-600 group-hover:text-indigo-400 shrink-0" />}
+               {finalTrackId && <ExternalLink size={12} className="text-zinc-600 group-hover:text-indigo-400 shrink-0" />}
             </a>
             {pista && <span className="text-[9px] md:text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5 md:mt-1 truncate">GP de {pista.name}</span>}
           </div>
         </div>
 
         {/* Data */}
-        <div className="flex flex-col items-end shrink-0 pl-2">
-           <div className="flex items-center gap-1.5 md:gap-2 bg-white/5 px-2.5 py-1.5 md:px-3 rounded-lg border border-white/5 backdrop-blur-sm shadow-lg">
-              <CalendarDays size={12} className="text-zinc-400" />
-              <span className="text-[9px] md:text-[10px] font-bold text-zinc-300 uppercase">{slot.date}</span>
-           </div>
-        </div>
+        {slot.date && slot.date !== 'TBD' && (
+          <div className="flex flex-col items-end shrink-0 pl-2">
+             <div className="flex items-center gap-1.5 md:gap-2 bg-white/5 px-2.5 py-1.5 md:px-3 rounded-lg border border-white/5 backdrop-blur-sm shadow-lg">
+                <CalendarDays size={12} className="text-zinc-400" />
+                {slot.isToday ? (
+                  <span className="text-[9px] md:text-[10px] font-black text-yellow-400 animate-pulse uppercase">
+                    HOJE
+                  </span>
+                ) : (
+                  <span className="text-[9px] md:text-[10px] font-bold text-zinc-300 uppercase">
+                    {slot.date}
+                  </span>
+                )}
+             </div>
+          </div>
+        )}
       </div>
 
       {/* CONTEÚDO */}
       <div className="p-4 md:p-6 pt-0 md:pt-2 space-y-5 md:space-y-6 relative z-10">
         {pista ? (
           <>
-            {/* Stats Topo (Estilo Painel) */}
             <div className="grid grid-cols-3 gap-2">
                <InfoTopo label="Vel. Média" value={pista.avgSpeed} sulfixo="km/h" icon={Gauge} />
                <InfoTopo label="Curvas" value={pista.corners} icon={Move} />
                <InfoTopo label="Pitstop" value={pista.pit} sulfixo="s" icon={Timer} destaque />
             </div>
 
-            {/* Barras de Progresso Vibrantes */}
             <div className="space-y-3 bg-white/5 p-3 md:p-4 rounded-2xl border border-white/5 shadow-inner">
               <Barra label="Potência" value={pista.power} from="from-rose-500" to="to-orange-500" icon={Zap} />
               <Barra label="Dirigibilidade" value={pista.handling} from="from-indigo-500" to="to-cyan-400" icon={Activity} />
               <Barra label="Aceleração" value={pista.accel} from="from-emerald-500" to="to-lime-400" icon={Wind} />
             </div>
 
-            {/* Tags / Pills (Vibrantes) */}
             <div className="grid grid-cols-3 gap-2">
               <Tag label="Apoio Aero" value={pista.downforce} />
               <Tag label="Ultrapassagem" value={pista.overtaking} />
@@ -276,7 +545,6 @@ function CardExibicao({ index, slot, allTracks, isTest = false }: any) {
               <Tag label="Aderência" value={pista.grip} />
               <Tag label="Combustível" value={pista.fuel} />
               <Tag label="Desgaste" value={pista.wear} />
-              {/* Infos Extras Footer */}
               <div className="col-span-3 grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-white/5">
                  <TagMini label="Voltas" value={pista.laps} />
                  <TagMini label="Extensão" value={`${pista.lapLen}km`} />
@@ -346,15 +614,6 @@ function InfoTopo({ label, value, sulfixo = "", icon: Icon, destaque }: any) {
         {value}<span className="text-[9px] md:text-[10px] not-italic text-zinc-500 ml-0.5 font-bold">{sulfixo}</span>
       </span>
       <span className="text-[5px] md:text-[6px] font-black uppercase tracking-widest text-zinc-600">{label}</span>
-    </div>
-  );
-}
-
-function InputGroup({ label, value, onChange, type = "text" }: any) {
-  return (
-    <div className="space-y-2">
-      <label className="text-[9px] font-black text-indigo-400 uppercase tracking-widest ml-1">{label}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-[18px] p-4 text-white font-bold outline-none focus:border-indigo-500 transition-all" />
     </div>
   );
 }
