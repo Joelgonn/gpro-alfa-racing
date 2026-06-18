@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Importação do serviço de cálculo de setup
+import { calculateSetupService } from "@/services/setupService";
+
 // --- TIPAGEM ---
 type RaceOptions = { desgaste_pneu_percent: number; condicao: string; pneus_fornecedor: string; tipo_pneu: string; pitstops_num: number; ct_valor: number; avg_temp: number; };
 type CompoundOption = { forcar_pits: string; forcar_ct: string; };
@@ -49,12 +52,10 @@ const TYRE_NAMES: Record<string, string> = {
 const clampSetupDisplay = (value: unknown): unknown => {
   const num = Number(value);
   
-  // Se não for um número válido, retorna o valor original (preserva "-" e strings)
   if (Number.isNaN(num)) {
     return value;
   }
   
-  // Aplica os limites: mínimo 0, máximo 999
   return Math.max(0, Math.min(999, num));
 };
 
@@ -337,7 +338,7 @@ export default function StrategyPage() {
     weather, updateWeather, driver, updateDriver, car, updateCar,
     techDirector, updateTechDirector,      
     staffFacilities, updateStaffFacilities, 
-    idealSetup 
+    idealSetup, updateIdealSetup 
   } = useGame();
 
   const [inputs, setInputs] = useState<InputsState>({
@@ -365,8 +366,7 @@ export default function StrategyPage() {
   const boostLapsStr = useMemo(() => JSON.stringify(inputs.boost_laps), [inputs.boost_laps]);
   const personalStintVoltasStr = useMemo(() => JSON.stringify(inputs.personal_stint_voltas), [inputs.personal_stint_voltas]);
 
-  // PONTO 2: Derivação SOMENTE LEITURA da Melhor Estratégia
-  // Usa a MESMA lógica da tabela para identificar o vencedor (baseado em isBest)
+  // Derivação SOMENTE LEITURA da Melhor Estratégia
   const bestStrategy = useMemo(() => {
     const compounds = outputs?.compound_details_outputs;
     if (!compounds) return { compound: null, pits: null };
@@ -376,7 +376,6 @@ export default function StrategyPage() {
     let winnerCompound: string | null = null;
     let winnerPits: number | null = null;
     
-    // Função auxiliar para extrair pits de forma segura (igual à tabela)
     const getPits = (data: any): number | null => {
       if (!data) return null;
       const pits = data.req_stops;
@@ -386,13 +385,11 @@ export default function StrategyPage() {
     };
     
     if (isWetCondition) {
-      // Em chuva, usa o composto Rain (igual à tabela)
       if (compounds["Rain"]) {
         winnerCompound = "Rain";
         winnerPits = getPits(compounds["Rain"]);
       }
     } else {
-      // Em pista seca, encontra o composto com isBest = true (MESMA LÓGICA DA TABELA)
       const dryCompounds = ["Extra Soft", "Soft", "Medium", "Hard"];
       let bestFound = false;
       
@@ -409,7 +406,6 @@ export default function StrategyPage() {
         }
       }
       
-      // Fallback: se nenhum for "best", pega o de menor tempo (como fallback)
       if (!bestFound) {
         let lowestTime: number | null = null;
         for (const compound of dryCompounds) {
@@ -460,7 +456,7 @@ export default function StrategyPage() {
     checkSession();
   }, [router]);
 
-  // Load State - Depende apenas do userId para evitar loops de hidratação
+  // Load State
   useEffect(() => {
     async function loadState() {
       if (!userId) return;
@@ -589,6 +585,49 @@ export default function StrategyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceOptionsStr, boostLapsStr, personalStintVoltasStr, track, fetchStrategy, isSyncing, userId]);
 
+  // Recalcular o setup ideal automaticamente quando o clima da corrida ou a temperatura da estratégia mudarem
+  useEffect(() => {
+    async function recarregarSetupIdeal() {
+      if (!userId || !track || track === "Selecionar Pista" || isSyncing) return;
+      
+      try {
+        const driverParsed = JSON.parse(driverStr);
+        const carParsed = JSON.parse(carStr);
+        const techDirectorParsed = JSON.parse(techDirectorStr);
+        const staffFacilitiesParsed = JSON.parse(staffFacilitiesStr);
+
+        const data = await calculateSetupService(
+          {
+            pista: track,
+            driver: driverParsed,
+            car: carParsed,
+            tech_director: techDirectorParsed,
+            staff_facilities: staffFacilitiesParsed,
+            tempQ1: weather.tempQ1,
+            tempQ2: weather.tempQ2,
+            weatherQ1: weather.weatherQ1,
+            weatherQ2: weather.weatherQ2,
+            weatherRace: weather.weatherRace, 
+            raceAvgTemp: inputs.race_options.avg_temp || 0,
+            desgasteModifier: 0 
+          },
+          userId
+        );
+        
+        if (data.sucesso) {
+          updateIdealSetup(data.data);
+        }
+      } catch (error) {
+        console.error("Erro ao recalcular setup na estratégia:", error);
+      }
+    }
+
+    if (track && track !== "Selecionar Pista" && !isSyncing) {
+      recarregarSetupIdeal();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weather.weatherRace, inputs.race_options.avg_temp, track, userId, isSyncing, driverStr, carStr, techDirectorStr, staffFacilitiesStr]);
+
   // Persistência em Banco de Dados
   const persistStrategyState = useCallback(async () => {
       if (!userId || isSyncing) return;
@@ -708,7 +747,20 @@ export default function StrategyPage() {
           <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
             <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Settings size={14} className="text-indigo-400"/> Dados da Corrida</h3>{loading && <Loader2 className="animate-spin text-indigo-500" size={14} />}</div>
             <div className="p-4 md:p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">{["Dry", "Wet"].map(c => (<button key={c} onClick={() => handleInput('race_options', 'condicao', c)} className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c? (c === 'Dry' ? 'bg-orange-500 text-white shadow-lg' : 'bg-indigo-600 text-white shadow-lg'): 'text-slate-600 hover:text-slate-400'}`}>{c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}</button>))}</div>
+                <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">
+                  {["Dry", "Wet"].map(c => (
+                    <button 
+                      key={c} 
+                      onClick={() => {
+                        handleInput('race_options', 'condicao', c);
+                        updateWeather({ weatherRace: c });
+                      }} 
+                      className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
+                    >
+                      {c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-3 gap-3 md:gap-4">
                     <div className="bg-black/40 p-3 rounded-lg border border-white/5">
                         <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp.</label>
@@ -847,7 +899,7 @@ export default function StrategyPage() {
                 )}
             </section>
             
-            {/* PONTO 3 e 4: Seção Análise da Performance com cabeçalho modificado - CORRIGIDO PARA CHUVA */}
+            {/* Seção Análise da Performance com cabeçalho modificado */}
             <section className="bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden">
                 <div className="bg-white/5 p-4 border-b border-white/5">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -855,8 +907,6 @@ export default function StrategyPage() {
                             <Gauge size={14} className="text-emerald-400"/> Análise da Performance
                         </h3>
                         
-                        {/* Exibição da Melhor Estratégia e Botão Aplicar - CORRIGIDO PARA ACEITAR PITS NULL EM CHUVA */}
-                        {/* Agora exibe mesmo se pits for null, usando fallback "--" */}
                         {bestStrategy.compound && (
                             <div className="flex items-center gap-3 flex-wrap">
                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
@@ -872,7 +922,6 @@ export default function StrategyPage() {
                                 <button
                                     onClick={() => {
                                         handleInput('race_options', 'tipo_pneu', bestStrategy.compound);
-                                        // Se pits for null, mantém o valor atual
                                         if (bestStrategy.pits !== null) {
                                             handleInput('race_options', 'pitstops_num', bestStrategy.pits);
                                         }

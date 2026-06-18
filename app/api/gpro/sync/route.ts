@@ -95,10 +95,14 @@ function mapCar(data: GproJson) {
 }
 
 function mapTestPoints(data: GproJson) {
+  const power = Number(data.testPowerPoints ?? data.testPower ?? 0);
+  const handling = Number(data.testHandlPoints ?? data.testHandling ?? data.testHandl ?? 0);
+  const accel = Number(data.testAccelPoints ?? data.testAccel ?? 0);
+  
   return {
-    power: Number(data.testPowerPoints ?? 0),
-    handling: Number(data.testHandlPoints ?? 0),
-    accel: Number(data.testAccelPoints ?? 0),
+    power: power,
+    handling: handling,
+    accel: accel,
   };
 }
 
@@ -106,34 +110,108 @@ function mapTestPoints(data: GproJson) {
  * MAPEAMENTO DE CLIMA - FONTE OFICIAL GPRO
  * 
  * REGRA ARQUITETURAL:
- * weatherRace segue ESTRITAMENTE o resultado oficial da API GPRO baseado no primeiro período da corrida.
+ * weatherRace segue ESTRITAMENTE o resultado oficial da API GPRO baseado no clima da Q2.
  * 
  * REGRA CORRETA:
- * A corrida deve iniciar molhada quando raceQ1RainPLow > 0
- * Caso contrário, a corrida inicia seca (Dry)
+ * O clima do início da corrida é IDÊNTICO ao clima do final da Q2.
  * 
- * NÃO são aplicadas inferências locais baseadas em:
- * - Qualificação 2 (Q2)
- * - Quadrantes da corrida (raceQ2, raceQ3, raceQ4)
- * - Percentual de chuva de outros períodos
- * - Probabilidades calculadas localmente
+ * Se a Q2 termina seca (Dry) → Corrida começa seca (Dry)
+ * Se a Q2 termina molhada (Wet/Rain) → Corrida começa molhada (Wet)
  * 
- * A API GPRO é a ÚNICA fonte de verdade para o clima inicial da corrida.
+ * CHANCES DE CHUVA:
+ * Os campos representam a porcentagem de chance de chuva em cada período da corrida.
+ * 
+ * Nomenclatura da API:
+ * - raceQ1RainPLow / raceQ1RainLow: chance mínima de chuva no período 1
+ * - raceQ1RainPHigh / raceQ1RainHigh: chance máxima de chuva no período 1
+ * - raceQ2RainPLow / raceQ2RainLow: chance mínima de chuva no período 2
+ * - raceQ2RainPHigh / raceQ2RainHigh: chance máxima de chuva no período 2
+ * - raceQ3RainPLow / raceQ3RainLow: chance mínima de chuva no período 3
+ * - raceQ3RainPHigh / raceQ3RainHigh: chance máxima de chuva no período 3
+ * - raceQ4RainPLow / raceQ4RainLow: chance mínima de chuva no período 4
+ * - raceQ4RainPHigh / raceQ4RainHigh: chance máxima de chuva no período 4
+ * 
+ * Calculamos a média entre mínimo e máximo para ter um valor único.
  */
 function mapWeather(data: GproJson | null) {
   if (!data?.weather) return null;
   
-  // O clima da corrida é determinado pelo primeiro período (raceQ1RainPLow)
-  // Se > 0, a corrida começa molhada. Se == 0, a corrida começa seca.
-  const raceQ1RainPLow = Number(data.weather.raceQ1RainPLow ?? 0);
-  const weatherRace = raceQ1RainPLow > 0 ? 'Wet' : 'Dry';
+  // O clima da corrida é herdado do clima da Q2
+  const q2Weather = String(data.weather.q2WeatherTransl ?? data.weather.q2Weather ?? 'Dry');
+  const weatherRace = (q2Weather === 'Rain' || q2Weather === 'Wet') ? 'Wet' : 'Dry';
+  
+  // Chances de chuva por período - tentativa com múltiplas variações de nomes
+  // Período 1
+  const r1RainLow = Number(
+    data.weather.raceQ1RainPLow ?? 
+    data.weather.raceQ1RainLow ?? 
+    data.weather.raceQ1RainChanceLow ?? 
+    0
+  );
+  const r1RainHigh = Number(
+    data.weather.raceQ1RainPHigh ?? 
+    data.weather.raceQ1RainHigh ?? 
+    data.weather.raceQ1RainChanceHigh ?? 
+    0
+  );
+  const r1RainAvg = (r1RainLow + r1RainHigh) / 2;
+  
+  // Período 2
+  const r2RainLow = Number(
+    data.weather.raceQ2RainPLow ?? 
+    data.weather.raceQ2RainLow ?? 
+    data.weather.raceQ2RainChanceLow ?? 
+    0
+  );
+  const r2RainHigh = Number(
+    data.weather.raceQ2RainPHigh ?? 
+    data.weather.raceQ2RainHigh ?? 
+    data.weather.raceQ2RainChanceHigh ?? 
+    0
+  );
+  const r2RainAvg = (r2RainLow + r2RainHigh) / 2;
+  
+  // Período 3
+  const r3RainLow = Number(
+    data.weather.raceQ3RainPLow ?? 
+    data.weather.raceQ3RainLow ?? 
+    data.weather.raceQ3RainChanceLow ?? 
+    0
+  );
+  const r3RainHigh = Number(
+    data.weather.raceQ3RainPHigh ?? 
+    data.weather.raceQ3RainHigh ?? 
+    data.weather.raceQ3RainChanceHigh ?? 
+    0
+  );
+  const r3RainAvg = (r3RainLow + r3RainHigh) / 2;
+  
+  // Período 4
+  const r4RainLow = Number(
+    data.weather.raceQ4RainPLow ?? 
+    data.weather.raceQ4RainLow ?? 
+    data.weather.raceQ4RainChanceLow ?? 
+    0
+  );
+  const r4RainHigh = Number(
+    data.weather.raceQ4RainPHigh ?? 
+    data.weather.raceQ4RainHigh ?? 
+    data.weather.raceQ4RainChanceHigh ?? 
+    0
+  );
+  const r4RainAvg = (r4RainLow + r4RainHigh) / 2;
   
   return {
+    // Temperaturas e clima das qualificações
     tempQ1: Number(data.weather.q1Temp ?? 0),
     weatherQ1: String(data.weather.q1WeatherTransl ?? data.weather.q1Weather ?? 'Dry'),
     tempQ2: Number(data.weather.q2Temp ?? 0),
     weatherQ2: String(data.weather.q2WeatherTransl ?? data.weather.q2Weather ?? 'Dry'),
+    
+    // Clima da corrida (herdado da Q2)
     weatherRace: weatherRace,
+    
+    // Temperaturas da corrida por período
     r1_temp_min: Number(data.weather.raceQ1TempLow ?? 0),
     r1_temp_max: Number(data.weather.raceQ1TempHigh ?? 0),
     r2_temp_min: Number(data.weather.raceQ2TempLow ?? 0),
@@ -142,6 +220,12 @@ function mapWeather(data: GproJson | null) {
     r3_temp_max: Number(data.weather.raceQ3TempHigh ?? 0),
     r4_temp_min: Number(data.weather.raceQ4TempLow ?? 0),
     r4_temp_max: Number(data.weather.raceQ4TempHigh ?? 0),
+    
+    // Chances de chuva por período (média entre Low e High)
+    r1_rain_chance: Math.round(r1RainAvg),
+    r2_rain_chance: Math.round(r2RainAvg),
+    r3_rain_chance: Math.round(r3RainAvg),
+    r4_rain_chance: Math.round(r4RainAvg),
   };
 }
 
@@ -249,7 +333,13 @@ export async function POST(request: NextRequest) {
           pitCoord: 0,
         };
 
-    // 7. Retornar resposta padronizada
+    // 7. Mapear weather
+    const mappedWeather = mapWeather(qualifyData);
+    
+    // 8. Mapear test points
+    const mappedTestPoints = mapTestPoints(carData);
+
+    // 9. Retornar resposta padronizada
     return NextResponse.json({
       success: true,
       driver: mapDriver(driverData),
@@ -260,8 +350,8 @@ export async function POST(request: NextRequest) {
         toleranciaPressao: Number(staffData.stressHandling ?? 0),
         concentracao: Number(staffData.concentration ?? 0),
       },
-      weather: mapWeather(qualifyData),
-      test_points: mapTestPoints(carData), // CORRIGIDO: testPoints -> test_points
+      weather: mappedWeather,
+      test_points: mappedTestPoints,
       testing: mapTesting(testingData),
     });
 

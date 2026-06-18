@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// ALTERAÇÃO 1: Import do novo service
 import { calculateSetupService } from "@/services/setupService";
 
 // --- MAPEAMENTOS ---
@@ -45,16 +44,14 @@ const COMPONENTS = [
 const clampSetupDisplay = (value: unknown): unknown => {
   const num = Number(value);
   
-  // Se não for um número válido, retorna o valor original (preserva strings como "-")
   if (Number.isNaN(num)) {
     return value;
   }
   
-  // Aplica os limites: mínimo 0, máximo 999
   return Math.max(0, Math.min(999, num));
 };
 
-// --- SELETOR DE PISTA CORRIGIDO ---
+// --- SELETOR DE PISTA ---
 function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: any[], onSelect: (t: string) => void, placeholder?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -113,9 +110,173 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
     );
 }
 
+// --- WEATHER FORECAST COMPONENT ---
+interface WeatherForecastProps {
+    weatherData: {
+        r1_rain_chance?: number;
+        r2_rain_chance?: number;
+        r3_rain_chance?: number;
+        r4_rain_chance?: number;
+        weatherRace?: string;
+    };
+}
+
+function WeatherForecast({ weatherData }: WeatherForecastProps) {
+    // Extrair as chances de chuva de cada período
+    const rainChances = [
+        weatherData.r1_rain_chance ?? 0,
+        weatherData.r2_rain_chance ?? 0,
+        weatherData.r3_rain_chance ?? 0,
+        weatherData.r4_rain_chance ?? 0,
+    ];
+    
+    const maxChance = Math.max(...rainChances);
+    const avgChance = rainChances.reduce((a, b) => a + b, 0) / rainChances.length;
+    const hasAnyRain = maxChance > 0;
+    
+    // Determinar o texto baseado na maior chance de chuva
+    const getForecast = (chance: number) => {
+        if (chance === 0) {
+            return {
+                icon: '☀️',
+                title: 'Tempo Seco',
+                description: 'Sem previsão de chuva durante toda a corrida. Condições ideais para pneus secos.',
+                color: 'text-emerald-400',
+                bgColor: 'border-emerald-500/20 bg-emerald-500/5',
+            };
+        } else if (chance <= 30) {
+            return {
+                icon: '🌤️',
+                title: 'Baixa Probabilidade',
+                description: `Chance de chuva de até ${Math.round(chance)}%. Condições predominantemente secas, mas mantenha atenção às mudanças.`,
+                color: 'text-amber-400',
+                bgColor: 'border-amber-500/20 bg-amber-500/5',
+            };
+        } else if (chance <= 60) {
+            return {
+                icon: '⛅',
+                title: 'Chance Moderada',
+                description: `Chance de chuva de ${Math.round(chance)}%. Prepare-se para possíveis mudanças climáticas durante a corrida.`,
+                color: 'text-orange-400',
+                bgColor: 'border-orange-500/20 bg-orange-500/5',
+            };
+        } else if (chance <= 85) {
+            return {
+                icon: '🌧️',
+                title: 'Alta Probabilidade',
+                description: `Chance de chuva de ${Math.round(chance)}%. Alta probabilidade de condições molhadas em algum momento da corrida.`,
+                color: 'text-blue-400',
+                bgColor: 'border-blue-500/20 bg-blue-500/5',
+            };
+        } else {
+            return {
+                icon: '⛈️',
+                title: 'Chuva Quase Certa',
+                description: `Chance de chuva de ${Math.round(chance)}%. Prepare-se para uma corrida com condições de pista molhada.`,
+                color: 'text-indigo-400',
+                bgColor: 'border-indigo-500/20 bg-indigo-500/5',
+            };
+        }
+    };
+    
+    const forecast = getForecast(maxChance);
+    
+    // Se não houver dados de chance de chuva, exibe tempo seco
+    if (!hasAnyRain && rainChances.every(c => c === 0)) {
+        return (
+            <div className="mt-3 p-3 bg-black/20 rounded-lg border border-white/5">
+                <div className="flex items-center gap-3">
+                    <span className="text-2xl">☀️</span>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black uppercase text-emerald-400">
+                                Tempo Seco
+                            </span>
+                        </div>
+                        <p className="text-[9px] text-slate-400 leading-tight mt-0.5">
+                            Sem previsão de chuva durante toda a corrida. Condições ideais para pneus secos.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    
+    // Encontrar o período com maior chance para destacar
+    const maxIndex = rainChances.indexOf(maxChance);
+    
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mt-3 p-3 rounded-lg border ${forecast.bgColor}`}
+        >
+            <div className="flex items-start gap-3">
+                <span className="text-2xl">{forecast.icon}</span>
+                <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className={`text-xs font-black uppercase ${forecast.color}`}>
+                            {forecast.title}
+                        </span>
+                        <span className="text-[8px] text-slate-500 font-mono">
+                            Max: {Math.round(maxChance)}% | Média: {Math.round(avgChance)}%
+                        </span>
+                    </div>
+                    <p className="text-[9px] text-slate-300 leading-tight mt-0.5">
+                        {forecast.description}
+                    </p>
+                    
+                    {/* Períodos com maior destaque */}
+                    <div className="flex items-center gap-1.5 mt-2">
+                        {rainChances.map((chance, index) => {
+                            const isMax = index === maxIndex && maxChance > 0;
+                            const isWet = chance > 0;
+                            return (
+                                <div key={index} className="flex-1">
+                                    <div className="flex items-center justify-between gap-1">
+                                        <span className={`text-[6px] font-black uppercase ${isMax ? 'text-white' : 'text-slate-500'}`}>
+                                            P{index + 1}
+                                        </span>
+                                        <span className={`text-[6px] font-bold ${isWet ? 'text-indigo-400' : 'text-slate-600'}`}>
+                                            {Math.round(chance)}%
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden mt-0.5">
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${chance}%` }}
+                                            transition={{ duration: 0.6, delay: index * 0.1 }}
+                                            className={`h-full rounded-full transition-all ${
+                                                isMax ? 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.4)]' : 
+                                                isWet ? 'bg-indigo-500/60' : 'bg-transparent'
+                                            }`}
+                                            style={{ width: `${chance}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    
+                    {/* Dica estratégica baseada no clima */}
+                    <div className="mt-2 pt-1.5 border-t border-white/5">
+                        <p className="text-[7px] text-slate-500 font-bold uppercase tracking-wider">
+                            💡 Dica: {maxChance > 50 
+                                ? 'Considere um setup com ajustes para pista molhada e esteja preparado para mudanças de pneus.' 
+                                : maxChance > 0 
+                                    ? 'Mantenha-se atento às mudanças climáticas. Um pit stop estratégico pode fazer a diferença.' 
+                                    : 'Setup seco é a melhor escolha. Foque em performance máxima.'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
 // --- COMPONENTES OTIMIZADOS ---
 
-// 1. HUDInput Reativo (Termômetro muda de cor)
+// 1. HUDInput Reativo
 function HUDInput({ value, name, onChange, label }: any) { 
     const val = Number(value);
     
@@ -149,7 +310,7 @@ function HUDInput({ value, name, onChange, label }: any) {
     ) 
 }
 
-// 2. WeatherSwitch Editável (para Q1 e Q2)
+// 2. WeatherSwitch Editável
 function WeatherSwitchEditable({ name, value, onChange }: any) { 
     const isDry = value === 'Dry'; 
     return (
@@ -179,34 +340,10 @@ function WeatherSwitchEditable({ name, value, onChange }: any) {
     ) 
 }
 
-// 3. WeatherSwitch READ-ONLY (para Corrida - Fonte Oficial da API)
-function WeatherSwitchReadOnly({ value }: { value: string }) { 
-    const isDry = value === 'Dry'; 
-    return (
-        <div className="flex bg-black/40 p-1 rounded-lg border border-white/10 h-10 w-full overflow-hidden relative opacity-80">
-            <div className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 relative z-10 ${
-                isDry ? 'text-white' : 'text-slate-500'
-            }`}>
-                {isDry && <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600 rounded-md -z-10 opacity-60" />}
-                <Sun size={14} className={isDry ? "animate-[spin_10s_linear_infinite]" : ""} /> Seco
-            </div>
-
-            <div className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 relative z-10 ${
-                !isDry ? 'text-white' : 'text-slate-500'
-            }`}>
-                {!isDry && <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-md -z-10 opacity-60" />}
-                <CloudRain size={14} /> Chuva
-            </div>
-        </div>
-    ) 
-}
-
-// 4. SetupCard Compacto e Colorido (Vermelho, Amarelo, Verde)
-// ALTERAÇÃO: Aplica clampSetupDisplay nos valores exibidos (mínimo 0, máximo 999)
+// 3. SetupCard
 function SetupCard({ part, data }: { part: string, data: any }) {
     const safeRender = (val: any) => (val === null || val === undefined || typeof val === 'object') ? '-' : val;
     
-    // Aplica o clamp APENAS na exibição (limites: 0 a 999)
     const clampedQ1 = clampSetupDisplay(data?.q1);
     const clampedQ2 = clampSetupDisplay(data?.q2);
     const clampedRace = clampSetupDisplay(data?.race);
@@ -252,18 +389,6 @@ export default function SetupPage() {
       staffFacilities, updateStaffFacilities,
       updateIdealSetup 
   } = useGame();
-
-  useEffect(() => {
-    console.log('SETUP WEATHER', weather);
-  }, [weather]);
-
-  console.log('SETUP RENDER VALUES', {
-    weatherQ1: weather.weatherQ1,
-    tempQ1: weather.tempQ1,
-    weatherQ2: weather.weatherQ2,
-    tempQ2: weather.tempQ2,
-    weatherRace: weather.weatherRace
-  });
   
   const [loading, setLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -359,7 +484,7 @@ export default function SetupPage() {
       return () => clearTimeout(timer);
   }, [track, weather, desgasteModifier, techDirector, staffFacilities, persistChanges, initialHydrationDone, userId]);
 
-  // 4. CALCULATION LOGIC - ALTERAÇÃO 2: usando o service
+  // 4. CALCULATION LOGIC
   const handleCalcular = useCallback(async () => { 
     if (!userId || !track || track === "Selecionar Pista" || !initialHydrationDone) return;
     setLoading(true);
@@ -504,7 +629,7 @@ export default function SetupPage() {
 
       <main className="space-y-6">
         
-        {/* === CLIMA & SETUP IDEAL (Refatorado para Mobile First e Cards Coloridos) === */}
+        {/* === CLIMA & SETUP IDEAL === */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
             
             {/* --- SEÇÃO DE CLIMA --- */}
@@ -549,8 +674,8 @@ export default function SetupPage() {
                     </div>
                   </div>
 
-                  {/* Card Direita: Corrida (READ-ONLY - Fonte Oficial API GPRO) */}
-                <div className="bg-gradient-to-br from-indigo-900/10 to-transparent rounded-xl border border-indigo-500/20 flex flex-col relative overflow-hidden h-full group">
+                  {/* Card Direita: Corrida (EDITÁVEL) */}
+                  <div className="bg-gradient-to-br from-indigo-900/10 to-transparent rounded-xl border border-indigo-500/20 flex flex-col relative overflow-hidden h-full group">
                     
                     {/* Background Decorativo */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-[50px] rounded-full -z-10 transition-opacity opacity-50 group-hover:opacity-100 pointer-events-none"></div>
@@ -564,41 +689,40 @@ export default function SetupPage() {
                                 </div>
                                 <div>
                                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Corrida</h3>
-                                    <p className="text-[8px] text-indigo-300/60 font-bold uppercase mt-0.5">4 Períodos</p>
+                                    <p className="text-[8px] text-indigo-300/60 font-bold uppercase mt-0.5">4 Períodos (Editável)</p>
                                 </div>
                             </div>
                             
-                            {/* Display da Média Calculada */}
                             <div className="text-right bg-black/20 px-2 py-1 rounded border border-white/5">
                                 <span className="text-[7px] text-slate-500 font-bold uppercase block tracking-wider">Média Est.</span>
                                 <span className="text-sm font-black text-white leading-none tracking-tight">{raceAvgTemp.toFixed(1)}°</span>
                             </div>
                         </div>
                         
-                        {/* Switch de Clima READ-ONLY (Fonte Oficial GPRO) */}
                         <div className="relative">
                             <div className="absolute -top-6 right-0 flex items-center gap-1 bg-indigo-500/20 px-2 py-0.5 rounded-full">
                                 <Info size={10} className="text-indigo-400" />
-                                <span className="text-[7px] font-black text-indigo-400 uppercase tracking-wider">Fonte: API GPRO</span>
+                                <span className="text-[7px] font-black text-indigo-400 uppercase tracking-wider">Editável pelo Gerente</span>
                             </div>
-                            <WeatherSwitchReadOnly value={weather.weatherRace} />
+                            <WeatherSwitchEditable 
+                                name="weatherRace" 
+                                value={weather.weatherRace} 
+                                onChange={handleWeatherChange} 
+                            />
                         </div>
                     </div>
 
                     {/* Grid de Inputs (2x2) - Visual de Telemetria */}
-                    <div className="p-3 grid grid-cols-2 gap-2 flex-grow content-start">
+                    <div className="p-3 grid grid-cols-2 gap-2">
                         {[1, 2, 3, 4].map(num => (
                             <div key={num} className="bg-black/40 rounded-lg p-2 border border-white/5 relative hover:border-indigo-500/20 transition-colors flex flex-col justify-between group/period">
                                 
-                                {/* Label do Período */}
                                 <div className="flex justify-between items-start mb-1">
                                     <span className="text-[8px] font-black text-slate-600 group-hover/period:text-indigo-400 transition-colors uppercase tracking-widest bg-white/5 px-1.5 rounded">P{num}</span>
                                 </div>
 
-                                {/* Linha de Inputs */}
                                 <div className="flex items-end justify-between gap-2">
                                     
-                                    {/* Input Minimo (Cyan) */}
                                     <div className="flex flex-col w-full">
                                         <span className="text-[6px] text-cyan-500/60 font-bold uppercase tracking-wider mb-0.5">Min</span>
                                         <div className="relative">
@@ -613,10 +737,8 @@ export default function SetupPage() {
                                         </div>
                                     </div>
 
-                                    {/* Divisor Vertical */}
                                     <div className="w-px h-5 bg-white/5 self-end mb-1"></div>
 
-                                    {/* Input Máximo (Rose) */}
                                     <div className="flex flex-col w-full items-end">
                                         <span className="text-[6px] text-rose-500/60 font-bold uppercase tracking-wider mb-0.5">Max</span>
                                         <div className="relative">
@@ -635,11 +757,20 @@ export default function SetupPage() {
                             </div>
                         ))}
                     </div>
-                </div>
+
+                    {/* Previsão do Tempo */}
+                    <WeatherForecast weatherData={weather} />
+                    
+                  </div>
+                  {/* Fim do Card Corrida */}
 
                 </div>
+                {/* Fim do grid interno */}
+
               </section>
+              {/* Fim da section Clima */}
             </div>
+            {/* Fim da coluna Clima */}
 
             {/* --- SEÇÃO DE SETUP IDEAL (COMPACTO) --- */}
             <div className="xl:col-span-5">
@@ -659,7 +790,6 @@ export default function SetupPage() {
                             {loading && <Loader2 className="animate-spin text-white" size={14} />}
                         </div>
                         
-                        {/* Grid de Cards Compactos */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-1 gap-2.5 overflow-y-auto custom-scrollbar max-h-[600px] pr-1">
                             {['asaDianteira', 'asaTraseira', 'motor', 'freios', 'cambio', 'suspensao'].map((partId) => (
                                 <SetupCard key={partId} part={partId} data={resultado[partId]} />
@@ -682,7 +812,7 @@ export default function SetupPage() {
             </div>
         </div>
 
-        {/* === LINHA INFERIOR: Tabelas de Desgaste (Lado a Lado no Desktop) === */}
+        {/* === LINHA INFERIOR: Tabelas de Desgaste === */}
         {resultado && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
                 
@@ -716,16 +846,14 @@ export default function SetupPage() {
                     </div>
                 </section>
 
-                {/* 2. DESGASTE ESTIMADO COM TESTES (OTIMIZADA) */}
+                {/* 2. DESGASTE ESTIMADO COM TESTES */}
                 <section className="bg-white/[0.02] border border-white/5 rounded-2xl p-0 overflow-hidden backdrop-blur-sm h-full flex flex-col">
-                    {/* HEADER DA SEÇÃO */}
                     <div className="p-6 border-b border-white/5">
                         <div className="flex flex-col gap-4 mb-2">
                             <h2 className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
                                 <FlaskConical size={14} className="text-amber-500" /> Desgaste Estimado com Testes
                             </h2>
                             
-                            {/* Controles: Pista e Voltas */}
                             <div className="flex flex-wrap items-center gap-3 w-full">
                                 <div className="flex items-center gap-2">
                                      <TrackSelector 
@@ -773,7 +901,6 @@ export default function SetupPage() {
                             </div>
                         </div>
 
-                        {/* AVISO GLOBAL DE LIMITE 90% */}
                         <AnimatePresence>
                             {hasTestingLimitWarning && (
                                 <motion.div 
@@ -794,7 +921,6 @@ export default function SetupPage() {
                         </AnimatePresence>
                     </div>
 
-                    {/* TABELA OTIMIZADA */}
                     <div className="overflow-x-auto custom-scrollbar pb-2 px-2 flex-grow">
                         <table className="w-full text-xs border-separate border-spacing-y-1">
                             <thead>

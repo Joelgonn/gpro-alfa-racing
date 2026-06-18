@@ -33,9 +33,18 @@ export type StaffFacilities = {
 
 export type WeatherData = {
   tempQ1: number; weatherQ1: string; tempQ2: number; weatherQ2: string;
-  weatherRace: string; r1_temp_min: number; r1_temp_max: number;
-  r2_temp_min: number; r2_temp_max: number; r3_temp_min: number; r3_temp_max: number;
+  weatherRace: string; 
+  r1_temp_min: number; r1_temp_max: number;
+  r2_temp_min: number; r2_temp_max: number; 
+  r3_temp_min: number; r3_temp_max: number;
   r4_temp_min: number; r4_temp_max: number;
+  // ============================================
+  // NOVOS CAMPOS: Chances de chuva por período
+  // ============================================
+  r1_rain_chance: number;
+  r2_rain_chance: number;
+  r3_rain_chance: number;
+  r4_rain_chance: number;
 };
 
 // NOVO TIPO: Pontos de Teste (Vindo do Dashboard)
@@ -117,6 +126,13 @@ const INITIAL_WEATHER: WeatherData = {
   tempQ1: 0, weatherQ1: 'Dry', tempQ2: 0, weatherQ2: 'Dry', weatherRace: 'Dry',
   r1_temp_min: 0, r1_temp_max: 0, r2_temp_min: 0, r2_temp_max: 0,
   r3_temp_min: 0, r3_temp_max: 0, r4_temp_min: 0, r4_temp_max: 0,
+  // ============================================
+  // NOVOS CAMPOS: Inicializados com 0
+  // ============================================
+  r1_rain_chance: 0,
+  r2_rain_chance: 0,
+  r3_rain_chance: 0,
+  r4_rain_chance: 0,
 };
 
 const INITIAL_TEST_POINTS: TestPoints = { power: 0, handling: 0, accel: 0 };

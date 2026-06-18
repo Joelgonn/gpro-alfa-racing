@@ -146,8 +146,6 @@ function CarRow({ part, finalWear, onLvl, onWear, disabled }: any) {
 }
 
 function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
-    console.log('RENDER TEST', label, test);
-    
     const diff = (data?.carro || 0) - (data?.pista || 0);
     const isOk = diff >= 0;
     const pctPista = Math.min(100, ((data?.pista || 0) / 200) * 100);
@@ -298,8 +296,36 @@ export default function DashboardHome() {
   }, [track, driver, car, testPoints, desgasteModifier, fetchCalculations, isGlobalLoading, userId]);
 
   // ============================================
-  // PIPELINE ÚNICO - O MESMO QUE A IMPORTAÇÃO USA
-  // CORRIGIDO: usa test_points em vez de testPoints
+  // FUNÇÃO DE NORMALIZAÇÃO DO CLIMA
+  // ============================================
+  const normalizeWeatherFromAPI = useCallback((weatherData: any) => {
+    if (!weatherData) return weatherData;
+
+    const normalizeValue = (value: string): string => {
+      if (!value) return 'Dry';
+      if (value === 'Dry' || value === 'Wet') return value;
+      
+      const normalized = value.toLowerCase();
+      if (normalized.includes('rain') || 
+          normalized.includes('chuva') || 
+          normalized.includes('molhado') ||
+          normalized.includes('wet')) {
+        return 'Wet';
+      }
+      
+      return 'Dry';
+    };
+
+    return {
+      ...weatherData,
+      weatherQ1: normalizeValue(weatherData.weatherQ1),
+      weatherQ2: normalizeValue(weatherData.weatherQ2),
+      weatherRace: normalizeValue(weatherData.weatherRace),
+    };
+  }, []);
+
+  // ============================================
+  // PIPELINE ÚNICO
   // ============================================
   const applyGproPayload = useCallback((payload: {
     driver?: any;
@@ -310,8 +336,6 @@ export default function DashboardHome() {
     track?: string;
     test_points?: any;
   }) => {
-    console.log('Aplicando payload GPRO:', payload);
-    
     // Driver
     if (payload.driver) {
       Object.entries(payload.driver).forEach(([key, value]) => {
@@ -321,7 +345,7 @@ export default function DashboardHome() {
       });
     }
     
-    // Carro - MESMO PADRÃO
+    // Carro
     if (payload.car && Array.isArray(payload.car)) {
       payload.car.forEach((part: any, index: number) => {
         if (part.lvl !== undefined && part.lvl !== null) {
@@ -343,9 +367,10 @@ export default function DashboardHome() {
       updateStaffFacilities(payload.staff);
     }
     
-    // Weather
+    // Weather - com normalização
     if (payload.weather) {
-      updateWeather(payload.weather);
+      const normalizedWeather = normalizeWeatherFromAPI(payload.weather);
+      updateWeather(normalizedWeather);
     }
     
     // Track
@@ -353,14 +378,12 @@ export default function DashboardHome() {
       updateTrack(payload.track);
     }
     
-    // ============================================
-    // TEST POINTS - CORRIGIDO: usa test_points
-    // ============================================
+    // Test Points
     if (payload.test_points) {
       updateTestPoints(payload.test_points);
     }
     
-  }, [updateDriver, updateCar, updateTechDirector, updateStaffFacilities, updateWeather, updateTrack, track, updateTestPoints]);
+  }, [updateDriver, updateCar, updateTechDirector, updateStaffFacilities, updateWeather, updateTrack, track, updateTestPoints, normalizeWeatherFromAPI]);
 
   // Função para importar dados do GPRO
   const handleImportGPRO = async () => {
@@ -373,8 +396,6 @@ export default function DashboardHome() {
         console.error('Erro ao obter usuário:', userError);
         throw new Error('Usuário não autenticado. Faça login novamente.');
       }
-      
-      console.log('Usuário logado ID:', user.id);
       
       const { data: userState, error: fetchError } = await supabase
         .from('user_state')
@@ -418,16 +439,7 @@ export default function DashboardHome() {
         throw new Error(data.error || 'Erro ao importar dados do GPRO');
       }
       
-      console.log('Dados importados com sucesso:', data);
-      console.log(
-        'TEST POINTS API:',
-        JSON.stringify(data.test_points, null, 2)
-      );
-      
-      // ============================================
-      // FASE 2A: CRIAR E SALVAR SNAPSHOT
-      // CORRIGIDO: usa test_points em vez de testPoints
-      // ============================================
+      // Criar e salvar snapshot
       const importSnapshot = {
         driver: data.driver || null,
         car: data.car || null,
@@ -445,10 +457,7 @@ export default function DashboardHome() {
         last_import_at: importTimestamp
       });
       
-      // ============================================
-      // USAR O PIPELINE ÚNICO PARA APLICAR OS DADOS
-      // CORRIGIDO: passa test_points em vez de testPoints
-      // ============================================
+      // Aplicar os dados
       applyGproPayload(data);
       
       // Força uma atualização dos cálculos após a importação
@@ -487,10 +496,6 @@ export default function DashboardHome() {
       const snapshot = userState.last_import_snapshot;
       const importDate = userState.last_import_at;
       
-      console.log('Restaurando snapshot de:', importDate);
-      console.log('Snapshot:', snapshot);
-      
-      // NORMALIZAR SNAPSHOT PARA O FORMATO DA API
       const normalizedPayload = {
         driver: snapshot.driver,
         car: snapshot.car,
@@ -501,7 +506,6 @@ export default function DashboardHome() {
         test_points: snapshot.test_points
       };
       
-      // USAR O MESMO PIPELINE DA IMPORTAÇÃO
       applyGproPayload(normalizedPayload);
       
       setTimeout(() => persistState(), 500);
@@ -515,42 +519,6 @@ export default function DashboardHome() {
       setIsRestoring(false);
     }
   };
-
-  // Debug
-  useEffect(() => {
-    async function debugUser() {
-      if (!isGlobalLoading && userId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          console.log('=== DEBUG DASHBOARD ===');
-          console.log('User ID logado:', user.id);
-          console.log(
-            'TEST POINTS ESTADO:',
-            JSON.stringify(testPoints, null, 2)
-          );
-          
-          const { data: userState } = await supabase
-            .from('user_state')
-            .select('user_id, gpro_token, last_import_snapshot, last_import_at')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          
-          if (userState) {
-            console.log('Token encontrado:', userState.gpro_token ? 'SIM' : 'NÃO');
-            console.log('Snapshot encontrado:', userState.last_import_snapshot ? 'SIM' : 'NÃO');
-            if (userState.last_import_at) {
-              console.log('Última importação:', new Date(userState.last_import_at).toLocaleString());
-            }
-            if (userState.last_import_snapshot) {
-              console.log('Test Points no snapshot:', userState.last_import_snapshot.test_points);
-            }
-          }
-        }
-      }
-    }
-    
-    debugUser();
-  }, [isGlobalLoading, userId, testPoints]);
 
   if (isGlobalLoading) return (
     <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#050507] text-indigo-500 font-mono text-xs gap-4">
