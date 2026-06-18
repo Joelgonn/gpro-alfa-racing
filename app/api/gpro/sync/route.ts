@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { saveSnapshots } from '@/app/lib/gpro-snapshot';
 
 const GPRO_LANG = 'br';
 const GPRO_API_BASE = 'https://gpro.net';
@@ -38,7 +39,45 @@ async function fetchGproJson(path: string, token: string): Promise<GproJson> {
 }
 
 // ============================================
-// MAPEADORES DE DADOS GPRO
+// FUNÇÃO PARA EXTRAIR SEASON E RACE
+// ============================================
+
+function extractSeasonRace(data: GproJson): { season?: number; race?: number } {
+  // Tenta extrair season e race de várias fontes possíveis
+  const possibleSeasonFields = ['season', 'seasonId', 'seasonID', 'Season', 'SeasonId'];
+  const possibleRaceFields = ['race', 'raceId', 'raceID', 'round', 'Round', 'Race', 'RaceId'];
+  
+  let season: number | undefined;
+  let race: number | undefined;
+
+  for (const field of possibleSeasonFields) {
+    const value = Number(data[field]);
+    if (!isNaN(value) && value > 0) {
+      season = value;
+      break;
+    }
+  }
+
+  for (const field of possibleRaceFields) {
+    const value = Number(data[field]);
+    if (!isNaN(value) && value > 0) {
+      race = value;
+      break;
+    }
+  }
+
+  // Log para diagnóstico
+  if (season && race) {
+    console.log(`📅 Season ${season}, Race ${race} extraídos`);
+  } else {
+    console.log(`⚠️ Season/Race não encontrados no payload`);
+  }
+
+  return { season, race };
+}
+
+// ============================================
+// MAPEADORES DE DADOS GPRO (mantidos)
 // ============================================
 
 function mapDriver(data: GproJson) {
@@ -106,42 +145,12 @@ function mapTestPoints(data: GproJson) {
   };
 }
 
-/**
- * MAPEAMENTO DE CLIMA - FONTE OFICIAL GPRO
- * 
- * REGRA ARQUITETURAL:
- * weatherRace segue ESTRITAMENTE o resultado oficial da API GPRO baseado no clima da Q2.
- * 
- * REGRA CORRETA:
- * O clima do início da corrida é IDÊNTICO ao clima do final da Q2.
- * 
- * Se a Q2 termina seca (Dry) → Corrida começa seca (Dry)
- * Se a Q2 termina molhada (Wet/Rain) → Corrida começa molhada (Wet)
- * 
- * CHANCES DE CHUVA:
- * Os campos representam a porcentagem de chance de chuva em cada período da corrida.
- * 
- * Nomenclatura da API:
- * - raceQ1RainPLow / raceQ1RainLow: chance mínima de chuva no período 1
- * - raceQ1RainPHigh / raceQ1RainHigh: chance máxima de chuva no período 1
- * - raceQ2RainPLow / raceQ2RainLow: chance mínima de chuva no período 2
- * - raceQ2RainPHigh / raceQ2RainHigh: chance máxima de chuva no período 2
- * - raceQ3RainPLow / raceQ3RainLow: chance mínima de chuva no período 3
- * - raceQ3RainPHigh / raceQ3RainHigh: chance máxima de chuva no período 3
- * - raceQ4RainPLow / raceQ4RainLow: chance mínima de chuva no período 4
- * - raceQ4RainPHigh / raceQ4RainHigh: chance máxima de chuva no período 4
- * 
- * Calculamos a média entre mínimo e máximo para ter um valor único.
- */
 function mapWeather(data: GproJson | null) {
   if (!data?.weather) return null;
   
-  // O clima da corrida é herdado do clima da Q2
   const q2Weather = String(data.weather.q2WeatherTransl ?? data.weather.q2Weather ?? 'Dry');
   const weatherRace = (q2Weather === 'Rain' || q2Weather === 'Wet') ? 'Wet' : 'Dry';
   
-  // Chances de chuva por período - tentativa com múltiplas variações de nomes
-  // Período 1
   const r1RainLow = Number(
     data.weather.raceQ1RainPLow ?? 
     data.weather.raceQ1RainLow ?? 
@@ -156,7 +165,6 @@ function mapWeather(data: GproJson | null) {
   );
   const r1RainAvg = (r1RainLow + r1RainHigh) / 2;
   
-  // Período 2
   const r2RainLow = Number(
     data.weather.raceQ2RainPLow ?? 
     data.weather.raceQ2RainLow ?? 
@@ -171,7 +179,6 @@ function mapWeather(data: GproJson | null) {
   );
   const r2RainAvg = (r2RainLow + r2RainHigh) / 2;
   
-  // Período 3
   const r3RainLow = Number(
     data.weather.raceQ3RainPLow ?? 
     data.weather.raceQ3RainLow ?? 
@@ -186,7 +193,6 @@ function mapWeather(data: GproJson | null) {
   );
   const r3RainAvg = (r3RainLow + r3RainHigh) / 2;
   
-  // Período 4
   const r4RainLow = Number(
     data.weather.raceQ4RainPLow ?? 
     data.weather.raceQ4RainLow ?? 
@@ -202,16 +208,11 @@ function mapWeather(data: GproJson | null) {
   const r4RainAvg = (r4RainLow + r4RainHigh) / 2;
   
   return {
-    // Temperaturas e clima das qualificações
     tempQ1: Number(data.weather.q1Temp ?? 0),
     weatherQ1: String(data.weather.q1WeatherTransl ?? data.weather.q1Weather ?? 'Dry'),
     tempQ2: Number(data.weather.q2Temp ?? 0),
     weatherQ2: String(data.weather.q2WeatherTransl ?? data.weather.q2Weather ?? 'Dry'),
-    
-    // Clima da corrida (herdado da Q2)
     weatherRace: weatherRace,
-    
-    // Temperaturas da corrida por período
     r1_temp_min: Number(data.weather.raceQ1TempLow ?? 0),
     r1_temp_max: Number(data.weather.raceQ1TempHigh ?? 0),
     r2_temp_min: Number(data.weather.raceQ2TempLow ?? 0),
@@ -220,8 +221,6 @@ function mapWeather(data: GproJson | null) {
     r3_temp_max: Number(data.weather.raceQ3TempHigh ?? 0),
     r4_temp_min: Number(data.weather.raceQ4TempLow ?? 0),
     r4_temp_max: Number(data.weather.raceQ4TempHigh ?? 0),
-    
-    // Chances de chuva por período (média entre Low e High)
     r1_rain_chance: Math.round(r1RainAvg),
     r2_rain_chance: Math.round(r2RainAvg),
     r3_rain_chance: Math.round(r3RainAvg),
@@ -322,7 +321,54 @@ export async function POST(request: NextRequest) {
       return null;
     });
 
-    // 6. Mapear Tech Director (pode ser nulo)
+    // ============================================
+    // SPRINT 3A - SALVAR SNAPSHOTS (NÃO BLOQUEANTE)
+    // ============================================
+    // Extrair season/race - tenta de várias fontes
+    const seasonRace = extractSeasonRace(qualifyData || trackData || carData || {});
+    
+    // Prepara os snapshots
+    const snapshots = [
+      { userId, endpoint: 'TrackProfile', payload: trackData },
+      { userId, endpoint: 'DriProfile', payload: driverData },
+      { userId, endpoint: 'UpdateCar', payload: carData },
+      { userId, endpoint: 'StaffAndFacilities', payload: staffData },
+      { userId, endpoint: 'TDProfile', payload: tdData },
+      { userId, endpoint: 'Qualify2', payload: qualifyData },
+    ];
+
+    if (testingData) {
+      snapshots.push({ userId, endpoint: 'Testing', payload: testingData });
+    }
+
+    // Salvar snapshots com Promise.allSettled (NÃO BLOQUEANTE)
+    try {
+      const results = await saveSnapshots(
+        snapshots.map(s => ({
+          ...s,
+          season: seasonRace.season,
+          race: seasonRace.race,
+        }))
+      );
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+      
+      if (failCount === 0) {
+        console.log(`✅ ${successCount} snapshots salvos para usuário ${userId}`);
+      } else {
+        console.warn(`⚠️ ${successCount} snapshots salvos, ${failCount} falhas para usuário ${userId}`);
+      }
+    } catch (snapshotError) {
+      console.error('⚠️ Erro ao salvar snapshots (continuando):', snapshotError);
+      // Não interrompe o fluxo principal
+    }
+
+    // ============================================
+    // CONTINUA O FLUXO NORMAL DO SYNC
+    // ============================================
+
+    // 6. Mapear Tech Director
     const mappedTechDirector = tdData?.tdName
       ? mapTechDirector(tdData)
       : {
