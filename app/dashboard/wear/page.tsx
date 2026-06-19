@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { 
   Loader2, Gauge, Cloud, Lock, LockOpen, 
   Settings2, Zap, Activity, ShieldAlert, Thermometer,
-  CheckCircle2, Trash2, User, Eraser, ChevronLeft, ChevronRight
+  CheckCircle2, Trash2, User, Eraser, ChevronLeft, ChevronRight,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { supabase } from '@/app/lib/supabase';
 import { useGame } from '@/app/context/GameContext';
@@ -44,6 +45,18 @@ const TRACK_TO_FLAG: Record<string, string> = {
   "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
+// --- HELPER: Normalizar texto para match ---
+const normalizarTexto = (texto: string) => {
+  if (!texto) return "";
+  return texto.toString().trim().toLowerCase();
+};
+
+// --- HELPER: Extrair nome da pista do formato "A1-Ring GP (Áustria)" ---
+const extrairNomePista = (trackName: string) => {
+  if (!trackName) return "";
+  return trackName.replace(/\s*GP\s*\([^)]*\)\s*$/i, '').trim();
+};
+
 export default function WearPlanningPage() {
   const { driver } = useGame();
   const [userId, setUserId] = useState<string | null>(null);
@@ -58,6 +71,10 @@ export default function WearPlanningPage() {
   
   // Mobile State
   const [mobileActiveTab, setMobileActiveTab] = useState(0);
+
+  // Estado para o calendário (fonte única)
+  const [calendarData, setCalendarData] = useState<any>(null);
+  const [loadingCalendar, setLoadingCalendar] = useState(true);
 
   const driverStats = [
     { label: 'CON', val: driver.concentracao, full: 'Concentração' },
@@ -81,52 +98,140 @@ export default function WearPlanningPage() {
     return `/flags/${code}.png`;
   };
 
+  // ============================================
+  // ETAPA 1: CARREGAR CALENDÁRIO DA GPRO
+  // ============================================
   useEffect(() => {
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      setUserId(user.id);
+    async function loadCalendar() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id ?? null;
+        
+        if (!currentUserId) {
+          setLoadingCalendar(false);
+          return;
+        }
 
-      const { data: season } = await supabase.from('calendario_temporada').select('tracks_json').maybeSingle();
-      const baseSlots = season?.tracks_json?.filter((s: any) => s.name).map((s: any) => ({
-        ...s, ctr: 0, testLaps: 0, testEnabled: true
-      })) || [];
+        setUserId(currentUserId);
+
+        const url = currentUserId 
+          ? `/api/calendar?userId=${currentUserId}`
+          : '/api/calendar';
+        
+        const res = await fetch(url);
+        const apiData = await res.json();
+        
+        if (apiData.sucesso && apiData.calendarRaw?.events) {
+          const events = apiData.calendarRaw.events;
+          
+          // Filtra apenas eventos de corrida (R)
+          const raceEvents = events.filter((e: any) => e.eventType === 'R');
+          
+          // Mapeia as corridas para o formato do planejamento
+          const mappedRaces = raceEvents.map((event: any, index: number) => {
+            const trackName = extrairNomePista(event.trackName || '');
+            
+            // Busca dados da pista no catálogo de tracks (se disponível)
+            const trackData = apiData.tracks?.find((t: any) => 
+              normalizarTexto(t.name) === normalizarTexto(trackName)
+            );
+            
+            return {
+              name: trackName,
+              trackFullName: event.trackName || '',
+              trackId: String(event.trackId || ''),
+              date: event.dateEvent || '',
+              isCurrentRace: Boolean(event.isCurrentRace),
+              isFavTrack: Boolean(event.isFavTrack),
+              natCode: event.trackNatCode || '',
+              // Dados da pista (para o motor de desgaste)
+              power: trackData?.power || 0,
+              handling: trackData?.handling || 0,
+              accel: trackData?.accel || 0,
+              downforce: trackData?.downforce || '',
+              overtaking: trackData?.overtaking || '',
+              suspension: trackData?.suspension || '',
+              grip: trackData?.grip || '',
+              fuel: trackData?.fuel || '',
+              wear: trackData?.wear || '',
+              laps: trackData?.laps || 0,
+              lapLen: trackData?.lapLen || 0,
+              dist: trackData?.dist || 0,
+              avgSpeed: trackData?.avgSpeed || 0,
+              corners: trackData?.corners || 0,
+              pit: trackData?.pit || 0,
+              // Campos do planejamento (inicializados)
+              ctr: 0,
+              testLaps: 0,
+              testEnabled: true,
+            };
+          });
+          
+          setCalendarData(apiData);
+          setSeasonSlots(mappedRaces);
+        } else {
+          // Fallback: se não conseguir carregar o calendário, mantém o que já existe
+          console.warn('Não foi possível carregar o calendário, usando fallback');
+        }
+      } catch (error) {
+        console.error('Erro ao carregar calendário:', error);
+      } finally {
+        setLoadingCalendar(false);
+      }
+    }
+
+    loadCalendar();
+  }, []);
+
+  // ============================================
+  // CARREGAR DADOS SALVOS DO USUÁRIO
+  // ============================================
+  useEffect(() => {
+    async function loadSavedData() {
+      if (!userId || loadingCalendar) return;
 
       try {
-        const res = await fetch('/api/python/get_planning', { headers: { 'user-id': user.id } });
+        const res = await fetch('/api/python/get_planning', { 
+          headers: { 'user-id': userId } 
+        });
         const cloud = await res.json();
-        let loadedSlots = baseSlots;
-        let loadedOverrides = {};
-        let loadedLocks: number[] = [];
 
         if (cloud.sucesso && cloud.data && Object.keys(cloud.data).length > 0) {
-          loadedSlots = cloud.data.seasonSlots?.length > 0 ? cloud.data.seasonSlots : baseSlots;
-          loadedOverrides = cloud.data.manualOverrides || {};
-          loadedLocks = cloud.data.lockedSlots || [];
-        }
+          // Mescla os dados salvos com os slots do calendário
+          const savedSlots = cloud.data.seasonSlots || [];
+          const savedOverrides = cloud.data.manualOverrides || {};
+          const savedLocks = cloud.data.lockedSlots || [];
 
-        if (Object.keys(loadedOverrides).length === 0) {
-           const defaultOverrides: any = {};
-           CAR_PARTS.forEach(part => {
-             defaultOverrides[part.id] = {};
-             for (let i = 0; i < loadedSlots.length; i++) {
-               defaultOverrides[part.id][i] = { lvl: "1" };
-             }
-           });
-           loadedOverrides = defaultOverrides;
-        }
+          // Se há slots salvos, mescla com os do calendário
+          if (savedSlots.length > 0 && seasonSlots.length > 0) {
+            // Mantém os dados de CTR, testLaps e testEnabled do salvamento
+            const mergedSlots = seasonSlots.map((slot, index) => {
+              const saved = savedSlots[index];
+              if (saved) {
+                return {
+                  ...slot,
+                  ctr: saved.ctr || 0,
+                  testLaps: saved.testLaps || 0,
+                  testEnabled: saved.testEnabled !== undefined ? saved.testEnabled : true,
+                };
+              }
+              return slot;
+            });
+            setSeasonSlots(mergedSlots);
+          }
 
-        setSeasonSlots(loadedSlots);
-        setManualOverrides(loadedOverrides);
-        setLockedSlots(loadedLocks);
+          setManualOverrides(savedOverrides);
+          setLockedSlots(savedLocks);
+        }
       } catch (error) {
-        console.error("Erro ao carregar:", error);
-        setSeasonSlots(baseSlots);
+        console.error("Erro ao carregar dados salvos:", error);
       }
+      
       setLoading(false);
     }
-    init();
-  }, []);
+
+    loadSavedData();
+  }, [userId, loadingCalendar, seasonSlots]);
 
   const saveToCloud = useCallback(async (slots: any, overrides: any, locks: number[]) => {
     if (!userId) return;
@@ -213,7 +318,7 @@ export default function WearPlanningPage() {
 
   const resetTrackSlot = (index: number) => {
     if (lockedSlots.includes(index)) return;
-    if (!confirm(`Tem certeza que deseja limpar os dados de CTR e Teste para ${seasonSlots[index].name}?`)) return;
+    if (!confirm(`Tem certeza que deseja limpar os dados de CTR e Teste para ${seasonSlots[index]?.name || 'esta pista'}?`)) return;
     setSeasonSlots(prev => prev.map((slot, i) => i === index ? { ...slot, ctr: 0, testLaps: 0 } : slot));
   };
 
@@ -223,10 +328,12 @@ export default function WearPlanningPage() {
       setMobileActiveTab(idx);
   };
 
-  if (loading) return (
+  if (loading || loadingCalendar) return (
     <div className="h-screen flex flex-col items-center justify-center bg-[#050505]">
       <Loader2 className="animate-spin text-emerald-500 mb-4" size={40} />
-      <span className="text-zinc-500 font-mono text-xs tracking-[0.3em] uppercase tracking-tighter">Sincronizando...</span>
+      <span className="text-zinc-500 font-mono text-xs tracking-[0.3em] uppercase tracking-tighter">
+        {loadingCalendar ? 'Carregando calendário...' : 'Sincronizando...'}
+      </span>
     </div>
   );
 
@@ -242,8 +349,19 @@ export default function WearPlanningPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-black uppercase italic tracking-tighter leading-none text-white text-center sm:text-left">Planejamento</h1>
             <div className="flex items-center justify-center sm:justify-start gap-2 mt-1">
-               <Cloud size={10} className={saving ? 'text-amber-500 animate-pulse' : 'text-emerald-500'} />
-               <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{saving ? 'Salvando...' : 'Sincronizado'}</p>
+               {calendarData?.calendarRaw?.group && (
+                 <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                   {calendarData.calendarRaw.group}
+                 </span>
+               )}
+               <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">
+                 {seasonSlots.length} corridas
+               </span>
+               {calendarData?.calendarRaw?.nextSeasonEvents?.length > 0 && (
+                 <span className="text-[8px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
+                   + {calendarData.calendarRaw.nextSeasonEvents.filter((e: any) => e.eventType === 'R').length} prox. temp.
+                 </span>
+               )}
             </div>
           </div>
         </div>
@@ -293,13 +411,15 @@ export default function WearPlanningPage() {
                 </th>
                 {seasonSlots.map((slot, i) => {
                   const isLocked = lockedSlots.includes(i);
+                  const isCurrent = slot?.isCurrentRace;
                   return (
                     <th key={i} className={`p-6 border-b border-white/5 min-w-[260px] border-r border-white/5 transition-all ${isLocked ? 'bg-black/40' : 'bg-zinc-900/20'}`}>
                       <div className="flex flex-col items-center gap-4">
-                        <div className={`flex items-center justify-between gap-3 w-full px-4 py-2 rounded-xl border transition-all ${isLocked ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/5 border-white/5'}`}>
+                        <div className={`flex items-center justify-between gap-3 w-full px-4 py-2 rounded-xl border transition-all ${isLocked ? 'bg-emerald-500/10 border-emerald-500/20' : isCurrent ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
                           <div className="flex items-center gap-2 truncate">
                              <div className="relative w-5 h-3"><Image src={getFlagSrc(slot.name)} alt={slot.name} fill className="object-cover rounded-[1px]" unoptimized /></div>
-                             <span className={`text-[10px] font-black uppercase italic truncate ${isLocked ? 'text-emerald-400' : 'text-zinc-300'}`}>#{i + 1} {slot.name}</span>
+                             <span className={`text-[10px] font-black uppercase italic truncate ${isLocked ? 'text-emerald-400' : isCurrent ? 'text-emerald-400' : 'text-zinc-300'}`}>#{i + 1} {slot.name}</span>
+                             {isCurrent && <span className="text-[6px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded-full uppercase font-black">ATUAL</span>}
                           </div>
                           <div className="flex items-center gap-1">
                             {!isLocked && (<button onClick={() => resetTrackSlot(i)} className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"><Eraser size={14} /></button>)}
@@ -360,14 +480,14 @@ export default function WearPlanningPage() {
       </div>
 
       {/* --- MOBILE VIEW (OTIMIZADA E ESQUERDIZADA) --- */}
-      {/* Container com largura máxima justa ao conteúdo */}
       <div className="block md:hidden pb-24 px-0 max-w-fit">
         
-        {/* Slider de Pistas - LIMITADO A 315px (Aprox 4 itens + gaps) */}
+        {/* Slider de Pistas */}
         <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start max-w-[315px]">
             {seasonSlots.map((slot, idx) => {
                 const isActive = mobileActiveTab === idx;
                 const isLocked = lockedSlots.includes(idx);
+                const isCurrent = slot?.isCurrentRace;
                 return (
                     <button 
                         key={idx}
@@ -378,15 +498,17 @@ export default function WearPlanningPage() {
                                 ? 'bg-zinc-800 border-amber-500/40 shadow-lg z-10' 
                                 : 'bg-zinc-900/30 border-white/5 opacity-60'
                             }
+                            ${isCurrent ? 'border-emerald-500/30' : ''}
                         `}
                     >
                          {isLocked && <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-0.5 text-emerald-400 border border-emerald-500/20"><Lock size={8} /></div>}
+                         {isCurrent && !isLocked && <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5"><CheckCircle2 size={8} className="text-black" /></div>}
                          <div className={`relative w-8 h-5 shadow-sm overflow-hidden rounded ${isActive ? 'ring-1 ring-white/10' : ''}`}>
                              <Image src={getFlagSrc(slot.name)} alt="flag" fill className="object-cover" unoptimized />
                          </div>
                          <div className="flex flex-col w-full text-center">
                            <span className={`text-[9px] font-black uppercase truncate w-full ${isActive ? 'text-white' : 'text-zinc-500'}`}>
-                              {slot.name.split(' ')[0]}
+                              {slot.name?.split(' ')[0] || '???'}
                            </span>
                            <span className="text-[7px] font-mono text-zinc-600">
                              #{idx+1}
@@ -406,12 +528,19 @@ export default function WearPlanningPage() {
                 <div className="bg-gradient-to-r from-black/60 to-black/20 p-4 border-b border-white/5 max-w-[300px]">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center border border-white/5">
-                                 <div className="relative w-7 h-4"><Image src={getFlagSrc(seasonSlots[mobileActiveTab].name)} alt="flag" fill className="object-cover rounded-sm" unoptimized /></div>
+                             <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center border border-white/5 relative">
+                                 <div className="relative w-7 h-4"><Image src={getFlagSrc(seasonSlots[mobileActiveTab]?.name)} alt="flag" fill className="object-cover rounded-sm" unoptimized /></div>
+                                 {seasonSlots[mobileActiveTab]?.isCurrentRace && (
+                                   <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5">
+                                     <CheckCircle2 size={8} className="text-black" />
+                                   </div>
+                                 )}
                              </div>
                              <div>
-                                 <h2 className="text-lg font-black italic uppercase text-white leading-none truncate max-w-[160px]">{seasonSlots[mobileActiveTab].name}</h2>
-                                 <span className="text-[9px] text-amber-500 font-bold tracking-widest uppercase">Race #{mobileActiveTab + 1}</span>
+                                 <h2 className="text-lg font-black italic uppercase text-white leading-none truncate max-w-[160px]">{seasonSlots[mobileActiveTab]?.name || 'Carregando...'}</h2>
+                                 <span className="text-[9px] text-amber-500 font-bold tracking-widest uppercase">
+                                   {seasonSlots[mobileActiveTab]?.isCurrentRace ? '🔴 CORRIDA ATUAL' : `Race #${mobileActiveTab + 1}`}
+                                 </span>
                              </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -430,27 +559,27 @@ export default function WearPlanningPage() {
                     <div className={`grid grid-cols-3 gap-2 w-full ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
                             <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">CTR</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab].ctr} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-400 outline-none p-0" placeholder="0" />
+                            <input type="tel" value={seasonSlots[mobileActiveTab]?.ctr || 0} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-400 outline-none p-0" placeholder="0" />
                         </div>
                         <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
                             <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">TESTE</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab].testLaps} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-amber-400 outline-none p-0" placeholder="0" />
+                            <input type="tel" value={seasonSlots[mobileActiveTab]?.testLaps || 0} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-amber-400 outline-none p-0" placeholder="0" />
                         </div>
                         <button 
-                            onClick={() => updateSeasonSlot(mobileActiveTab, 'testEnabled', !seasonSlots[mobileActiveTab].testEnabled)}
-                            className={`rounded-lg p-2 border flex flex-col items-center justify-center ${seasonSlots[mobileActiveTab].testEnabled ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}
+                            onClick={() => updateSeasonSlot(mobileActiveTab, 'testEnabled', !seasonSlots[mobileActiveTab]?.testEnabled)}
+                            className={`rounded-lg p-2 border flex flex-col items-center justify-center ${seasonSlots[mobileActiveTab]?.testEnabled ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}
                         >
                             <span className="text-[7px] font-black uppercase mb-0.5 text-zinc-500">STATUS</span>
-                            <span className={`text-[10px] font-black ${seasonSlots[mobileActiveTab].testEnabled ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {seasonSlots[mobileActiveTab].testEnabled ? 'ON' : 'OFF'}
+                            <span className={`text-[10px] font-black ${seasonSlots[mobileActiveTab]?.testEnabled ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {seasonSlots[mobileActiveTab]?.testEnabled ? 'ON' : 'OFF'}
                             </span>
                         </button>
                     </div>
                 </div>
 
-                {/* Tabela de Peças - MANTIDA À ESQUERDA (FIXED PIXELS) */}
+                {/* Tabela de Peças - MANTIDA À ESQUERDA */}
                 <div className="flex flex-col w-full overflow-hidden">
-                    {/* Cabeçalho com larguras fixas */}
+                    {/* Cabeçalho */}
                     <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center justify-start">
                         <div className="text-left pl-1">Peça</div>
                         <div>Lv</div>
@@ -469,31 +598,20 @@ export default function WearPlanningPage() {
                          const finalVal = Math.round(Number(data.final)) || 0;
 
                          return (
-                             // ROW com larguras fixas (Total ~260px colado na esquerda)
                              <div key={part.id} className={`grid grid-cols-[100px_35px_40px_35px_40px] gap-1 items-center px-3 py-2 justify-start ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
-                                 
-                                 {/* Coluna 1: Nome (100px fixo) */}
                                  <div className="flex items-center gap-2 overflow-hidden pl-1">
                                      <div className="text-zinc-600 shrink-0">{part.icon}</div>
                                      <span className="text-[9px] font-bold text-zinc-300 uppercase truncate leading-none">{part.label}</span>
                                  </div>
-                                 
-                                 {/* Coluna 2: Level (35px fixo) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none p-0" />
                                  </div>
-                                 
-                                 {/* Coluna 3: Start (40px fixo) */}
                                  <div>
                                      <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none p-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
                                  </div>
-                                 
-                                 {/* Coluna 4: Wear (35px fixo) */}
                                  <div className="text-center text-[9px] font-mono text-zinc-500">
                                     {Math.round(Number(data.wear))}%
                                  </div>
-                                 
-                                 {/* Coluna 5: End (40px fixo) */}
                                  <div className="flex justify-center">
                                      <span className={`flex items-center justify-center w-full h-6 rounded text-[9px] font-black ${
                                          finalVal > 90 ? 'text-rose-500 bg-rose-500/10' : 
