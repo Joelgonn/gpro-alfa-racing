@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; 
 import { supabase } from '../../lib/supabase'; 
 import { 
-  RefreshCw, History, ArrowRight, ArrowDown,
-  Calculator, Trophy, Timer, Target, Cpu, TrendingUp, TrendingDown,
-  ChevronRight, AlertCircle, CheckCircle2, Flag, StopCircle, Info, X, AlertTriangle, ChevronDown
+  RefreshCw, History, ArrowRight,
+  Calculator, Trophy, Timer, Target, Cpu,
+  AlertCircle, CheckCircle2, Flag, StopCircle, Info, X, AlertTriangle, ChevronDown,
+  Sparkles, Zap, Flame, Gauge, Brain, Star, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,20 +26,37 @@ const ALL_FEEDBACK_OPTIONS: Record<string, string[]> = {
 
 // --- HELPERS ---
 const getShortFeedback = (msg: string) => {
-    if (msg === "OK") return "SATISFATÓRIO";
-    if (msg.includes("muito mais") || msg.includes("não posso") || msg.includes("muito alta") || msg.includes("muito rígid") || msg.includes("muito curta") || msg.includes("explodir")) {
-        return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") ? "CRÍTICO BAIXO" : "CRÍTICO ALTO";
+    if (!msg) return "PENDENTE";
+    if (msg === "OK") return "NOMINAL";
+    if (msg.includes("muito mais") || msg.includes("não posso") || msg.includes("muito alta") || msg.includes("muito rígid") || msg.includes("muito curta") || msg.includes("explodir") || msg.includes("Não, não, não")) {
+        return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") || msg.includes("diminua") ? "CRÍT. BAIXO" : "CRÍT. ALTO";
     }
-    if (msg.includes("um pouco") || msg.includes("pode ser maior") || msg.includes("gostaria")) {
-        return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") ? "AJUSTE BAIXO" : "AJUSTE ALTO";
+    if (msg.includes("um pouco") || msg.includes("pode ser maior") || msg.includes("gostaria") || msg.includes("Tente")) {
+        return msg.includes("baixa") || msg.includes("trás") || msg.includes("menor") || msg.includes("diminua") ? "AJUSTE BAIXO" : "AJUSTE ALTO";
     }
-    return "AJUSTE REQUERIDO";
+    return "REQUER AJUSTE";
 };
 
-const getFeedbackColor = (msg: string) => {
-    if (msg === "OK") return "text-emerald-400";
-    if (msg.includes("muito") || msg.includes("não") || msg.includes("explodir")) return "text-rose-500";
-    return "text-amber-400";
+const getFeedbackBadgeClass = (msg: string) => {
+    if (!msg) return "bg-white/5 text-slate-500 border-white/5";
+    if (msg === "OK") return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]";
+    if (msg.includes("muito") || msg.includes("não") || msg.includes("explodir") || msg.includes("Não, não, não")) {
+      return "bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-[0_0_20px_rgba(225,29,72,0.15)]";
+    }
+    return "bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.1)]";
+};
+
+const getGradientClass = (part: string, isFinished: boolean) => {
+    if (isFinished) return "from-emerald-500/20 via-emerald-600/10 to-transparent";
+    const gradients: Record<string, string> = {
+        "Asa Dianteira": "from-blue-500/20 via-cyan-500/10 to-transparent",
+        "Asa Traseira": "from-indigo-500/20 via-purple-500/10 to-transparent",
+        "Motor": "from-rose-500/20 via-red-500/10 to-transparent",
+        "Freios": "from-orange-500/20 via-amber-500/10 to-transparent",
+        "Câmbio": "from-green-500/20 via-emerald-500/10 to-transparent",
+        "Suspensão": "from-violet-500/20 via-purple-500/10 to-transparent"
+    };
+    return gradients[part] || "from-slate-500/10 to-transparent";
 };
 
 export default function ManualSetupPage() {
@@ -59,7 +77,7 @@ export default function ManualSetupPage() {
     const [availableOptions, setAvailableOptions] = useState<Record<string, string[]>>(ALL_FEEDBACK_OPTIONS);
     const [isManuallyFinished, setIsManuallyFinished] = useState(false);
     
-    // --- STATE DE UI (MODAL E SELETOR) ---
+    // --- STATE DE UI ---
     const [modal, setModal] = useState<{
         isOpen: boolean;
         type: 'alert' | 'confirm' | 'info';
@@ -158,78 +176,122 @@ export default function ManualSetupPage() {
     const isFinished = history.length >= 8 || isManuallyFinished;
 
     if (!userId) return (
-        <div className="flex h-screen items-center justify-center bg-[#050507] text-indigo-500 gap-4">
-             <div className="relative w-12 h-12">
-                <div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full"></div>
-                <div className="absolute inset-0 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#020204] text-indigo-500 font-mono text-xs gap-4">
+             <div className="w-12 h-12 border-2 border-indigo-500/10 rounded-full flex items-center justify-center relative">
+                <div className="w-12 h-12 border-2 border-t-indigo-500 rounded-full animate-spin absolute" />
+                <Calculator size={16} className="animate-pulse text-indigo-400" />
              </div>
-             <span className="font-mono text-xs animate-pulse uppercase tracking-widest">Iniciando...</span>
+             <span className="tracking-widest uppercase">CONECTANDO SISTEMA...</span>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-[#050507] text-slate-300 font-mono pb-32">
+        <div className="min-h-screen bg-[#020204] text-slate-300 font-mono pb-24 md:pb-12 selection:bg-indigo-500/30 relative overflow-hidden">
             
-            {/* Header Sticky */}
-            <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 bg-[#050507]/80">
-                <div className="max-w-[1600px] mx-auto p-4 flex justify-between items-center">
+            {/* ==========================================
+                FUNDO AMBIENTAL COM GRADIENTES
+                ========================================== */}
+            <div className="fixed inset-0 pointer-events-none z-0">
+                <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/5 blur-[120px] rounded-full" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/3 blur-[150px] rounded-full" />
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02]" />
+            </div>
+
+            {/* Header Telemetria com Gradiente */}
+            <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 bg-[#020204]/90 p-3 sm:p-4 relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+                <div className="max-w-[1600px] mx-auto flex justify-between items-center relative z-10">
                     <div className="flex items-center gap-3">
-                         <div className="bg-indigo-600/20 p-2 rounded-lg border border-indigo-500/30">
-                            <Calculator size={18} className="text-indigo-400" />
+                         <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-2.5 rounded-xl shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+                            <Calculator size={16} className="text-white" />
                          </div>
-                         <div className="flex flex-col">
-                            <h1 className="text-xs font-black text-white uppercase tracking-widest leading-none mb-0.5">Telemetria</h1>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase truncate max-w-[150px]">{userEmail}</p>
+                         <div className="flex flex-col text-left">
+                            <h1 className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+                                Calculadora Manual
+                                <span className="text-[7px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
+                            </h1>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase truncate max-w-[120px]">{userEmail}</p>
                          </div>
                     </div>
-                    <button onClick={handleReset} className="p-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg border border-rose-500/20 transition-all">
-                        <RefreshCw size={16} />
+                    <button 
+                        onClick={handleReset} 
+                        className="p-2.5 bg-rose-500/10 hover:bg-gradient-to-r hover:from-rose-500 hover:to-red-500 hover:text-white text-rose-400 rounded-xl border border-rose-500/20 transition-all duration-300 shadow-[0_0_15px_rgba(225,29,72,0.05)] hover:shadow-[0_0_25px_rgba(225,29,72,0.2)]"
+                        title="Reiniciar Sessão"
+                    >
+                        <RefreshCw size={14} />
                     </button>
                 </div>
             </header>
 
-            <div className="p-4 md:p-6 max-w-[1600px] mx-auto space-y-6 md:space-y-8 animate-fadeIn relative z-0">
+            <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10">
                 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
                     
-                    {/* Coluna Lateral */}
-                    <div className="xl:col-span-3 space-y-4 md:space-y-6">
-                        <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-                            <div className="bg-white/5 p-4 border-b border-white/5 flex items-center gap-2">
-                                <Cpu size={14} className="text-indigo-400" />
-                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Piloto</h3>
-                            </div>
-                            <div className="p-4 md:p-6 grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-slate-500 uppercase">XP</label>
-                                    <input type="number" value={xp} onChange={e=>setXp(e.target.value)} disabled={history.length > 0} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" />
+                    {/* COLUNA ESQUERDA: PARÂMETROS DO PILOTO E ANÁLISE */}
+                    <div className="xl:col-span-3 space-y-4">
+                        
+                        {/* Piloto Specs com Gradiente */}
+                        <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm group">
+                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                            <div className="relative bg-gradient-to-r from-indigo-500/10 to-purple-500/10 p-3.5 border-b border-white/5 flex items-center gap-2">
+                                <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg">
+                                    <Cpu size={14} className="text-white" />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-slate-500 uppercase">CT</label>
-                                    <input type="number" value={ct} onChange={e=>setCt(e.target.value)} disabled={history.length > 0} className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-50 text-sm" />
+                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Biometria do Piloto</h3>
+                            </div>
+                            <div className="relative p-4 grid grid-cols-2 gap-3.5">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Experiência (XP)</label>
+                                    <input type="number" value={xp} onChange={e=>setXp(e.target.value)} disabled={history.length > 0} className="w-full bg-black/60 border border-white/10 rounded-xl p-2.5 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-40 text-xs focus:shadow-[0_0_20px_rgba(99,102,241,0.1)]" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Concentração (CT)</label>
+                                    <input type="number" value={ct} onChange={e=>setCt(e.target.value)} disabled={history.length > 0} className="w-full bg-black/60 border border-white/10 rounded-xl p-2.5 text-white font-black text-center focus:border-indigo-500 outline-none transition-all disabled:opacity-40 text-xs focus:shadow-[0_0_20px_rgba(99,102,241,0.1)]" />
                                 </div>
                             </div>
                         </section>
 
-                        <section className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden min-h-[300px]">
-                            <div className="bg-white/5 p-4 border-b border-white/5 flex items-center justify-between">
+                        {/* Scanner de Tolerância de Peça com Gradiente */}
+                        <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm group min-h-[250px]">
+                            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                            <div className="relative bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-3.5 border-b border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <Target size={14} className="text-emerald-400" />
-                                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Análise</h3>
+                                    <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg">
+                                        <Target size={14} className="text-white" />
+                                    </div>
+                                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Scanner de Margens</h3>
                                 </div>
-                                {history.length > 0 && <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">V{history.length}</span>}
+                                {history.length > 0 && (
+                                    <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 px-3 py-1 rounded-lg border border-emerald-500/20 font-black text-[8px] shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                                        VOLTA {history.length}
+                                    </div>
+                                )}
                             </div>
-                            <div className="p-4 md:p-6 space-y-5">
+                            <div className="relative p-4 space-y-4">
                                 {PARTS.map(part => {
                                     const data = analysis[part];
+                                    const gradient = data?.margin ? 
+                                        `from-${parseInt(data.margin) > 50 ? 'emerald-500' : parseInt(data.margin) > 20 ? 'amber-500' : 'rose-500'} 
+                                         to-${parseInt(data.margin) > 50 ? 'teal-400' : parseInt(data.margin) > 20 ? 'orange-400' : 'red-400'}` 
+                                        : 'from-indigo-500 to-purple-400';
+                                    
                                     return (
-                                        <div key={part} className="space-y-1.5">
-                                            <div className="flex justify-between items-end">
-                                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">{part}</span>
-                                                <span className="text-[10px] text-slate-600 font-bold">±{data?.margin || "?"}</span>
+                                        <div key={part} className="space-y-1">
+                                            <div className="flex justify-between items-center text-[10px]">
+                                                <span className="text-slate-400 font-bold uppercase tracking-tight">{part}</span>
+                                                <span className="text-slate-500 font-mono font-black">{data?.margin ? `±${data.margin}` : "ESTIMANDO"}</span>
                                             </div>
-                                            <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
-                                                <motion.div initial={{ width: 0 }} animate={{ width: data ? `${Math.min((Number(data.final)/1000)*100, 100)}%` : 0 }} transition={{ duration: 1 }} className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400" />
+                                            <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5 relative p-[1px]">
+                                                <motion.div 
+                                                    initial={{ width: 0 }} 
+                                                    animate={{ width: data ? `${Math.min((Number(data.final)/1000)*100, 100)}%` : 0 }} 
+                                                    transition={{ duration: 0.8 }} 
+                                                    className={`h-full bg-gradient-to-r ${gradient} rounded-full shadow-[0_0_15px_rgba(99,102,241,0.2)]`} 
+                                                />
+                                                <div className="absolute inset-y-0 left-1/4 w-[1px] bg-white/5"></div>
+                                                <div className="absolute inset-y-0 left-2/4 w-[1px] bg-white/5"></div>
+                                                <div className="absolute inset-y-0 left-3/4 w-[1px] bg-white/5"></div>
                                             </div>
                                         </div>
                                     )
@@ -238,44 +300,72 @@ export default function ManualSetupPage() {
                         </section>
                     </div>
 
-                    {/* Área Principal */}
-                    <div className="xl:col-span-9 space-y-6 md:space-y-8">
+                    {/* ÁREA PRINCIPAL: ACERTO DE TELEMETRIA */}
+                    <div className="xl:col-span-9 space-y-5">
                         
-                        {/* Seção de Ajuste */}
-                        <section className={`border rounded-2xl overflow-hidden transition-all duration-500 ${isFinished ? 'border-emerald-500 bg-emerald-950/[0.05]' : 'border-indigo-500/30 bg-indigo-900/[0.05]'}`}>
-                            <div className={`p-4 border-b flex justify-between items-center ${isFinished ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-indigo-500/30 bg-indigo-500/10'}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-1.5 rounded-lg ${isFinished ? 'bg-emerald-500 text-black' : 'bg-indigo-500 text-white'}`}>
-                                        {isFinished ? <Trophy size={16} /> : <Timer size={16} />}
+                        <section className={`border-2 rounded-2xl overflow-hidden backdrop-blur-sm transition-all duration-500 relative ${
+                            isFinished 
+                                ? 'border-emerald-500/30 bg-emerald-950/[0.05] shadow-[0_0_40px_rgba(16,185,129,0.05)]' 
+                                : 'border-indigo-500/20 bg-gradient-to-br from-indigo-950/[0.03] to-purple-950/[0.03] shadow-[0_0_40px_rgba(99,102,241,0.05)]'
+                        }`}>
+                            <div className={`absolute inset-0 bg-gradient-to-r ${isFinished ? 'from-emerald-500/5 via-transparent to-teal-500/5' : 'from-indigo-500/5 via-transparent to-purple-500/5'} opacity-50`} />
+                            
+                            <div className={`relative p-4 border-b flex justify-between items-center ${
+                                isFinished 
+                                    ? 'border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-teal-500/10' 
+                                    : 'border-indigo-500/20 bg-gradient-to-r from-indigo-500/10 to-purple-500/10'
+                            }`}>
+                                <div className="flex items-center gap-2.5">
+                                    <div className={`p-1.5 rounded-lg ${isFinished ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white' : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'}`}>
+                                        {isFinished ? <Trophy size={14} /> : <Timer size={14} />}
                                     </div>
-                                    <h2 className={`text-sm font-black uppercase tracking-widest ${isFinished ? 'text-emerald-400' : 'text-white'}`}>
-                                        {isFinished ? "Setup Ideal" : `Setup Volta ${history.length + 1}`}
+                                    <h2 className={`text-xs font-black uppercase tracking-widest ${isFinished ? 'text-emerald-400' : 'text-white'}`}>
+                                        {isFinished ? "CONFIGURAÇÃO FINAL DEFINIDA" : `Ajustes da Volta ${history.length + 1}`}
                                     </h2>
                                 </div>
-                                {isFinished && <Flag size={16} className="text-emerald-500 animate-bounce" />}
+                                {isFinished && (
+                                    <span className="text-[9px] bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/20 text-emerald-400 font-black px-3 py-1 rounded-lg animate-pulse uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                                        ✅ Sessão Pronta
+                                    </span>
+                                )}
                             </div>
 
-                            <div className="p-4 md:p-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-12 md:gap-y-8 mb-8">
+                            <div className="relative p-4 sm:p-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                                     {PARTS.map(part => {
                                         const displayValue = isFinished ? analysis[part]?.final : inputs[part];
                                         const currentFeedback = feedbacks[part];
+                                        const gradient = getGradientClass(part, isFinished);
                                         
                                         return (
-                                            <div key={part} className="space-y-2.5">
-                                                <label className={`text-[10px] font-black uppercase tracking-widest block px-1 ${isFinished ? 'text-emerald-500/70' : 'text-slate-400'}`}>
+                                            <div 
+                                                key={part} 
+                                                className={`relative bg-gradient-to-br ${gradient} border border-white/5 rounded-xl p-3 flex flex-col justify-between space-y-3 overflow-hidden group transition-all duration-300 hover:border-white/10`}
+                                            >
+                                                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-white/5 to-transparent blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                                                
+                                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block flex items-center gap-1.5">
+                                                    {part === "Motor" && <Zap size={10} className="text-rose-400" />}
+                                                    {part === "Freios" && <Gauge size={10} className="text-orange-400" />}
+                                                    {part === "Suspensão" && <Brain size={10} className="text-violet-400" />}
+                                                    {part === "Câmbio" && <Sparkles size={10} className="text-emerald-400" />}
                                                     {part}
                                                 </label>
                                                 
-                                                <div className="flex flex-col sm:flex-row items-stretch gap-3">
-                                                    {/* Input de Valor */}
-                                                    <div className="relative flex-1">
+                                                <div className="space-y-2">
+                                                    {/* Input Valor Setup */}
+                                                    <div className="relative">
                                                         {isFinished ? (
-                                                            <div className="w-full bg-emerald-500/10 border border-emerald-500/50 text-center text-xl font-black py-3 rounded-xl text-emerald-400">
+                                                            <div className="w-full bg-emerald-500/10 border border-emerald-500/20 text-center text-lg font-black py-2 rounded-xl text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
                                                                 {displayValue}
                                                             </div>
                                                         ) : (
-                                                            <input type="number" value={displayValue} onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} className="w-full h-14 bg-black/40 border border-white/10 text-center text-lg font-black rounded-xl outline-none text-white focus:border-indigo-500 focus:bg-black/60 transition-all appearance-none shadow-inner" />
+                                                            <input 
+                                                                type="number" 
+                                                                value={displayValue} 
+                                                                onChange={e=>setInputs({...inputs,[part]:Number(e.target.value)})} 
+                                                                className="w-full h-11 bg-black/60 border border-white/10 text-center text-base font-black rounded-xl outline-none text-white focus:border-indigo-500 focus:bg-black/80 transition-all shadow-inner focus:shadow-[0_0_25px_rgba(99,102,241,0.1)]" 
+                                                            />
                                                         )}
                                                     </div>
 
@@ -283,20 +373,18 @@ export default function ManualSetupPage() {
                                                     {!isFinished && (
                                                         <button 
                                                             onClick={() => setActiveFeedbackPart(part)}
-                                                            className={`flex-[2.5] h-14 px-4 rounded-xl border transition-all flex items-center justify-between text-left group
+                                                            className={`w-full h-10 px-3.5 rounded-xl border text-[10px] uppercase font-black transition-all flex items-center justify-between text-left group relative overflow-hidden
                                                                 ${currentFeedback 
-                                                                    ? (currentFeedback === 'OK' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-indigo-500/30 bg-indigo-500/5') 
-                                                                    : 'border-white/10 bg-black/40 hover:border-white/20'}`}
+                                                                    ? getFeedbackBadgeClass(currentFeedback) 
+                                                                    : 'border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.05]'}`}
                                                         >
-                                                            <div className="flex flex-col overflow-hidden">
-                                                                <span className={`text-[8px] font-black uppercase tracking-tighter ${currentFeedback ? 'opacity-50' : 'text-slate-500'}`}>
-                                                                    Feedback Driver
-                                                                </span>
-                                                                <span className={`text-[10px] font-bold truncate leading-tight ${currentFeedback ? (currentFeedback === 'OK' ? 'text-emerald-400' : 'text-white') : 'text-slate-500'}`}>
-                                                                    {currentFeedback ? (currentFeedback === 'OK' ? '✅ Satisfeito (OK)' : currentFeedback) : "Selecionar feedback..."}
-                                                                </span>
-                                                            </div>
-                                                            <ChevronDown size={16} className={`shrink-0 transition-transform ${currentFeedback ? 'text-indigo-400' : 'text-slate-600'} group-hover:translate-y-0.5`} />
+                                                            <span className="truncate pr-1 relative z-10">
+                                                                {currentFeedback ? getShortFeedback(currentFeedback) : "Selecionar feedback"}
+                                                            </span>
+                                                            <ChevronDown size={12} className={`shrink-0 transition-transform relative z-10 ${currentFeedback ? 'text-indigo-400' : 'text-slate-600'} group-hover:translate-y-0.5`} />
+                                                            {!currentFeedback && (
+                                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                                            )}
                                                         </button>
                                                     )}
                                                 </div>
@@ -306,97 +394,143 @@ export default function ManualSetupPage() {
                                 </div>
 
                                 {!isFinished && (
-                                    <div className="flex flex-col-reverse md:flex-row gap-4 pt-4 border-t border-white/5">
-                                        <motion.button whileTap={{ scale: 0.98 }} onClick={handleManualFinish} className="w-full md:flex-1 bg-slate-800/50 text-slate-400 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] border border-white/5 flex items-center justify-center gap-2">
-                                            <StopCircle size={14} /> Encerrar
-                                        </motion.button>
-                                        <motion.button whileTap={{ scale: 0.98 }} onClick={handleCalculate} disabled={loading} className="w-full md:flex-[2.4] bg-indigo-600 text-white py-4 md:py-5 rounded-xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-600/20 border border-indigo-400/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50 group">
-                                            {loading ? <RefreshCw size={18} className="animate-spin" /> : <>Calcular Volta <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>}
-                                        </motion.button>
+                                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-white/5">
+                                        <button 
+                                            onClick={handleManualFinish} 
+                                            className="w-full sm:flex-1 h-11 bg-white/5 hover:bg-white/10 text-slate-400 rounded-xl font-black uppercase tracking-widest text-[9px] border border-white/5 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all hover:text-white"
+                                        >
+                                            <StopCircle size={13} /> Encerrar Setup
+                                        </button>
+                                        <button 
+                                            onClick={handleCalculate} 
+                                            disabled={loading} 
+                                            className="w-full sm:flex-[2] h-11 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-[0_0_30px_rgba(99,102,241,0.15)] hover:shadow-[0_0_40px_rgba(99,102,241,0.25)] border border-indigo-400/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 active:scale-[0.98]"
+                                        >
+                                            {loading ? <Loader2 size={14} className="animate-spin" /> : <>Calcular Telemetria <ArrowRight size={14} /></>}
+                                        </button>
                                     </div>
                                 )}
                             </div>
                         </section>
 
-                        {/* Histórico Simplificado */}
+                        {/* Histórico Segmentado com Gradiente */}
                         <div className="space-y-4">
-                             <div className="flex items-center gap-3 px-1">
-                                <History size={14} className="text-slate-500" />
-                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Histórico de Sessão</h3>
-                                <div className="h-px flex-1 bg-white/5" />
+                             <div className="flex items-center gap-2 px-1">
+                                <div className="p-1 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-lg">
+                                    <History size={14} className="text-amber-400" />
+                                </div>
+                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Histórico de Voltas</h3>
+                                <div className="h-px flex-1 bg-gradient-to-r from-amber-500/20 to-transparent" />
                              </div>
 
-                             <div className="space-y-3">
-                                {[...history].reverse().map((lap, idx) => {
-                                    const lapNumber = history.length - idx;
-                                    return (
-                                        <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden">
-                                            <div className="bg-white/5 px-4 py-2.5 flex justify-between items-center border-b border-white/5">
-                                                <span className="text-indigo-400 font-black text-[10px] tracking-widest uppercase">Volta {lapNumber}</span>
-                                                <span className="text-[9px] text-slate-600 font-bold uppercase">ZS Total: {lap.zs || 0}</span>
-                                            </div>
-                                            <div className="p-4 grid grid-cols-2 md:grid-cols-6 gap-4">
-                                                {PARTS.map(part => {
-                                                    const lapData = lap[part];
-                                                    const isOk = lapData.msg === "OK";
-                                                    return (
-                                                        <div key={part} className="space-y-1">
-                                                            <div className="text-[8px] text-slate-600 uppercase font-black truncate">{part}</div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`text-sm font-black ${isOk ? 'text-emerald-400' : 'text-white'}`}>{lapData.acerto}</span>
-                                                                <button onClick={() => showInfo(part, lapData.msg)} className="text-slate-700 hover:text-indigo-400 transition-colors">
-                                                                    <Info size={10} />
-                                                                </button>
+                             <div className="space-y-2.5">
+                                {history.length === 0 ? (
+                                    <div className="py-12 border border-dashed border-white/10 rounded-2xl text-center bg-gradient-to-br from-white/[0.01] to-transparent">
+                                         <div className="text-3xl mb-2 opacity-20">⏳</div>
+                                         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Aguardando telemetria inicial</p>
+                                    </div>
+                                ) : (
+                                    [...history].reverse().map((lap, idx) => {
+                                        const lapNumber = history.length - idx;
+                                        return (
+                                            <motion.div 
+                                                key={idx} 
+                                                initial={{ opacity: 0, x: -10 }} 
+                                                animate={{ opacity: 1, x: 0 }} 
+                                                className="relative bg-zinc-950/40 border border-white/5 rounded-xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-indigo-500/20"
+                                            >
+                                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                                
+                                                <div className="relative bg-gradient-to-r from-indigo-500/5 to-purple-500/5 px-4 py-2 flex justify-between items-center border-b border-white/5 text-[10px]">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-indigo-400 font-black tracking-widest uppercase flex items-center gap-1.5">
+                                                            <Flag size={12} className="text-indigo-400" />
+                                                            Volta {lapNumber}
+                                                        </span>
+                                                        <span className="text-[8px] bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 px-2 py-0.5 rounded-full font-black border border-amber-500/20">
+                                                            ZS: {lap.zs || 0}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="relative p-3.5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                                                    {PARTS.map(part => {
+                                                        const lapData = lap[part];
+                                                        const isOk = lapData.msg === "OK";
+                                                        return (
+                                                            <div 
+                                                                key={part} 
+                                                                className={`bg-black/20 p-2.5 rounded-lg border transition-all duration-300 ${
+                                                                    isOk 
+                                                                        ? 'border-emerald-500/20 bg-emerald-500/5' 
+                                                                        : 'border-white/[0.02] hover:border-white/5'
+                                                                }`}
+                                                            >
+                                                                <div className="text-[8px] text-slate-600 uppercase font-black truncate">{part}</div>
+                                                                <div className="flex items-center justify-between mt-1">
+                                                                    <span className={`text-xs font-black ${isOk ? 'text-emerald-400' : 'text-slate-200'}`}>{lapData.acerto}</span>
+                                                                    <button 
+                                                                        onClick={() => showInfo(part, lapData.msg)} 
+                                                                        className={`p-1 rounded transition-colors ${
+                                                                            isOk 
+                                                                                ? 'text-emerald-600 hover:text-emerald-400' 
+                                                                                : 'text-slate-600 hover:text-indigo-400'
+                                                                        }`}
+                                                                        title="Ver feedback completo"
+                                                                    >
+                                                                        <Info size={11} />
+                                                                    </button>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </motion.div>
-                                    )
-                                })}
+                                                        )
+                                                    })}
+                                                </div>
+                                            </motion.div>
+                                        )
+                                    })
+                                )}
                              </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* --- CUSTOM FEEDBACK PICKER (BOTTOM SHEET) --- */}
+            {/* --- CUSTOM FEEDBACK PICKER (BOTTOM SHEET - PREMIUM) --- */}
             <AnimatePresence>
                 {activeFeedbackPart && (
                     <div className="fixed inset-0 z-[100] flex items-end justify-center">
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                            className="absolute inset-0 bg-black/85 backdrop-blur-md"
                             onClick={() => setActiveFeedbackPart(null)}
                         />
                         <motion.div 
                             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="bg-[#0f0f12] border-t border-white/10 w-full max-w-2xl rounded-t-[2.5rem] shadow-2xl relative z-10 overflow-hidden"
+                            transition={{ type: "spring", damping: 28, stiffness: 220 }}
+                            className="bg-[#0c0c0e] border-t border-white/10 w-full max-w-lg rounded-t-[2rem] shadow-2xl relative z-10 overflow-hidden"
                         >
-                            {/* Barra Superior Decorativa */}
-                            <div className="h-1.5 w-full bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)]" />
+                            {/* Linha Decorativa F1 com Gradiente */}
+                            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 shadow-[0_0_30px_rgba(99,102,241,0.3)]" />
                             
-                            <div className="p-6 md:p-8">
-                                <div className="flex justify-between items-center mb-6">
+                            <div className="p-5 sm:p-6 text-left">
+                                <div className="flex justify-between items-center mb-5">
                                     <div>
-                                        <h3 className="text-xl font-black text-white uppercase tracking-tight leading-none mb-1">
+                                        <h3 className="text-base font-black text-white uppercase tracking-tight leading-none mb-1 flex items-center gap-2">
                                             Feedback
+                                            <span className="text-[8px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-0.5 rounded-full font-black">PRO</span>
                                         </h3>
-                                        <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">
+                                        <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-indigo-500/20 inline-block">
                                             {activeFeedbackPart}
                                         </p>
                                     </div>
                                     <button 
                                         onClick={() => setActiveFeedbackPart(null)} 
-                                        className="bg-white/5 p-2 rounded-full text-slate-500 hover:text-white transition-colors"
+                                        className="bg-white/5 p-1.5 rounded-full text-slate-500 hover:text-white transition-colors hover:bg-white/10"
                                     >
-                                        <X size={20} />
+                                        <X size={16} />
                                     </button>
                                 </div>
                                 
-                                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="space-y-1.5 max-h-[50vh] overflow-y-auto pr-1.5 custom-scrollbar">
                                     {(availableOptions[activeFeedbackPart] || ALL_FEEDBACK_OPTIONS[activeFeedbackPart]).map((opt, i) => {
                                         const isSelected = feedbacks[activeFeedbackPart] === opt;
                                         const isOK = opt === "OK";
@@ -408,24 +542,27 @@ export default function ManualSetupPage() {
                                                     setFeedbacks({ ...feedbacks, [activeFeedbackPart]: opt });
                                                     setActiveFeedbackPart(null);
                                                 }}
-                                                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between group
+                                                className={`w-full p-3.5 rounded-xl border text-[11px] font-bold text-left transition-all flex items-center justify-between group relative overflow-hidden
                                                     ${isSelected 
-                                                        ? (isOK ? 'bg-emerald-500 border-emerald-400 text-black shadow-lg shadow-emerald-500/20' : 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-600/20') 
-                                                        : 'bg-white/[0.03] border-white/5 text-slate-300 hover:bg-white/[0.08] hover:border-white/10'}`}
+                                                        ? (isOK 
+                                                            ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-400 font-black shadow-[0_0_30px_rgba(16,185,129,0.15)]' 
+                                                            : 'bg-gradient-to-r from-indigo-600/30 to-purple-600/30 border-indigo-400/40 text-white font-black shadow-[0_0_30px_rgba(99,102,241,0.15)]') 
+                                                        : 'bg-white/[0.02] border-white/5 text-slate-400 hover:bg-white/[0.05] hover:border-white/10 hover:text-white'}`}
                                             >
-                                                <span className={`text-xs md:text-sm font-bold leading-tight ${isSelected ? '' : 'group-hover:text-white'}`}>
-                                                    {isOK ? "✅ Satisfeito (OK)" : opt}
+                                                {!isSelected && (
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                                )}
+                                                <span className="relative z-10">
+                                                    {isOK ? "✅ SATISFEITO (OK)" : opt}
                                                 </span>
-                                                {isSelected && <div className="bg-white/20 p-1 rounded-full"><CheckCircle2 size={16} /></div>}
+                                                {isSelected && (
+                                                    <div className="relative z-10 bg-gradient-to-r from-indigo-500 to-purple-500 p-0.5 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+                                                        <CheckCircle2 size={13} className="text-white" />
+                                                    </div>
+                                                )}
                                             </button>
                                         );
                                     })}
-                                </div>
-                                
-                                <div className="mt-8 text-center">
-                                    <p className="text-[9px] text-slate-600 font-black uppercase tracking-[0.3em]">
-                                        Alfa Racing Telemetry System
-                                    </p>
                                 </div>
                             </div>
                         </motion.div>
@@ -433,31 +570,41 @@ export default function ManualSetupPage() {
                 )}
             </AnimatePresence>
 
-            {/* --- CUSTOM DIALOGS --- */}
+            {/* --- CUSTOM DIALOGS COM GRADIENTE --- */}
             <AnimatePresence>
                 {modal.isOpen && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#0f0f12] border border-white/10 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 overflow-hidden">
-                            <div className={`h-1.5 w-full ${modal.type === 'alert' ? 'bg-rose-500' : modal.type === 'confirm' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
-                            <div className="p-6">
-                                <div className="flex items-center gap-3 mb-4">
-                                    {modal.type === 'alert' && <AlertTriangle className="text-rose-500" size={24} />}
-                                    {modal.type === 'confirm' && <AlertCircle className="text-indigo-500" size={24} />}
-                                    {modal.type === 'info' && <Info className="text-emerald-500" size={24} />}
-                                    <h3 className="text-lg font-black text-white uppercase tracking-tight">{modal.title}</h3>
-                                </div>
-                                <p className="text-slate-400 text-sm leading-relaxed mb-8">{modal.message}</p>
-                                <div className="flex gap-3">
-                                    {modal.type === 'confirm' ? (
-                                        <>
-                                            <button onClick={closeModal} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Cancelar</button>
-                                            <button onClick={() => { modal.onConfirm?.(); closeModal(); }} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Confirmar</button>
-                                        </>
-                                    ) : (
-                                        <button onClick={closeModal} className="w-full bg-white/5 hover:bg-white/10 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Fechar</button>
-                                    )}
-                                </div>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeModal} />
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }} 
+                            animate={{ scale: 1, opacity: 1 }} 
+                            exit={{ scale: 0.95 }} 
+                            className="bg-[#0c0c0e] border border-white/10 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative z-50 text-left overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+                            
+                            <div className="flex items-center gap-3 mb-4 relative">
+                                {modal.type === 'alert' ? (
+                                    <span className="p-2 bg-rose-500/10 rounded-xl text-rose-400 border border-rose-500/20 shadow-[0_0_20px_rgba(225,29,72,0.1)]">
+                                        <AlertTriangle size={20} />
+                                    </span>
+                                ) : (
+                                    <span className="p-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-xl text-indigo-400 border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.1)]">
+                                        <Info size={20} />
+                                    </span>
+                                )}
+                                <h3 className="text-sm font-black text-white uppercase tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">{modal.title}</h3>
+                            </div>
+                            <p className="text-slate-400 text-[11px] leading-relaxed mb-6 font-mono uppercase relative">{modal.message}</p>
+                            <div className="flex gap-2 relative">
+                                {modal.type === 'confirm' ? (
+                                    <>
+                                        <button onClick={closeModal} className="flex-1 bg-white/5 hover:bg-white/10 text-white py-2.5 rounded-xl text-[9px] font-black uppercase transition-all hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]">Cancelar</button>
+                                        <button onClick={() => { modal.onConfirm?.(); closeModal(); }} className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-[0_0_30px_rgba(99,102,241,0.15)] hover:shadow-[0_0_40px_rgba(99,102,241,0.25)]">Confirmar</button>
+                                    </>
+                                ) : (
+                                    <button onClick={closeModal} className="w-full bg-white/5 hover:bg-white/10 text-white py-2.5 rounded-xl text-[9px] font-black uppercase transition-all hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]">Entendido</button>
+                                )}
                             </div>
                         </motion.div>
                     </div>
@@ -465,10 +612,15 @@ export default function ManualSetupPage() {
             </AnimatePresence>
 
             <style jsx global>{`
-                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .custom-scrollbar::-webkit-scrollbar { width: 3px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.2); }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fadeIn { animation: fadeIn 0.6s ease-out forwards; }
             `}</style>
         </div>
     );
