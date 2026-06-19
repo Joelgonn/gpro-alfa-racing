@@ -3,35 +3,98 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import { GameProvider, useGame } from '../context/GameContext';
-import { supabase } from '../lib/supabase';
-import AdminInviteButton from '../components/AdminInviteButton';
+import { GameProvider, useGame } from '@/app/context/GameContext';
+import { supabase } from '@/app/lib/supabase';
+import AdminInviteButton from '@/app/components/AdminInviteButton';
 
-// --- ÍCONES SVG PERSONALIZADOS ---
+// --- ÍCONES DE ALTA PRECISÃO (TELEMETRY/HUD DESIGN) ---
 const Icons = {
-  Chart: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>,
-  Car: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.126-.504 1.126-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-6 0h1.125a1.125 1.125 0 011.125 1.125v1.5a3.375 3.375 0 01-3.375 3.375H9.75" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>,
-  Wrench: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" /></svg>,
-  Strategy: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>,
-  Money: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-  Users: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>,
-  Logout: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>,
-  Beaker: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.252 0 .487.02.718.057l.25.029c.26.03.515.07.764.124m5.24 7.812a2.25 2.25 0 00-.659-1.591l-4.091-4.091a2.25 2.25 0 01-.659-1.591V3.104m3.668 12.392V3.104c0-.261.023-.515.068-.764l.048-.276c.045-.252.098-.497.16-.732M9.75 15.75l-3.32-3.32a1.405 1.405 0 00-2.022.288 1.405 1.405 0 00.288 2.022l3.32 3.32M9.75 15.75V18m0 0l3.32-3.32a1.405 1.405 0 012.022.288 1.405 1.405 0 01-.288 2.022l-3.32 3.32m0 0V21m-3.32-5.25a1.405 1.405 0 00-2.022-.288 1.405 1.405 0 00.288 2.022l3.32-3.32" /></svg>,
-  Calendar: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>,
-  Wear: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>,
-  Settings: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.38.138.753.43.992l1.004.827c.424.35.534.954.26 1.43l-1.296 2.247a1.125 1.125 0 01-1.37.49l-1.217-.456c-.355-.133-.75-.072-1.075.124a6.57 6.57 0 01-.22.127c-.331.183-.581.495-.644.87l-.214 1.281c-.09.543-.56.94-1.11.94h-2.592c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.645-.87a6.586 6.586 0 01-.22-.127c-.324-.196-.72-.257-1.075-.124l-1.217.456a1.125 1.125 0 01-1.37-.49l-1.296-2.247a1.125 1.125 0 01.26-1.431l1.003-.827c.293-.24.438-.613.431-.992a6.759 6.759 0 010-.255c.007-.38-.138-.753-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.296-2.247a1.125 1.125 0 011.37-.49l1.217.456c.355.133.75.072 1.075-.124.074-.04.147-.083.22-.127.331-.183.581-.495.644-.87l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
-  Database: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125V10.5m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>,
+  Chart: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 8.25l-5.25 5.25-3-3L4.5 16.5" />
+      <circle cx="18.75" cy="8.25" r="1.5" fill="currentColor" />
+    </svg>
+  ),
+  Car: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 10h16M4 14h16M2 12h20M12 2v20" />
+      <circle cx="12" cy="12" r="8" />
+    </svg>
+  ),
+  Wrench: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </svg>
+  ),
+  Strategy: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" />
+    </svg>
+  ),
+  Money: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <line x1="2" y1="10" x2="22" y2="10" />
+      <circle cx="12" cy="14.5" r="2.5" />
+    </svg>
+  ),
+  Users: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  Logout: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+    </svg>
+  ),
+  Beaker: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path d="M4.5 3h15M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3M6 14h12" />
+    </svg>
+  ),
+  Calendar: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  ),
+  Wear: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  ),
+  Settings: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
+  Database: () => (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+      <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+    </svg>
+  ),
 };
 
-// --- ESTRUTURA DOS MENUS POR PRIORIDADE ---
+// --- ESTRUTURA DOS MENUS (HUD CATEGORIZADO) ---
 const menuGroups = [
   {
     id: 'race_control',
-    title: 'Controle de Corrida',
+    prefix: '01',
+    title: 'Race Control',
     color: 'text-amber-400',
-    bgHover: 'hover:bg-amber-500/10',
-    bgActive: 'bg-amber-500/10',
-    borderActive: 'border-amber-500/20',
+    bgActive: 'bg-amber-500/5 border-amber-500/10 shadow-[inset_0_0_12px_rgba(245,158,11,0.05)]',
+    hoverGlow: 'hover:border-amber-500/20 hover:bg-amber-500/[0.02]',
     items: [
       { name: 'Visão Geral', path: '/dashboard', icon: <Icons.Chart /> },
       { name: 'Setup Calculadora', path: '/dashboard/setup', icon: <Icons.Car /> },
@@ -40,11 +103,11 @@ const menuGroups = [
   },
   {
     id: 'engineering',
-    title: 'Engenharia',
+    prefix: '02',
+    title: 'Engineering HUD',
     color: 'text-emerald-400',
-    bgHover: 'hover:bg-emerald-500/10',
-    bgActive: 'bg-emerald-500/10',
-    borderActive: 'border-emerald-500/20',
+    bgActive: 'bg-emerald-500/5 border-emerald-500/10 shadow-[inset_0_0_12px_rgba(16,185,129,0.05)]',
+    hoverGlow: 'hover:border-emerald-500/20 hover:bg-emerald-500/[0.02]',
     items: [
       { name: 'Setup Manual', path: '/dashboard/manual', icon: <Icons.Wrench /> },
       { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> },
@@ -53,11 +116,11 @@ const menuGroups = [
   },
   {
     id: 'management',
-    title: 'Gerenciamento',
+    prefix: '03',
+    title: 'Administration',
     color: 'text-indigo-400',
-    bgHover: 'hover:bg-indigo-500/10',
-    bgActive: 'bg-indigo-500/10',
-    borderActive: 'border-indigo-500/20',
+    bgActive: 'bg-indigo-500/5 border-indigo-500/10 shadow-[inset_0_0_12px_rgba(99,102,241,0.05)]',
+    hoverGlow: 'hover:border-indigo-500/20 hover:bg-indigo-500/[0.02]',
     items: [
       { name: 'Patrocinadores', path: '/dashboard/sponsors', icon: <Icons.Money /> },
       { name: 'Mercado de Pilotos', path: '/dashboard/market', icon: <Icons.Users /> },
@@ -65,20 +128,15 @@ const menuGroups = [
       { name: 'Integração GPRO', path: '/dashboard/configuracoes/integracao', icon: <Icons.Settings /> },
     ]
   },
-  // NOVO GRUPO: Administração
   {
     id: 'administration',
-    title: 'Administração',
+    prefix: '04',
+    title: 'Core Engine',
     color: 'text-cyan-400',
-    bgHover: 'hover:bg-cyan-500/10',
-    bgActive: 'bg-cyan-500/10',
-    borderActive: 'border-cyan-500/20',
+    bgActive: 'bg-cyan-500/5 border-cyan-500/10 shadow-[inset_0_0_12px_rgba(6,182,212,0.05)]',
+    hoverGlow: 'hover:border-cyan-500/20 hover:bg-cyan-500/[0.02]',
     items: [
-      {
-        name: 'GPRO API Knowledge Base',
-        path: '/dashboard/admin/gpro-kb',
-        icon: <Icons.Database />
-      }
+      { name: 'GPRO API Database', path: '/dashboard/admin/gpro-kb', icon: <Icons.Database /> }
     ]
   }
 ];
@@ -115,39 +173,47 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   }, [isOpen, onClose]);
 
   const sidebarClasses = `
-    fixed inset-y-0 left-0 z-50 flex flex-col w-72 
-    bg-[#050505]/95 backdrop-blur-2xl border-r border-white/5
+    fixed inset-y-0 left-0 z-50 flex flex-col w-64 
+    bg-zinc-950/80 backdrop-blur-xl border-r border-white/5
     transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1)
-    ${isOpen ? 'translate-x-0 shadow-2xl shadow-black' : '-translate-x-full'}
-    md:sticky md:translate-x-0 md:bg-transparent md:border-r md:border-white/5
+    ${isOpen ? 'translate-x-0 shadow-[0_0_40px_rgba(0,0,0,0.9)] shadow-black' : '-translate-x-full'}
+    md:sticky md:translate-x-0 md:bg-[#020204]/40 md:border-r md:border-white/5
   `;
 
   return (
     <aside ref={sidebarRef} className={sidebarClasses}>
-      {/* Logo Area */}
-      <div className="h-28 flex flex-col justify-center px-8 border-b border-white/5 relative overflow-hidden group shrink-0">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[60px] rounded-full"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-500/5 blur-[40px] rounded-full"></div>
+      {/* Telemetry Active Header */}
+      <div className="h-24 flex flex-col justify-center px-6 border-b border-white/5 relative overflow-hidden shrink-0 text-left">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/3 blur-[40px] rounded-full"></div>
+        <div className="absolute bottom-0 left-0 w-16 h-16 bg-emerald-500/3 blur-[30px] rounded-full"></div>
         
         <div className="relative z-10">
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-1 block">Team</span>
-          <div className="flex items-center gap-2">
-             <div className="w-1 h-8 bg-amber-400 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]"></div>
-             <div>
-                <h1 className="text-2xl font-black italic tracking-tighter text-white leading-none">
-                  ALFA <span className="text-amber-400">RACING</span>
-                </h1>
-                <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-950/30 px-1.5 py-0.5 rounded border border-emerald-500/20">Brasil - Lair of Wolves</span>
-             </div>
+          <div className="flex items-center gap-1.5 mb-1 leading-none">
+             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+             <span className="text-[7px] text-slate-500 font-mono font-black uppercase tracking-wider">CR-SYS: NOMINAL // ALFA_F1</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-7 bg-amber-400 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.4)]"></div>
+            <div>
+              <h1 className="text-xl font-black italic tracking-tighter text-white leading-none">
+                ALFA <span className="text-amber-400">RACING</span>
+              </h1>
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest bg-white/5 border border-white/10 px-1.5 py-0.5 rounded mt-1.5 inline-block">
+                LAIR OF WOLVES
+              </span>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-8 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+      {/* Navigation list */}
+      <nav className="flex-1 px-3 py-5 space-y-5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent">
         {menuGroups.map((group) => (
-          <div key={group.id} className="space-y-1">
-            <h3 className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-2">{group.title}</h3>
+          <div key={group.id} className="space-y-1 text-left">
+            <div className="flex items-center gap-2 px-3 mb-1.5">
+               <span className="text-[8px] font-mono text-slate-700 font-bold">{group.prefix}</span>
+               <h3 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">{group.title}</h3>
+            </div>
             {group.items.map((item) => {
               const isActive = pathname === item.path;
               return (
@@ -156,26 +222,35 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                   href={item.path} 
                   onClick={onClose} 
                   className={`
-                    relative flex items-center gap-3.5 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all duration-300 group/item overflow-hidden
+                    relative flex items-center justify-between px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 group/item overflow-hidden border border-transparent
                     ${isActive 
-                      ? `${group.bgActive} text-white ${group.borderActive} border shadow-[0_0_15px_-5px_rgba(0,0,0,0.5)]` 
-                      : `text-slate-400 hover:text-white ${group.bgHover} border border-transparent`
+                      ? `${group.bgActive} text-white` 
+                      : `text-slate-400 hover:text-white ${group.hoverGlow}`
                     }
                   `}
                 >
-                  {/* Active Indicator Line */}
-                  {isActive && <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full ${group.color.replace('text-', 'bg-')} shadow-[0_0_8px_currentColor]`} />}
-                  
-                  {/* Icon */}
-                  <span className={`relative z-10 transition-transform duration-300 ${isActive ? `${group.color} scale-110` : 'text-slate-500 group-hover/item:text-slate-300'}`}>
-                    {item.icon}
-                  </span>
-                  
-                  {/* Text */}
-                  <span className="relative z-10">{item.name}</span>
+                  <div className="flex items-center gap-3 relative z-10 transition-transform duration-300 group-hover/item:translate-x-0.5">
+                    {/* Active Led Blinker */}
+                    {isActive && <span className={`w-1 h-1 rounded-full ${group.color.replace('text-', 'bg-')} shadow-[0_0_8px_currentColor]`} />}
+                    
+                    {/* Icon with brackets on hover */}
+                    <span className="relative flex items-center justify-center">
+                        <span className={`text-[10px] opacity-0 group-hover/item:opacity-100 -translate-x-1 group-hover/item:translate-x-0 transition-all duration-300 ${isActive ? group.color : 'text-slate-600'}`}>[</span>
+                        <span className={`transition-transform duration-300 ${isActive ? `${group.color} scale-105` : 'text-slate-500 group-hover/item:text-slate-300'}`}>
+                          {item.icon}
+                        </span>
+                        <span className={`text-[10px] opacity-0 group-hover/item:opacity-100 translate-x-1 group-hover/item:translate-x-0 transition-all duration-300 ${isActive ? group.color : 'text-slate-600'}`}>]</span>
+                    </span>
+                    
+                    <span>{item.name}</span>
+                  </div>
 
-                  {/* Hover Arrow */}
-                  {!isActive && <span className="absolute right-3 text-slate-600 opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all duration-300">→</span>}
+                  {/* Active Indicator Chevron */}
+                  {isActive ? (
+                     <ChevronsRight size={10} className={`${group.color} shrink-0 relative z-10 animate-pulse`} />
+                  ) : (
+                     <ChevronRight size={10} className="text-slate-700 group-hover/item:text-slate-400 group-hover/item:translate-x-0.5 transition-all shrink-0 opacity-0 group-hover/item:opacity-100" />
+                  )}
                 </Link>
               );
             })}
@@ -183,28 +258,46 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
         ))}
       </nav>
 
-      {/* User Profile */}
-      <div className="p-4 border-t border-white/5 bg-black/40 backdrop-blur-xl shrink-0">
-        <div className="mb-3">
+      {/* User Profile (FIA Credentials Style) */}
+      <div className="p-3 border-t border-white/5 bg-black/40 backdrop-blur-xl shrink-0 relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-500/10 to-transparent" />
+        <div className="mb-2">
             <AdminInviteButton userRole={role} />
         </div>
-        <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors group">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.01] border border-white/5 hover:border-white/10 transition-colors group">
+          <div className="flex items-center gap-2.5 text-left">
             <div className="relative">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-800 to-black border border-white/10 flex items-center justify-center text-xs font-black text-amber-400 shadow-inner">
+              <div className="w-8 h-8 rounded-lg bg-zinc-950 border border-white/10 flex items-center justify-center text-[10px] font-black text-amber-400 shadow-inner">
                 {userEmail ? userEmail.charAt(0).toUpperCase() : '?'}
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-black rounded-full animate-pulse"></span>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border border-black rounded-full animate-pulse shadow-[0_0_6px_#10b981]" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-[11px] font-black uppercase text-white group-hover:text-amber-400 transition-colors">Team Principal</span>
-              <span className="text-[10px] text-slate-500 truncate max-w-[120px] font-mono">{userEmail || 'Loading...'}</span>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-[9px] font-black uppercase text-white group-hover:text-amber-400 transition-colors">Team Principal</span>
+              <span className="text-[8px] text-slate-500 truncate max-w-[110px] font-mono leading-none mt-0.5">{userEmail || 'Loading...'}</span>
             </div>
           </div>
-          <Link href="/login" onClick={() => supabase.auth.signOut()} className="p-2 rounded-lg text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Logout"><Icons.Logout /></Link>
+          <Link href="/login" onClick={() => supabase.auth.signOut()} className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Sign Out"><Icons.Logout /></Link>
         </div>
       </div>
     </aside>
+  );
+}
+
+// --- SUBCOMPONENTES AUXILIARES ---
+function ChevronsRight({ size, className }: { size: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function ChevronRight({ size, className }: { size: number; className?: string }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
   );
 }
 
@@ -218,52 +311,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <GameProvider>
-      <div className="flex min-h-screen bg-[#020617] text-slate-200 font-sans antialiased selection:bg-amber-500/30 selection:text-amber-100">
+      <div className="flex min-h-screen bg-[#020204] text-slate-300 font-sans antialiased selection:bg-amber-500/30 selection:text-amber-100">
         
-        {/* Mobile Backdrop */}
+        {/* Mobile Menu Backdrop */}
         <div 
           onClick={() => setIsMobileMenuOpen(false)}
-          className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-          aria-hidden="true"
+          className={`fixed inset-0 z-50 bg-black/80 backdrop-blur-sm transition-opacity duration-300 md:hidden ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         />
         
         <SidebarContent isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
-        
-        <div className="flex-1 flex flex-col min-h-screen relative">
-          {/* Background Ambient Effects */}
-          <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-             <div className="absolute top-[-20%] left-[10%] w-[800px] h-[800px] bg-emerald-900/10 blur-[150px] rounded-full mix-blend-screen opacity-60"></div>
-             <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-amber-900/10 blur-[150px] rounded-full mix-blend-screen opacity-60"></div>
-             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] brightness-100 contrast-150"></div>
-          </div>
+
+        {/* Content Wrapper */}
+        <div className="flex-1 flex flex-col min-w-0 relative">
           
           {/* Mobile Header */}
-          <header className="md:hidden bg-[#050505]/80 backdrop-blur-xl px-5 h-16 border-b border-white/5 flex justify-between items-center sticky top-0 z-30 shadow-lg shadow-black/20">
-              <div className="flex items-center gap-2">
-                 <div className="w-1 h-5 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.5)]"></div>
-                 <Link href="/dashboard" className="font-black italic text-lg text-white tracking-tighter">
-                    ALFA <span className="text-amber-400">RACING</span>
+          <div className="md:hidden h-14 bg-zinc-950/80 backdrop-blur-md px-4 border-b border-white/5 flex justify-between items-center sticky top-0 z-30 shadow-lg">
+             <div className="flex items-center gap-2 text-left">
+                 <div className="w-1 h-5 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.4)]"></div>
+                 <Link href="/dashboard" className="font-black italic text-base text-white tracking-tighter">
+                   ALFA <span className="text-amber-400">RACING</span>
                  </Link>
-              </div>
-              
-              <button 
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                className="relative z-50 h-10 w-10 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
-                aria-label="Menu"
-              >
-                <div className="space-y-1.5">
-                  <span className={`block w-6 h-0.5 bg-current rounded-full transform transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2 bg-amber-400' : ''}`}></span>
-                  <span className={`block w-4 h-0.5 bg-current rounded-full transition-all duration-300 ml-auto ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
-                  <span className={`block w-6 h-0.5 bg-current rounded-full transform transition-all duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-2 bg-amber-400' : ''}`}></span>
-                </div>
-              </button>
-          </header>
-
-          {/* Main Content */}
-          <main className="flex-1 overflow-auto p-4 md:p-8 lg:p-10 relative z-10 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-             <div className="mx-auto max-w-7xl w-full animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
-                {children}
              </div>
+             <button 
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                aria-label="Open Menu"
+             >
+                <div className="space-y-1">
+                  <span className="block w-5 h-0.5 bg-current rounded-full" />
+                  <span className="block w-5 h-0.5 bg-current rounded-full" />
+                  <span className="block w-5 h-0.5 bg-current rounded-full" />
+                </div>
+             </button>
+          </div>
+
+          <main className="flex-1 w-full relative z-10">
+              {children}
           </main>
         </div>
       </div>
