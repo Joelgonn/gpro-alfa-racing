@@ -5,8 +5,7 @@ import Image from 'next/image';
 import { 
   Loader2, Gauge, Cloud, Lock, LockOpen, 
   Settings2, Zap, Activity, ShieldAlert, Thermometer,
-  CheckCircle2, Trash2, User, Eraser, ChevronLeft, ChevronRight,
-  Calendar as CalendarIcon
+  CheckCircle2, Trash2, User, Eraser, Star
 } from 'lucide-react';
 import { supabase } from '@/app/lib/supabase';
 import { useGame } from '@/app/context/GameContext';
@@ -45,18 +44,20 @@ const TRACK_TO_FLAG: Record<string, string> = {
   "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
-// --- HELPER: Normalizar texto para match ---
+// --- HELPERS ---
 const normalizarTexto = (texto: string) => {
   if (!texto) return "";
   return texto.toString().trim().toLowerCase();
 };
 
-// --- HELPER: Extrair nome da pista do formato "A1-Ring GP (Áustria)" ---
 const extrairNomePista = (trackName: string) => {
   if (!trackName) return "";
   return trackName.replace(/\s*GP\s*\([^)]*\)\s*$/i, '').trim();
 };
 
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 export default function WearPlanningPage() {
   const { driver } = useGame();
   const [userId, setUserId] = useState<string | null>(null);
@@ -69,21 +70,23 @@ export default function WearPlanningPage() {
   const [results, setResults] = useState<any>(null);
   const [lockedSlots, setLockedSlots] = useState<number[]>([]);
   
-  // Mobile State
   const [mobileActiveTab, setMobileActiveTab] = useState(0);
-
-  // Estado para o calendário (fonte única)
   const [calendarData, setCalendarData] = useState<any>(null);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
 
+  // 🔥 REFS PARA CONTROLAR LOOP
+  const hasCalculatedRef = useRef(false);
+  const isInitialLoadRef = useRef(true);
+  const calendarLoadedRef = useRef(false);
+
   const driverStats = [
-    { label: 'CON', val: driver.concentracao, full: 'Concentração' },
-    { label: 'TAL', val: driver.talento, full: 'Talento' },
-    { label: 'AGR', val: driver.agressividade, full: 'Agressividade' },
-    { label: 'EXP', val: driver.experiencia, full: 'Experiência' },
-    { label: 'TEC', val: driver.tecnica, full: 'Técnica' },
-    { label: 'RES', val: driver.resistencia, full: 'Resistência' },
-    { label: 'PES', val: driver.peso, unit: 'kg', full: 'Peso' },
+    { label: 'CON', val: driver?.concentracao || 0, full: 'Concentração' },
+    { label: 'TAL', val: driver?.talento || 0, full: 'Talento' },
+    { label: 'AGR', val: driver?.agressividade || 0, full: 'Agressividade' },
+    { label: 'EXP', val: driver?.experiencia || 0, full: 'Experiência' },
+    { label: 'TEC', val: driver?.tecnica || 0, full: 'Técnica' },
+    { label: 'RES', val: driver?.resistencia || 0, full: 'Resistência' },
+    { label: 'PES', val: driver?.peso || 0, unit: 'kg', full: 'Peso' },
   ];
 
   const stateRef = useRef({ seasonSlots, manualOverrides, lockedSlots });
@@ -99,7 +102,7 @@ export default function WearPlanningPage() {
   };
 
   // ============================================
-  // ETAPA 1: CARREGAR CALENDÁRIO DA GPRO
+  // CARREGAR CALENDÁRIO (UMA ÚNICA VEZ)
   // ============================================
   useEffect(() => {
     async function loadCalendar() {
@@ -109,6 +112,7 @@ export default function WearPlanningPage() {
         
         if (!currentUserId) {
           setLoadingCalendar(false);
+          setLoading(false);
           return;
         }
 
@@ -123,15 +127,10 @@ export default function WearPlanningPage() {
         
         if (apiData.sucesso && apiData.calendarRaw?.events) {
           const events = apiData.calendarRaw.events;
-          
-          // Filtra apenas eventos de corrida (R)
           const raceEvents = events.filter((e: any) => e.eventType === 'R');
           
-          // Mapeia as corridas para o formato do planejamento
           const mappedRaces = raceEvents.map((event: any, index: number) => {
             const trackName = extrairNomePista(event.trackName || '');
-            
-            // Busca dados da pista no catálogo de tracks (se disponível)
             const trackData = apiData.tracks?.find((t: any) => 
               normalizarTexto(t.name) === normalizarTexto(trackName)
             );
@@ -144,7 +143,6 @@ export default function WearPlanningPage() {
               isCurrentRace: Boolean(event.isCurrentRace),
               isFavTrack: Boolean(event.isFavTrack),
               natCode: event.trackNatCode || '',
-              // Dados da pista (para o motor de desgaste)
               power: trackData?.power || 0,
               handling: trackData?.handling || 0,
               accel: trackData?.accel || 0,
@@ -160,7 +158,6 @@ export default function WearPlanningPage() {
               avgSpeed: trackData?.avgSpeed || 0,
               corners: trackData?.corners || 0,
               pit: trackData?.pit || 0,
-              // Campos do planejamento (inicializados)
               ctr: 0,
               testLaps: 0,
               testEnabled: true,
@@ -169,9 +166,9 @@ export default function WearPlanningPage() {
           
           setCalendarData(apiData);
           setSeasonSlots(mappedRaces);
+          calendarLoadedRef.current = true;
         } else {
-          // Fallback: se não conseguir carregar o calendário, mantém o que já existe
-          console.warn('Não foi possível carregar o calendário, usando fallback');
+          console.warn('Não foi possível carregar o calendário');
         }
       } catch (error) {
         console.error('Erro ao carregar calendário:', error);
@@ -181,14 +178,14 @@ export default function WearPlanningPage() {
     }
 
     loadCalendar();
-  }, []);
+  }, []); // 🔥 Executa apenas uma vez
 
   // ============================================
   // CARREGAR DADOS SALVOS DO USUÁRIO
   // ============================================
   useEffect(() => {
     async function loadSavedData() {
-      if (!userId || loadingCalendar) return;
+      if (!userId || loadingCalendar || seasonSlots.length === 0) return;
 
       try {
         const res = await fetch('/api/python/get_planning', { 
@@ -197,27 +194,43 @@ export default function WearPlanningPage() {
         const cloud = await res.json();
 
         if (cloud.sucesso && cloud.data && Object.keys(cloud.data).length > 0) {
-          // Mescla os dados salvos com os slots do calendário
           const savedSlots = cloud.data.seasonSlots || [];
           const savedOverrides = cloud.data.manualOverrides || {};
           const savedLocks = cloud.data.lockedSlots || [];
 
-          // Se há slots salvos, mescla com os do calendário
           if (savedSlots.length > 0 && seasonSlots.length > 0) {
-            // Mantém os dados de CTR, testLaps e testEnabled do salvamento
             const mergedSlots = seasonSlots.map((slot, index) => {
               const saved = savedSlots[index];
               if (saved) {
                 return {
                   ...slot,
+                  power: slot.power || saved.power || 0,
+                  handling: slot.handling || saved.handling || 0,
+                  accel: slot.accel || saved.accel || 0,
+                  downforce: slot.downforce || saved.downforce || '',
+                  overtaking: slot.overtaking || saved.overtaking || '',
+                  suspension: slot.suspension || saved.suspension || '',
+                  grip: slot.grip || saved.grip || '',
+                  fuel: slot.fuel || saved.fuel || '',
+                  wear: slot.wear || saved.wear || '',
+                  laps: slot.laps || saved.laps || 0,
+                  lapLen: slot.lapLen || saved.lapLen || 0,
+                  dist: slot.dist || saved.dist || 0,
+                  avgSpeed: slot.avgSpeed || saved.avgSpeed || 0,
+                  corners: slot.corners || saved.corners || 0,
+                  pit: slot.pit || saved.pit || 0,
                   ctr: saved.ctr || 0,
                   testLaps: saved.testLaps || 0,
                   testEnabled: saved.testEnabled !== undefined ? saved.testEnabled : true,
+                  isCurrentRace: slot.isCurrentRace || saved.isCurrentRace || false,
+                  isFavTrack: slot.isFavTrack || saved.isFavTrack || false,
                 };
               }
               return slot;
             });
             setSeasonSlots(mergedSlots);
+            // 🔥 RESETA A REF PARA PERMITIR RECÁLCULO
+            hasCalculatedRef.current = false;
           }
 
           setManualOverrides(savedOverrides);
@@ -231,18 +244,102 @@ export default function WearPlanningPage() {
     }
 
     loadSavedData();
-  }, [userId, loadingCalendar, seasonSlots]);
+  }, [userId, loadingCalendar, seasonSlots.length]);
 
+  // ============================================
+  // FUNÇÃO DE CÁLCULO
+  // ============================================
+  const fetchCalculo = useCallback(async () => {
+    if (seasonSlots.length === 0 || !userId || hasCalculatedRef.current) return;
+    hasCalculatedRef.current = true;
+    
+    setCalculating(true);
+    try {
+      const res = await fetch('/api/python/planning_calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'user-id': userId },
+        body: JSON.stringify({ 
+          driver, 
+          seasonSlots: seasonSlots.map(slot => ({
+            ...slot,
+            power: slot.power || 0,
+            handling: slot.handling || 0,
+            accel: slot.accel || 0,
+            wear: slot.wear || '',
+            fuel: slot.fuel || '',
+            laps: slot.laps || 0,
+            lapLen: slot.lapLen || 0,
+          })),
+          manualOverrides 
+        })
+      });
+      const data = await res.json();
+      if (data.sucesso) setResults(data.data);
+    } catch (error) {
+      console.error('Erro no cálculo:', error);
+    } finally { 
+      setCalculating(false); 
+    }
+  }, [seasonSlots, manualOverrides, driver, userId]);
+
+  // ============================================
+  // DISPARA O CÁLCULO APENAS UMA VEZ
+  // ============================================
+  useEffect(() => {
+    if (loading || !userId || seasonSlots.length === 0) return;
+    if (hasCalculatedRef.current) return;
+    
+    const timer = setTimeout(() => {
+      fetchCalculo();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [loading, userId, seasonSlots.length, fetchCalculo]);
+
+  // ============================================
+  // SALVAR NO CLOUD
+  // ============================================
   const saveToCloud = useCallback(async (slots: any, overrides: any, locks: number[]) => {
     if (!userId) return;
     setSaving(true);
     try {
+      const slotsToSave = slots.map((slot: any) => ({
+        name: slot.name,
+        trackId: slot.trackId,
+        power: slot.power || 0,
+        handling: slot.handling || 0,
+        accel: slot.accel || 0,
+        downforce: slot.downforce || '',
+        overtaking: slot.overtaking || '',
+        suspension: slot.suspension || '',
+        grip: slot.grip || '',
+        fuel: slot.fuel || '',
+        wear: slot.wear || '',
+        laps: slot.laps || 0,
+        lapLen: slot.lapLen || 0,
+        dist: slot.dist || 0,
+        avgSpeed: slot.avgSpeed || 0,
+        corners: slot.corners || 0,
+        pit: slot.pit || 0,
+        ctr: slot.ctr || 0,
+        testLaps: slot.testLaps || 0,
+        testEnabled: slot.testEnabled !== undefined ? slot.testEnabled : true,
+        isCurrentRace: slot.isCurrentRace || false,
+        isFavTrack: slot.isFavTrack || false,
+        date: slot.date || '',
+        trackFullName: slot.trackFullName || '',
+        natCode: slot.natCode || '',
+      }));
+
       await fetch('/api/python/save_planning', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'user-id': userId },
         keepalive: true, 
         body: JSON.stringify({
-          planning: { seasonSlots: slots, manualOverrides: overrides, lockedSlots: locks }
+          planning: { 
+            seasonSlots: slotsToSave, 
+            manualOverrides: overrides, 
+            lockedSlots: locks 
+          }
         })
       });
     } catch (e) {
@@ -252,20 +349,9 @@ export default function WearPlanningPage() {
     }
   }, [userId]);
 
-  const fetchCalculo = useCallback(async () => {
-    if (seasonSlots.length === 0 || !userId) return;
-    setCalculating(true);
-    try {
-      const res = await fetch('/api/python/planning_calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'user-id': userId },
-        body: JSON.stringify({ driver, seasonSlots, manualOverrides })
-      });
-      const data = await res.json();
-      if (data.sucesso) setResults(data.data);
-    } finally { setCalculating(false); }
-  }, [seasonSlots, manualOverrides, driver, userId]);
-
+  // ============================================
+  // AUTO-SAVE E AUTO-CALC
+  // ============================================
   useEffect(() => {
     if (loading || !userId) return;
     const saveTimer = setTimeout(() => {
@@ -274,14 +360,9 @@ export default function WearPlanningPage() {
     return () => clearTimeout(saveTimer);
   }, [manualOverrides, seasonSlots, lockedSlots, saveToCloud, loading, userId]);
 
-  useEffect(() => {
-    if (loading || !userId) return;
-    const calcTimer = setTimeout(() => {
-      fetchCalculo();
-    }, 1000);
-    return () => clearTimeout(calcTimer);
-  }, [manualOverrides, seasonSlots, driver, userId, loading, fetchCalculo]);
-
+  // ============================================
+  // SALVAR ANTES DE SAIR
+  // ============================================
   useEffect(() => {
     return () => {
       if (userId && !loading) {
@@ -291,6 +372,9 @@ export default function WearPlanningPage() {
     };
   }, [userId, loading, saveToCloud]);
 
+  // ============================================
+  // FUNÇÕES DE ATUALIZAÇÃO
+  // ============================================
   const updateSeasonSlot = (index: number, field: string, value: any) => {
     if (lockedSlots.includes(index)) return;
     setSeasonSlots(prev => prev.map((slot, i) => i === index ? { ...slot, [field]: value } : slot));
@@ -322,21 +406,27 @@ export default function WearPlanningPage() {
     setSeasonSlots(prev => prev.map((slot, i) => i === index ? { ...slot, ctr: 0, testLaps: 0 } : slot));
   };
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  
   const handleMobileTabClick = (idx: number) => {
-      setMobileActiveTab(idx);
+    setMobileActiveTab(idx);
   };
 
-  if (loading || loadingCalendar) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-[#050505]">
-      <Loader2 className="animate-spin text-emerald-500 mb-4" size={40} />
-      <span className="text-zinc-500 font-mono text-xs tracking-[0.3em] uppercase tracking-tighter">
-        {loadingCalendar ? 'Carregando calendário...' : 'Sincronizando...'}
-      </span>
-    </div>
-  );
+  // ============================================
+  // RENDER: LOADING
+  // ============================================
+  if (loading || loadingCalendar) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-[#050505]">
+        <Loader2 className="animate-spin text-emerald-500 mb-4" size={40} />
+        <span className="text-zinc-500 font-mono text-xs tracking-[0.3em] uppercase tracking-tighter">
+          {loadingCalendar ? 'Carregando calendário...' : 'Sincronizando...'}
+        </span>
+      </div>
+    );
+  }
 
+  // ============================================
+  // RENDER: PRINCIPAL
+  // ============================================
   return (
     <div className="p-0 sm:p-8 space-y-4 sm:space-y-6 text-slate-200 pb-40 bg-[#050505] min-h-screen">
       
@@ -400,7 +490,7 @@ export default function WearPlanningPage() {
         </div>
       </div>
 
-      {/* --- DESKTOP VIEW (TABELA GRANDE) --- */}
+      {/* --- DESKTOP VIEW --- */}
       <div className="hidden md:block bg-zinc-900/20 border border-white/5 rounded-[3rem] overflow-hidden backdrop-blur-md shadow-3xl">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full border-collapse">
@@ -412,14 +502,16 @@ export default function WearPlanningPage() {
                 {seasonSlots.map((slot, i) => {
                   const isLocked = lockedSlots.includes(i);
                   const isCurrent = slot?.isCurrentRace;
+                  const isFavorite = slot?.isFavTrack;
                   return (
                     <th key={i} className={`p-6 border-b border-white/5 min-w-[260px] border-r border-white/5 transition-all ${isLocked ? 'bg-black/40' : 'bg-zinc-900/20'}`}>
                       <div className="flex flex-col items-center gap-4">
-                        <div className={`flex items-center justify-between gap-3 w-full px-4 py-2 rounded-xl border transition-all ${isLocked ? 'bg-emerald-500/10 border-emerald-500/20' : isCurrent ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-white/5 border-white/5'}`}>
+                        <div className={`flex items-center justify-between gap-3 w-full px-4 py-2 rounded-xl border transition-all ${isLocked ? 'bg-emerald-500/10 border-emerald-500/20' : isCurrent ? 'bg-emerald-500/5 border-emerald-500/30' : isFavorite ? 'bg-yellow-500/5 border-yellow-500/30' : 'bg-white/5 border-white/5'}`}>
                           <div className="flex items-center gap-2 truncate">
                              <div className="relative w-5 h-3"><Image src={getFlagSrc(slot.name)} alt={slot.name} fill className="object-cover rounded-[1px]" unoptimized /></div>
                              <span className={`text-[10px] font-black uppercase italic truncate ${isLocked ? 'text-emerald-400' : isCurrent ? 'text-emerald-400' : 'text-zinc-300'}`}>#{i + 1} {slot.name}</span>
                              {isCurrent && <span className="text-[6px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded-full uppercase font-black">ATUAL</span>}
+                             {isFavorite && !isCurrent && <span className="text-[6px] bg-yellow-500/20 text-yellow-400 px-1 py-0.5 rounded-full uppercase font-black">⭐</span>}
                           </div>
                           <div className="flex items-center gap-1">
                             {!isLocked && (<button onClick={() => resetTrackSlot(i)} className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"><Eraser size={14} /></button>)}
@@ -434,7 +526,17 @@ export default function WearPlanningPage() {
                               <button onClick={() => updateSeasonSlot(i, 'testEnabled', !slot.testEnabled)} className={`h-8 px-3 rounded-lg border text-[10px] font-black transition-all ${slot.testEnabled ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>{slot.testEnabled ? 'ACTIVE' : 'OFF'}</button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-4 w-full text-[8px] font-black text-zinc-600 uppercase mt-2 text-center tracking-widest border-t border-white/5 pt-3">
+                        <div className="grid grid-cols-5 w-full text-[7px] font-black text-zinc-600 uppercase mt-1 text-center tracking-widest border-t border-white/5 pt-2">
+                           <span>PWR</span><span>HND</span><span>ACC</span><span>WEAR</span><span>FUEL</span>
+                        </div>
+                        <div className="grid grid-cols-5 w-full text-[8px] font-bold text-zinc-400 text-center">
+                           <span>{slot.power || 0}</span>
+                           <span>{slot.handling || 0}</span>
+                           <span>{slot.accel || 0}</span>
+                           <span className="text-amber-400">{slot.wear || '-'}</span>
+                           <span className="text-blue-400">{slot.fuel || '-'}</span>
+                        </div>
+                        <div className="grid grid-cols-4 w-full text-[8px] font-black text-zinc-600 uppercase mt-1 text-center tracking-widest border-t border-white/5 pt-2">
                            <span>Nível</span><span>Início</span><span>Desg.</span><span className="text-emerald-500/50">Final</span>
                         </div>
                       </div>
@@ -479,15 +581,15 @@ export default function WearPlanningPage() {
         </div>
       </div>
 
-      {/* --- MOBILE VIEW (OTIMIZADA E ESQUERDIZADA) --- */}
+      {/* --- MOBILE VIEW --- */}
       <div className="block md:hidden pb-24 px-0 max-w-fit">
-        
         {/* Slider de Pistas */}
-        <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start max-w-[315px]">
+        <div className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start max-w-[315px]">
             {seasonSlots.map((slot, idx) => {
                 const isActive = mobileActiveTab === idx;
                 const isLocked = lockedSlots.includes(idx);
                 const isCurrent = slot?.isCurrentRace;
+                const isFavorite = slot?.isFavTrack;
                 return (
                     <button 
                         key={idx}
@@ -499,10 +601,12 @@ export default function WearPlanningPage() {
                                 : 'bg-zinc-900/30 border-white/5 opacity-60'
                             }
                             ${isCurrent ? 'border-emerald-500/30' : ''}
+                            ${isFavorite ? 'border-yellow-500/20' : ''}
                         `}
                     >
                          {isLocked && <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-0.5 text-emerald-400 border border-emerald-500/20"><Lock size={8} /></div>}
                          {isCurrent && !isLocked && <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5"><CheckCircle2 size={8} className="text-black" /></div>}
+                         {isFavorite && !isCurrent && !isLocked && <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5"><Star size={8} className="text-black" fill="black" /></div>}
                          <div className={`relative w-8 h-5 shadow-sm overflow-hidden rounded ${isActive ? 'ring-1 ring-white/10' : ''}`}>
                              <Image src={getFlagSrc(slot.name)} alt="flag" fill className="object-cover" unoptimized />
                          </div>
@@ -524,7 +628,7 @@ export default function WearPlanningPage() {
         {seasonSlots.length > 0 && (
             <div className="bg-zinc-900/40 border-y border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 
-                {/* Header (Pista + Inputs) */}
+                {/* Header */}
                 <div className="bg-gradient-to-r from-black/60 to-black/20 p-4 border-b border-white/5 max-w-[300px]">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
@@ -533,6 +637,11 @@ export default function WearPlanningPage() {
                                  {seasonSlots[mobileActiveTab]?.isCurrentRace && (
                                    <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5">
                                      <CheckCircle2 size={8} className="text-black" />
+                                   </div>
+                                 )}
+                                 {seasonSlots[mobileActiveTab]?.isFavTrack && !seasonSlots[mobileActiveTab]?.isCurrentRace && (
+                                   <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
+                                     <Star size={8} className="text-black" fill="black" />
                                    </div>
                                  )}
                              </div>
@@ -556,6 +665,17 @@ export default function WearPlanningPage() {
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-5 gap-1 mb-3 text-[7px] font-black text-zinc-500 uppercase text-center">
+                        <span>PWR</span><span>HND</span><span>ACC</span><span>WEAR</span><span>FUEL</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 mb-3 text-[9px] font-bold text-zinc-400 text-center">
+                        <span>{seasonSlots[mobileActiveTab]?.power || 0}</span>
+                        <span>{seasonSlots[mobileActiveTab]?.handling || 0}</span>
+                        <span>{seasonSlots[mobileActiveTab]?.accel || 0}</span>
+                        <span className="text-amber-400">{seasonSlots[mobileActiveTab]?.wear || '-'}</span>
+                        <span className="text-blue-400">{seasonSlots[mobileActiveTab]?.fuel || '-'}</span>
+                    </div>
+
                     <div className={`grid grid-cols-3 gap-2 w-full ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
                         <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
                             <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">CTR</span>
@@ -577,9 +697,8 @@ export default function WearPlanningPage() {
                     </div>
                 </div>
 
-                {/* Tabela de Peças - MANTIDA À ESQUERDA */}
+                {/* Tabela de Peças */}
                 <div className="flex flex-col w-full overflow-hidden">
-                    {/* Cabeçalho */}
                     <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center justify-start">
                         <div className="text-left pl-1">Peça</div>
                         <div>Lv</div>
@@ -634,11 +753,19 @@ export default function WearPlanningPage() {
   );
 }
 
+// ============================================
+// INPUT HEADER COMPONENT
+// ============================================
 function InputHeader({ label, value, onChange, color }: any) {
   return (
     <div className="flex flex-col items-center">
       <span className="text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-wider">{label}</span>
-      <input type="text" value={value} onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))} className={`w-12 h-8 bg-${color}-500/5 border border-${color}-500/20 rounded-xl text-center text-[12px] font-mono font-bold text-${color}-400 outline-none focus:border-${color}-500/50 transition-all shadow-inner`} />
+      <input 
+        type="text" 
+        value={value} 
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))} 
+        className={`w-12 h-8 bg-${color}-500/5 border border-${color}-500/20 rounded-xl text-center text-[12px] font-mono font-bold text-${color}-400 outline-none focus:border-${color}-500/50 transition-all shadow-inner`} 
+      />
     </div>
   );
 }
