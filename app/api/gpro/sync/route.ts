@@ -43,7 +43,6 @@ async function fetchGproJson(path: string, token: string): Promise<GproJson> {
 // ============================================
 
 function extractSeasonRace(data: GproJson): { season?: number; race?: number } {
-  // Tenta extrair season e race de várias fontes possíveis
   const possibleSeasonFields = ['season', 'seasonId', 'seasonID', 'Season', 'SeasonId'];
   const possibleRaceFields = ['race', 'raceId', 'raceID', 'round', 'Round', 'Race', 'RaceId'];
   
@@ -66,7 +65,6 @@ function extractSeasonRace(data: GproJson): { season?: number; race?: number } {
     }
   }
 
-  // Log para diagnóstico
   if (season && race) {
     console.log(`📅 Season ${season}, Race ${race} extraídos`);
   } else {
@@ -77,7 +75,7 @@ function extractSeasonRace(data: GproJson): { season?: number; race?: number } {
 }
 
 // ============================================
-// MAPEADORES DE DADOS GPRO (mantidos)
+// MAPEADORES DE DADOS GPRO
 // ============================================
 
 function mapDriver(data: GproJson) {
@@ -299,7 +297,10 @@ export async function POST(request: NextRequest) {
     const token = userState.gpro_token;
 
     // 4. Buscar dados da GPRO em paralelo
+    // 🔥 ADICIONADOS: Menu e Office para o perfil do gerente
     const [
+      menuData,
+      officeData,
       trackData,
       driverData,
       carData,
@@ -307,6 +308,8 @@ export async function POST(request: NextRequest) {
       tdData,
       qualifyData,
     ] = await Promise.all([
+      fetchGproJson('Menu', token),
+      fetchGproJson('Office', token),
       fetchGproJson('TrackProfile', token),
       fetchGproJson('DriProfile', token),
       fetchGproJson('UpdateCar', token),
@@ -324,11 +327,11 @@ export async function POST(request: NextRequest) {
     // ============================================
     // SPRINT 3A - SALVAR SNAPSHOTS (NÃO BLOQUEANTE)
     // ============================================
-    // Extrair season/race - tenta de várias fontes
     const seasonRace = extractSeasonRace(qualifyData || trackData || carData || {});
     
-    // Prepara os snapshots
     const snapshots = [
+      { userId, endpoint: 'Menu', payload: menuData },
+      { userId, endpoint: 'Office', payload: officeData },
       { userId, endpoint: 'TrackProfile', payload: trackData },
       { userId, endpoint: 'DriProfile', payload: driverData },
       { userId, endpoint: 'UpdateCar', payload: carData },
@@ -341,7 +344,6 @@ export async function POST(request: NextRequest) {
       snapshots.push({ userId, endpoint: 'Testing', payload: testingData });
     }
 
-    // Salvar snapshots com Promise.allSettled (NÃO BLOQUEANTE)
     try {
       const results = await saveSnapshots(
         snapshots.map(s => ({
@@ -361,14 +363,14 @@ export async function POST(request: NextRequest) {
       }
     } catch (snapshotError) {
       console.error('⚠️ Erro ao salvar snapshots (continuando):', snapshotError);
-      // Não interrompe o fluxo principal
     }
 
     // ============================================
-    // CONTINUA O FLUXO NORMAL DO SYNC
+    // MAPEAMENTO DOS DADOS
     // ============================================
 
-    // 6. Mapear Tech Director
+    const mappedDriver = mapDriver(driverData);
+    const mappedCar = mapCar(carData);
     const mappedTechDirector = tdData?.tdName
       ? mapTechDirector(tdData)
       : {
@@ -378,18 +380,91 @@ export async function POST(request: NextRequest) {
           experiencia: 0,
           pitCoord: 0,
         };
-
-    // 7. Mapear weather
     const mappedWeather = mapWeather(qualifyData);
-    
-    // 8. Mapear test points
     const mappedTestPoints = mapTestPoints(carData);
+    const mappedTesting = mapTesting(testingData);
 
-    // 9. Retornar resposta padronizada
+    // ============================================
+    // 🆕 DADOS DO MENU PARA O PERFIL DO GERENTE
+    // ============================================
+    const menuInfo = {
+      IDM: menuData.IDM,
+      fName: menuData.fName || '',
+      lName: menuData.lName || '',
+      natCode: menuData.natCode || 'br',
+      group: menuData.group || 'Rookie - 1',
+      groupShort: menuData.groupShort || 'R1',
+      cash: menuData.cash || 0,
+      credits: menuData.credits || 0,
+      teamId: menuData.teamId || null,
+      teamCredits: menuData.teamCredits || 0,
+      champs: menuData.champs || 0,
+      accStatus: menuData.accStatus || 'Activated',
+      apiRequestsRemaining: menuData.apiRequestsRemaining || 0,
+      driverId: menuData.driverId || null,
+    };
+
+    // ============================================
+    // 🆕 DADOS DO OFFICE PARA A CORRIDA ATUAL
+    // ============================================
+    const officeInfo = {
+      season: officeData.seasonNb || '0',
+      race: officeData.raceNb || '0',
+      track: officeData.trackName || '',
+      trackId: officeData.trackId || '',
+      points: officeData.pts || '0',
+      position: officeData.pos || '0',
+      average: officeData.avg || '0',
+      champs: officeData.champs || '0',
+      qual1Pos: officeData.qual1Pos || '-',
+      qual2Pos: officeData.qual2Pos || '-',
+      donePractice: officeData.donePractice || '0',
+      doneQ1: officeData.doneQ1 || '0',
+      doneQ2: officeData.doneQ2 || '0',
+    };
+
+    // ============================================
+    // SALVAR NO user_state
+    // ============================================
+    try {
+      const { error: updateError } = await supabase
+        .from('user_state')
+        .update({
+          driver: mappedDriver,
+          car: mappedCar,
+          track: String(trackData.trackName ?? ''),
+          staff: {
+            toleranciaPressao: Number(staffData.stressHandling ?? 0),
+            concentracao: Number(staffData.concentration ?? 0),
+          },
+          weather: mappedWeather,
+          test_points: mappedTestPoints,
+          tech_director: mappedTechDirector,
+          // 🆕 NOVOS CAMPOS
+          menu_data: menuInfo,
+          office_data: officeInfo,
+          last_sync_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Erro ao atualizar user_state:', updateError);
+        // Não retorna erro, apenas log
+      } else {
+        console.log('✅ user_state atualizado com sucesso');
+      }
+    } catch (updateError) {
+      console.error('Erro ao salvar no user_state:', updateError);
+    }
+
+    // ============================================
+    // RETORNAR RESPOSTA (compatível com o esperado)
+    // ============================================
+
     return NextResponse.json({
       success: true,
-      driver: mapDriver(driverData),
-      car: mapCar(carData),
+      driver: mappedDriver,
+      car: mappedCar,
       techDirector: mappedTechDirector,
       track: String(trackData.trackName ?? ''),
       staff: {
@@ -398,7 +473,11 @@ export async function POST(request: NextRequest) {
       },
       weather: mappedWeather,
       test_points: mappedTestPoints,
-      testing: mapTesting(testingData),
+      testing: mappedTesting,
+      // 🆕 DADOS ADICIONAIS (não quebram o frontend existente)
+      menu: menuInfo,
+      office: officeInfo,
+      last_sync_at: new Date().toISOString(),
     });
 
   } catch (error) {
