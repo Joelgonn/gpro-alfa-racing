@@ -447,6 +447,13 @@ export default function DashboardHome() {
         throw new Error(data.error || 'Erro ao importar dados do GPRO');
       }
       
+      // 🔥 EXTRAIR OS TEST POINTS DA RESPOSTA DA API
+      const testPointsFromAPI = {
+        power: data.test_points?.power ?? 0,
+        handling: data.test_points?.handling ?? 0,
+        accel: data.test_points?.accel ?? 0
+      };
+      
       const importSnapshot = {
         driver: data.driver || null,
         car: data.car || null,
@@ -454,7 +461,7 @@ export default function DashboardHome() {
         staff_facilities: data.staff || null,
         weather: data.weather || null,
         track: data.track || null,
-        test_points: data.test_points || null
+        test_points: testPointsFromAPI
       };
       
       const importTimestamp = new Date().toISOString();
@@ -464,7 +471,11 @@ export default function DashboardHome() {
         last_import_at: importTimestamp
       });
       
-      applyGproPayload(data);
+      // 🔥 ATUALIZAR O CONTEXTO COM OS TEST POINTS EXTRAÍDOS
+      applyGproPayload({
+        ...data,
+        test_points: testPointsFromAPI
+      });
       
       setTimeout(() => {
         fetchCalculations();

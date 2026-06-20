@@ -131,10 +131,20 @@ function mapCar(data: GproJson) {
   ];
 }
 
-function mapTestPoints(data: GproJson) {
-  const power = Number(data.testPowerPoints ?? data.testPower ?? 0);
-  const handling = Number(data.testHandlPoints ?? data.testHandling ?? data.testHandl ?? 0);
-  const accel = Number(data.testAccelPoints ?? data.testAccel ?? 0);
+// 🔥 FUNÇÃO CORRIGIDA - AGORA EXTRAI DO ENDPOINT TESTING
+function mapTestPoints(data: GproJson | null) {
+  if (!data) {
+    return {
+      power: 0,
+      handling: 0,
+      accel: 0,
+    };
+  }
+
+  // Campos do endpoint Testing
+  const power = Number(data.TestPPoints ?? 0);
+  const handling = Number(data.TestHPoints ?? 0);
+  const accel = Number(data.TestAPoints ?? 0);
   
   return {
     power: power,
@@ -297,7 +307,6 @@ export async function POST(request: NextRequest) {
     const token = userState.gpro_token;
 
     // 4. Buscar dados da GPRO em paralelo
-    // 🔥 ADICIONADOS: Menu e Office para o perfil do gerente
     const [
       menuData,
       officeData,
@@ -307,6 +316,7 @@ export async function POST(request: NextRequest) {
       staffData,
       tdData,
       qualifyData,
+      testingData,
     ] = await Promise.all([
       fetchGproJson('Menu', token),
       fetchGproJson('Office', token),
@@ -316,13 +326,11 @@ export async function POST(request: NextRequest) {
       fetchGproJson('StaffAndFacilities', token),
       fetchGproJson('TDProfile', token),
       fetchGproJson('Qualify2', token),
+      fetchGproJson('Testing', token).catch((error) => {
+        console.warn('⚠️ Endpoint Testing indisponível, continuando sem dados de testes:', error.message);
+        return null;
+      }),
     ]);
-
-    // 5. Dados de testes (não bloqueante)
-    const testingData = await fetchGproJson('Testing', token).catch((error) => {
-      console.warn('⚠️ Endpoint Testing indisponível, continuando sem dados de testes:', error.message);
-      return null;
-    });
 
     // ============================================
     // SPRINT 3A - SALVAR SNAPSHOTS (NÃO BLOQUEANTE)
@@ -381,7 +389,8 @@ export async function POST(request: NextRequest) {
           pitCoord: 0,
         };
     const mappedWeather = mapWeather(qualifyData);
-    const mappedTestPoints = mapTestPoints(carData);
+    // 🔥 CORRIGIDO: Agora usa testingData em vez de carData
+    const mappedTestPoints = mapTestPoints(testingData);
     const mappedTesting = mapTesting(testingData);
 
     // ============================================
@@ -440,7 +449,6 @@ export async function POST(request: NextRequest) {
           weather: mappedWeather,
           test_points: mappedTestPoints,
           tech_director: mappedTechDirector,
-          // 🆕 NOVOS CAMPOS
           menu_data: menuInfo,
           office_data: officeInfo,
           last_sync_at: new Date().toISOString(),
@@ -449,16 +457,16 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error('Erro ao atualizar user_state:', updateError);
-        // Não retorna erro, apenas log
       } else {
         console.log('✅ user_state atualizado com sucesso');
+        console.log('📊 Test Points salvos:', mappedTestPoints);
       }
     } catch (updateError) {
       console.error('Erro ao salvar no user_state:', updateError);
     }
 
     // ============================================
-    // RETORNAR RESPOSTA (compatível com o esperado)
+    // RETORNAR RESPOSTA
     // ============================================
 
     return NextResponse.json({
@@ -474,7 +482,6 @@ export async function POST(request: NextRequest) {
       weather: mappedWeather,
       test_points: mappedTestPoints,
       testing: mappedTesting,
-      // 🆕 DADOS ADICIONAIS (não quebram o frontend existente)
       menu: menuInfo,
       office: officeInfo,
       last_sync_at: new Date().toISOString(),
