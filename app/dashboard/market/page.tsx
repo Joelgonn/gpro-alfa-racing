@@ -397,7 +397,7 @@ export default function MarketPage() {
                             </div>
                         </div>
 
-                        {/* Toggle View - mobile */}
+                        {/* Toggle View - APENAS EM MOBILE */}
                         {isMobile && (
                             <button 
                                 onClick={() => setViewMode(viewMode === 'table' ? 'cards' : 'table')}
@@ -433,8 +433,8 @@ export default function MarketPage() {
             <main className="flex-1 overflow-hidden flex flex-col relative">
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     
-                    {/* MODO TABELA */}
-                    <div className={`${viewMode === 'table' ? 'block' : 'hidden'} w-full overflow-x-auto`}>
+                    {/* MODO TABELA - Desktop sempre visível, mobile quando selecionado */}
+                    <div className={`${!isMobile || viewMode === 'table' ? 'block' : 'hidden'} w-full overflow-x-auto`}>
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 z-30 bg-[#0b0b0e] shadow-xl">
                                 <tr>
@@ -493,24 +493,26 @@ export default function MarketPage() {
                         </table>
                     </div>
 
-                    {/* MODO CARDS */}
-                    <div className={`${viewMode === 'cards' ? 'block' : 'hidden'} p-3 space-y-3 max-w-lg mx-auto`}>
-                        {loading ? (
-                            Array(5).fill(0).map((_, i) => (
-                                <div key={i} className="bg-zinc-950/60 border border-white/5 rounded-xl p-4 animate-pulse">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-white/5 rounded-lg" />
-                                        <div className="flex-1">
-                                            <div className="h-4 bg-white/5 rounded w-3/4" />
-                                            <div className="h-3 bg-white/5 rounded w-1/2 mt-1" />
+                    {/* MODO CARDS - APENAS EM MOBILE */}
+                    {isMobile && viewMode === 'cards' && (
+                        <div className="p-3 space-y-3 max-w-lg mx-auto">
+                            {loading ? (
+                                Array(5).fill(0).map((_, i) => (
+                                    <div key={i} className="bg-zinc-950/60 border border-white/5 rounded-xl p-4 animate-pulse">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 bg-white/5 rounded-lg" />
+                                            <div className="flex-1">
+                                                <div className="h-4 bg-white/5 rounded w-3/4" />
+                                                <div className="h-3 bg-white/5 rounded w-1/2 mt-1" />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))
-                        ) : paginatedDrivers.map((driver) => (
-                            <DriverCard key={driver.id} driver={driver} />
-                        ))}
-                    </div>
+                                ))
+                            ) : paginatedDrivers.map((driver) => (
+                                <DriverCard key={driver.id} driver={driver} />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Paginação */}
