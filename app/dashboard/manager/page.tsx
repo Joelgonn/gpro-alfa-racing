@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/app/lib/supabase';
 import { useGame } from '@/app/context/GameContext';
+import he from 'he';
 import {
   User, Trophy, Coins, Cpu, CheckCircle2, XCircle, AlertCircle, 
   Loader2, Sparkles, Activity, ShieldAlert, Zap, Globe, 
@@ -193,6 +194,12 @@ export default function ManagerPage() {
     return value.toString();
   };
 
+  // Função para decodificar HTML entities usando a biblioteca 'he'
+  const decodeText = (text: string | null | undefined): string => {
+    if (!text) return '';
+    return he.decode(text);
+  };
+
   if (isLoading || isGlobalLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] bg-[#020204] text-slate-400 p-6">
@@ -259,6 +266,11 @@ export default function ManagerPage() {
   }
 
   const { manager, driver, car, race, source } = managerData;
+
+  // Decodificar nomes do gerente
+  const decodedFirstName = decodeText(manager.firstName);
+  const decodedLastName = decodeText(manager.lastName);
+  const decodedDriverName = decodeText(driver?.name);
 
   const energy = driver?.energy ?? 0;
   const energiaStatus = energy >= 80 ? "Boa" : energy >= 50 ? "Média" : "Baixa";
@@ -361,17 +373,18 @@ export default function ManagerPage() {
                 {avatarUrl ? (
                   <img 
                     src={avatarUrl} 
-                    alt="Foto do Gerente" 
+                    alt={`Foto de ${decodedFirstName} ${decodedLastName}`} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover/button:scale-110" 
                   />
                 ) : (
                   <span>
-                    {manager.firstName?.charAt(0) || '?'}{manager.lastName?.charAt(0) || ''}
+                    {decodedFirstName.charAt(0) || '?'}
+                    {decodedLastName.charAt(0) || ''}
                   </span>
                 )}
               </button>
 
-              {/* TOOLTIP INTEGRADO - VOLTOU! */}
+              {/* TOOLTIP INTEGRADO */}
               <div className="absolute left-1/2 -translate-x-1/2 top-full sm:left-full sm:translate-x-0 sm:top-0 mt-3 sm:mt-0 sm:ml-4 w-52 p-3 bg-zinc-950/95 border border-cyan-500/30 rounded-xl text-[9px] text-slate-300 font-mono opacity-0 pointer-events-none group-hover/avatar-box:opacity-100 transition-opacity duration-300 shadow-[0_0_25px_rgba(0,0,0,0.9)] z-50 leading-relaxed text-left">
                 <span className="text-cyan-400 font-black block mb-1.5 border-b border-cyan-500/10 pb-1">⚙️ DIRETRIZES DA FOTO</span>
                 • PROPORÇÃO: Quadrada (1:1)<br />
@@ -383,7 +396,7 @@ export default function ManagerPage() {
 
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-white uppercase leading-none">
-                {manager.firstName || ''} <span className="text-cyan-400">{manager.lastName || ''}</span>
+                {decodedFirstName} <span className="text-cyan-400">{decodedLastName}</span>
               </h2>
               <p className="text-xs text-slate-400 font-bold flex flex-wrap items-center justify-center sm:justify-start gap-1.5 pt-1">
                 <Globe size={12} className="text-indigo-400" />
@@ -566,7 +579,7 @@ export default function ManagerPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
               <div>
                 <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Nome</span>
-                <p className="text-white font-black mt-0.5">{driver.name || 'N/A'}</p>
+                <p className="text-white font-black mt-0.5">{decodedDriverName || 'N/A'}</p>
               </div>
               <div>
                 <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Idade</span>
