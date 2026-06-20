@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
       // Removemos a referência ao 127.0.0.1:8000 aqui também
     ],
   },
+  
+  // Silencia o warning do Turbopack
+  turbopack: {},
 };
 
 export default nextConfig;
