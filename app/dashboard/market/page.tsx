@@ -8,7 +8,7 @@ import {
   Activity, Search, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight,
   CheckCircle2, Info, DollarSign, Target, User, ShieldAlert, HeartPulse, 
   AlertCircle, CheckCircle, Clock, Scale, Briefcase, Sparkles, ChevronDown,
-  Eye, Star, Award, Gauge
+  Eye, Star, Award, Gauge, Table, LayoutGrid
 } from 'lucide-react'; 
 import Image from 'next/image'; 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,7 +38,7 @@ const INITIAL_FILTERS = {
     ofertas: { min: 0, max: 100 } 
 };
 
-// --- LÓGICA DE STATUS DO BANCO ---
+// --- LÓGICA DE STATUS DO BANCO (GPRO SCHEDULE) ---
 const checkDatabaseStatus = (lastSyncISO: string | null) => {
     if (!lastSyncISO) return { status: 'outdated', label: 'Sem Dados' };
     const lastSync = new Date(lastSyncISO);
@@ -65,10 +65,9 @@ const checkDatabaseStatus = (lastSyncISO: string | null) => {
     };
 };
 
-const ISO3_TO_ISO2_MAP: Record<string, string> = { 
-    "ABW": "aw", "AFG": "af", "AGO": "ao", "AIA": "ai", "ALA": "ax", "ALB": "al", "AND": "ad", "ARE": "ae", "ARG": "ar", "ARM": "am", "ASM": "as", "ATA": "aq", "ATF": "tf", "ATG": "ag", "AUS": "au", "AUT": "at", "AZE": "az", "BDI": "bi", "BEL": "be", "BEN": "bj", "BES": "bq", "BFA": "bf", "BGD": "bd", "BGR": "bg", "BHR": "bh", "BHS": "bs", "BIH": "ba", "BLM": "bl", "BLR": "by", "BLZ": "bz", "BMU": "bm", "BOL": "bo", "BRA": "br", "BRB": "bb", "BRN": "bn", "BTN": "bt", "BVT": "bv", "BWA": "bw", "CAF": "cf", "CAN": "ca", "CCK": "cc", "CHE": "ch", "CHL": "cl", "CHN": "cn", "CIV": "ci", "CMR": "cm", "COD": "cd", "COG": "cg", "COK": "ck", "COL": "co", "COM": "km", "CPV": "cv", "CRI": "cr", "CUB": "cu", "CUW": "cw", "CXR": "cx", "CYM": "ky", "CYP": "cy", "CZE": "cz", "DEU": "de", "DJI": "dj", "DMA": "dm", "DNK": "dk", "DOM": "do", "DZA": "dz", "ECU": "ec", "EGY": "eg", "ERI": "er", "ESH": "eh", "ESP": "es", "EST": "ee", "ETH": "et", "FIN": "fi", "FJI": "fj", "FLK": "fk", "FRA": "fr", "FRO": "fo", "FSM": "fm", "GAB": "ga", "GBR": "gb", "GEO": "ge", "GGY": "gg", "GHA": "gh", "GIB": "gi", "GIN": "gn", "GLP": "gp", "GMB": "gm", "GNB": "gw", "GNQ": "gq", "GRC": "gr", "GRD": "gd", "GRL": "gl", "GTM": "gt", "GUF": "gf", "GUM": "gu", "GUY": "gy", "ENG": "gb-eng", "NIR": "gb-nir", "SCO": "gb-sct", "WAL": "gb-wls", "WLS": "gb-wls", "HKG": "hk", "HMD": "hm", "HND": "hn", "HRV": "hr", "HTI": "ht", "HUN": "hu", "IDN": "id", "IMN": "im", "IND": "in", "IOT": "io", "IRL": "ie", "IRN": "ir", "IRQ": "iq", "ISL": "is", "ISR": "il", "ITA": "it", "JAM": "jm", "JEY": "je", "JOR": "jo", "JPN": "jp", "KAZ": "kz", "KEN": "ke", "KGZ": "kg", "KHM": "kh", "KIR": "ki", "KNA": "kn", "KOR": "kr", "KWT": "kw", "LAO": "la", "LBN": "lb", "LBR": "lr", "LBY": "ly", "LCA": "lc", "LIE": "li", "LKA": "lk", "LSO": "ls", "LTU": "lt", "LUX": "lu", "LVA": "lv", "MAC": "mo", "MAF": "mf", "MAR": "ma", "MCO": "mc", "MDA": "md", "MDG": "mg", "MDV": "mv", "MEX": "mx", "MHL": "mh", "MKD": "mk", "MLI": "ml", "MLT": "mt", "MMR": "mm", "MNE": "me", "MNG": "mn", "MNP": "mp", "MOZ": "mz", "MRT": "mr", "MSR": "ms", "MTQ": "mq", "MUS": "mu", "MWI": "mw", "MYS": "my", "MYT": "yt", "NAM": "na", "NCL": "nc", "NER": "ne", "NFK": "nf", "NGA": "ng", "NIC": "ni", "NIU": "nu", "NLD": "nl", "NOR": "no", "NPL": "np", "NRU": "nr", "NZL": "nz", "OMN": "om", "PAK": "pk", "PAN": "pa", "PCN": "pn", "PER": "pe", "PHL": "ph", "PLW": "pw", "PNG": "pg", "POL": "pl", "PRI": "pr", "PRK": "kp", "PRT": "pt", "PRY": "py", "PSE": "ps", "PYF": "pf", "QAT": "qa", "REU": "re", "ROU": "ro", "RUS": "ru", "RWA": "rw", "SAU": "sa", "SDN": "sd", "SEN": "sn", "SGP": "sg", "SGS": "gs", "SHN": "sh", "SJM": "sj", "SLB": "sb", "SLE": "sl", "SLV": "sv", "SMR": "sm", "SOM": "so", "SPM": "pm", "SRB": "rs", "SSD": "ss", "STP": "st", "SUR": "sr", "SVK": "sk", "SVN": "si", "SWE": "se", "SWZ": "sz", "SXM": "sx", "SYC": "sc", "SYR": "sy", "TCA": "tc", "TCD": "td", "TGO": "tg", "THA": "th", "TJK": "tj", "TKL": "tk", "TKM": "tm", "TLS": "tl", "TON": "to", "TTO": "tt", "TUN": "tn", "TUR": "tr", "TUV": "tv", "TWN": "tw", "TZA": "tz", "UGA": "ug", "UKR": "ua", "UMI": "um", "URY": "uy", "USA": "us", "UZB": "uz", "VAT": "va", "VCT": "vc", "VEN": "ve", "VGB": "vg", "VIR": "vi", "VNM": "vn", "VUT": "vu", "WLF": "wf", "WSM": "ws", "XKX": "xk", "YEM": "ye", "ZAF": "za", "ZMB": "zm", "ZWE": "zw" 
-};
+const ISO3_TO_ISO2_MAP: Record<string, string> = { "ABW": "aw", "AFG": "af", "AGO": "ao", "AIA": "ai", "ALA": "ax", "ALB": "al", "AND": "ad", "ARE": "ae", "ARG": "ar", "ARM": "am", "ASM": "as", "ATA": "aq", "ATF": "tf", "ATG": "ag", "AUS": "au", "AUT": "at", "AZE": "az", "BDI": "bi", "BEL": "be", "BEN": "bj", "BES": "bq", "BFA": "bf", "BGD": "bd", "BGR": "bg", "BHR": "bh", "BHS": "bs", "BIH": "ba", "BLM": "bl", "BLR": "by", "BLZ": "bz", "BMU": "bm", "BOL": "bo", "BRA": "br", "BRB": "bb", "BRN": "bn", "BTN": "bt", "BVT": "bv", "BWA": "bw", "CAF": "cf", "CAN": "ca", "CCK": "cc", "CHE": "ch", "CHL": "cl", "CHN": "cn", "CIV": "ci", "CMR": "cm", "COD": "cd", "COG": "cg", "COK": "ck", "COL": "co", "COM": "km", "CPV": "cv", "CRI": "cr", "CUB": "cu", "CUW": "cw", "CXR": "cx", "CYM": "ky", "CYP": "cy", "CZE": "cz", "DEU": "de", "DJI": "dj", "DMA": "dm", "DNK": "dk", "DOM": "do", "DZA": "dz", "ECU": "ec", "EGY": "eg", "ERI": "er", "ESH": "eh", "ESP": "es", "EST": "ee", "ETH": "et", "FIN": "fi", "FJI": "fj", "FLK": "fk", "FRA": "fr", "FRO": "fo", "FSM": "fm", "GAB": "ga", "GBR": "gb", "GEO": "ge", "GGY": "gg", "GHA": "gh", "GIB": "gi", "GIN": "gn", "GLP": "gp", "GMB": "gm", "GNB": "gw", "GNQ": "gq", "GRC": "gr", "GRD": "gd", "GRL": "gl", "GTM": "gt", "GUF": "gf", "GUM": "gu", "GUY": "gy", "ENG": "gb-eng", "NIR": "gb-nir", "SCO": "gb-sct", "WAL": "gb-wls", "WLS": "gb-wls", "HKG": "hk", "HMD": "hm", "HND": "hn", "HRV": "hr", "HTI": "ht", "HUN": "hu", "IDN": "id", "IMN": "im", "IND": "in", "IOT": "io", "IRL": "ie", "IRN": "ir", "IRQ": "iq", "ISL": "is", "ISR": "il", "ITA": "it", "JAM": "jm", "JEY": "je", "JOR": "jo", "JPN": "jp", "KAZ": "kz", "KEN": "ke", "KGZ": "kg", "KHM": "kh", "KIR": "ki", "KNA": "kn", "KOR": "kr", "KWT": "kw", "LAO": "la", "LBN": "lb", "LBR": "lr", "LBY": "ly", "LCA": "lc", "LIE": "li", "LKA": "lk", "LSO": "ls", "LTU": "lt", "LUX": "lu", "LVA": "lv", "MAC": "mo", "MAF": "mf", "MAR": "ma", "MCO": "mc", "MDA": "md", "MDG": "mg", "MDV": "mv", "MEX": "mx", "MHL": "mh", "MKD": "mk", "MLI": "ml", "MLT": "mt", "MMR": "mm", "MNE": "me", "MNG": "mn", "MNP": "mp", "MOZ": "mz", "MRT": "mr", "MSR": "ms", "MTQ": "mq", "MUS": "mu", "MWI": "mw", "MYS": "my", "MYT": "yt", "NAM": "na", "NCL": "nc", "NER": "ne", "NFK": "nf", "NGA": "ng", "NIC": "ni", "NIU": "nu", "NLD": "nl", "NOR": "no", "NPL": "np", "NRU": "nr", "NZL": "nz", "OMN": "om", "PAK": "pk", "PAN": "pa", "PCN": "pn", "PER": "pe", "PHL": "ph", "PLW": "pw", "PNG": "pg", "POL": "pl", "PRI": "pr", "PRK": "kp", "PRT": "pt", "PRY": "py", "PSE": "ps", "PYF": "pf", "QAT": "qa", "REU": "re", "ROU": "ro", "RUS": "ru", "RWA": "rw", "SAU": "sa", "SDN": "sd", "SEN": "sn", "SGP": "sg", "SGS": "gs", "SHN": "sh", "SJM": "sj", "SLB": "sb", "SLE": "sl", "SLV": "sv", "SMR": "sm", "SOM": "so", "SPM": "pm", "SRB": "rs", "SSD": "ss", "STP": "st", "SUR": "sr", "SVK": "sk", "SVN": "si", "SWE": "se", "SWZ": "sz", "SXM": "sx", "SYC": "sc", "SYR": "sy", "TCA": "tc", "TCD": "td", "TGO": "tg", "THA": "th", "TJK": "tj", "TKL": "tk", "TKM": "tm", "TLS": "tl", "TON": "to", "TTO": "tt", "TUN": "tn", "TUR": "tr", "TUV": "tv", "TWN": "tw", "TZA": "tz", "UGA": "ug", "UKR": "ua", "UMI": "um", "URY": "uy", "USA": "us", "UZB": "uz", "VAT": "va", "VCT": "vc", "VEN": "ve", "VGB": "vg", "VIR": "vi", "VNM": "vn", "VUT": "vu", "WLF": "wf", "WSM": "ws", "XKX": "xk", "YEM": "ye", "ZAF": "za", "ZMB": "zm", "ZWE": "zw" };
 
+// --- HELPERS ---
 const getFlagCode = (nat: string): string => { 
     const code = nat.trim().toUpperCase(); 
     return (ISO3_TO_ISO2_MAP[code] || 'xx').toLowerCase(); 
@@ -100,9 +99,7 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
             animate={{ opacity: 1, y: 0 }}
             className="bg-zinc-950/60 border border-white/5 rounded-xl overflow-hidden hover:border-blue-500/20 transition-all"
         >
-            {/* Header do Card */}
             <div className="p-4 flex items-start gap-3">
-                {/* Avatar/Flag */}
                 <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-black/40">
                     <Image src={`/flags/${flagCode}.png`} alt={driver.nacionalidade} fill className="object-cover" />
                 </div>
@@ -124,7 +121,6 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                                 <span className="text-[8px] text-slate-500 font-bold">{driver.idade} anos</span>
                             </div>
                         </div>
-                        {/* OA Badge */}
                         <div className="shrink-0 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg">
                             <span className="text-sm font-black text-blue-400">{driver.total}</span>
                             <span className="text-[7px] text-blue-400/60 ml-1">OA</span>
@@ -133,7 +129,6 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                 </div>
             </div>
 
-            {/* Stats Rápidos */}
             <div className="px-4 pb-2 grid grid-cols-4 gap-1">
                 <div className="text-center p-1.5 bg-black/30 rounded-lg border border-white/5">
                     <span className="text-[7px] text-slate-600 block uppercase font-black tracking-tighter">Tal</span>
@@ -155,7 +150,6 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                 </div>
             </div>
 
-            {/* Botão Expandir */}
             <button 
                 onClick={() => setExpanded(!expanded)}
                 className="w-full px-4 py-2 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors border-t border-white/5"
@@ -164,7 +158,6 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                 <ChevronDown size={12} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Detalhes Expandidos */}
             <AnimatePresence>
                 {expanded && (
                     <motion.div 
@@ -175,7 +168,6 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                         className="overflow-hidden"
                     >
                         <div className="px-4 pb-4 pt-2 border-t border-white/5 space-y-3">
-                            {/* Atributos detalhados */}
                             <div className="grid grid-cols-4 gap-2">
                                 <div className="bg-black/30 p-2 rounded-lg border border-white/5 text-center">
                                     <span className="text-[7px] text-slate-600 block uppercase font-black">AGR</span>
@@ -195,7 +187,6 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                                 </div>
                             </div>
 
-                            {/* Info extra */}
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
                                     <span className="text-[7px] text-slate-600 block uppercase font-black">Peso</span>
@@ -209,13 +200,11 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                                 </div>
                             </div>
 
-                            {/* Salário */}
                             <div className="bg-emerald-500/5 border border-emerald-500/20 p-3 rounded-lg flex items-center justify-between">
                                 <span className="text-[8px] font-black uppercase text-slate-400">Salário</span>
                                 <span className="text-sm font-black text-emerald-400">{formatSalary(driver.salario)}</span>
                             </div>
 
-                            {/* Link GPRO */}
                             <a 
                                 href={`https://www.gpro.net/br/DriverProfile.asp?ID=${driver.id}`}
                                 target="_blank"
@@ -412,9 +401,19 @@ export default function MarketPage() {
                         {isMobile && (
                             <button 
                                 onClick={() => setViewMode(viewMode === 'table' ? 'cards' : 'table')}
-                                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-all"
+                                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-all flex items-center gap-1.5"
                             >
-                                {viewMode === 'table' ? '📱' : '📊'}
+                                {viewMode === 'table' ? (
+                                    <>
+                                        <LayoutGrid size={14} className="text-blue-400" />
+                                        <span className="text-[7px] font-black text-blue-400 uppercase">Cards</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Table size={14} className="text-slate-400" />
+                                        <span className="text-[7px] font-black text-slate-400 uppercase">Tabela</span>
+                                    </>
+                                )}
                             </button>
                         )}
 
@@ -434,9 +433,9 @@ export default function MarketPage() {
             <main className="flex-1 overflow-hidden flex flex-col relative">
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     
-                    {/* MODO TABELA (Desktop) */}
-                    {(!isMobile || viewMode === 'table') && (
-                        <table className="w-full text-left border-collapse min-w-max hidden md:table">
+                    {/* MODO TABELA */}
+                    <div className={`${viewMode === 'table' ? 'block' : 'hidden'} w-full overflow-x-auto`}>
+                        <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 z-30 bg-[#0b0b0e] shadow-xl">
                                 <tr>
                                     <th onClick={()=>handleSort('nome')} className="p-4 pl-6 text-left border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group sticky left-0 z-40 bg-[#0b0b0e] border-r border-white/5 text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">
@@ -492,28 +491,26 @@ export default function MarketPage() {
                                 })}
                             </tbody>
                         </table>
-                    )}
+                    </div>
 
-                    {/* MODO CARDS (Mobile) */}
-                    {isMobile && viewMode === 'cards' && (
-                        <div className="p-3 space-y-3 max-w-lg mx-auto">
-                            {loading ? (
-                                Array(5).fill(0).map((_, i) => (
-                                    <div key={i} className="bg-zinc-950/60 border border-white/5 rounded-xl p-4 animate-pulse">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-white/5 rounded-lg" />
-                                            <div className="flex-1">
-                                                <div className="h-4 bg-white/5 rounded w-3/4" />
-                                                <div className="h-3 bg-white/5 rounded w-1/2 mt-1" />
-                                            </div>
+                    {/* MODO CARDS */}
+                    <div className={`${viewMode === 'cards' ? 'block' : 'hidden'} p-3 space-y-3 max-w-lg mx-auto`}>
+                        {loading ? (
+                            Array(5).fill(0).map((_, i) => (
+                                <div key={i} className="bg-zinc-950/60 border border-white/5 rounded-xl p-4 animate-pulse">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-white/5 rounded-lg" />
+                                        <div className="flex-1">
+                                            <div className="h-4 bg-white/5 rounded w-3/4" />
+                                            <div className="h-3 bg-white/5 rounded w-1/2 mt-1" />
                                         </div>
                                     </div>
-                                ))
-                            ) : paginatedDrivers.map((driver) => (
-                                <DriverCard key={driver.id} driver={driver} />
-                            ))}
-                        </div>
-                    )}
+                                </div>
+                            ))
+                        ) : paginatedDrivers.map((driver) => (
+                            <DriverCard key={driver.id} driver={driver} />
+                        ))}
+                    </div>
                 </div>
 
                 {/* Paginação */}
