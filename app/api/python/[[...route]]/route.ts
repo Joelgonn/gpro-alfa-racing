@@ -5,19 +5,18 @@ import ExcelJS from 'exceljs';
 import { Mutex } from 'async-mutex';
 import { getUserState, saveUserState, UserState } from '@/app/lib/db';
 import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData } from '@/app/context/GameContext';
-import { supabase } from '@/app/lib/supabase'; // <-- CORREÇÃO 1: Importação adicionada
+import { supabase } from '@/app/lib/supabase';
 
 // --- CONFIGURAÇÃO DE COORDENADAS ---
 const CELLS = {
     MAIN_SHEET: 'Setup&WS',
-    PLANNING_SHEET: 'Planejamento', // ADICIONADO PARA O PLANEJAMENTO
+    PLANNING_SHEET: 'Planejamento',
     INPUT_TRACK: 'R5',
     INPUT_DRIVER_COL: 4, INPUT_DRIVER_START_ROW: 6,
     INPUT_CAR_LVL_COL: 8, START_ROW_CAR: 6,
     INPUT_CAR_WEAR_COL: 9,
-    OUTPUT_COL_WEAR: 10, // Coluna K (Índice 10)
+    OUTPUT_COL_WEAR: 10,
 
-    // --- NOVOS CAMPOS (Coluna O = Índice 14) ---
     INPUT_TECH_COL: 14,
     ROW_TECH_RD_MEC: 11,
     ROW_TECH_RD_ELE: 12,
@@ -26,7 +25,6 @@ const CELLS = {
     ROW_TECH_PIT: 15,
     ROW_STAFF_PRESSURE: 17,
     ROW_STAFF_CONC: 18,
-    // ---------------------------------------------
 
     INPUT_TEMP_Q1: 'R7',
     INPUT_TEMP_Q2: 'R8',
@@ -91,14 +89,13 @@ const safeVal = (val: any) => {
     return val;
 };
 
-// Helper para converter o índice da pista (0-16) para o Grid 6x3 da aba Planejamento
 function getPlanningCoordinates(slotIndex: number) {
     let rowHeader, rowBody, colBase;
-    if (slotIndex < 6) { // Pistas 1-6
+    if (slotIndex < 6) {
         rowHeader = 8; rowBody = 11; colBase = 1 + (slotIndex * 10);
-    } else if (slotIndex < 12) { // Pistas 7-12
+    } else if (slotIndex < 12) {
         rowHeader = 40; rowBody = 43; colBase = 1 + ((slotIndex - 6) * 10);
-    } else { // Pistas 13-17
+    } else {
         rowHeader = 72; rowBody = 75; colBase = 1 + ((slotIndex - 12) * 10);
     }
     return { rowHeader, rowBody, colBase };
@@ -200,26 +197,20 @@ export async function GET(request: Request, context: any) {
                 const sid = sheetIdMap['Tracks'];
                 if (!sid) return NextResponse.json({ sucesso: true, tracks: [] });
 
-                // Loop começando da linha 4 (row 3 no índice HyperFormula)
                 for (let r = 4; r <= 1000; r++) {
-                    const name = hf.getCellValue({ sheet: sid, col: 0, row: r - 1 }); // Coluna A (Name)
-                    if (!name) break; // Para quando acabar a lista
+                    const name = hf.getCellValue({ sheet: sid, col: 0, row: r - 1 });
+                    if (!name) break;
 
-                    // Os 4 pilares da Energia
-                    const length = hf.getCellValue({ sheet: sid, col: 6, row: r - 1 });       // Col G
-                    const laps = hf.getCellValue({ sheet: sid, col: 7, row: r - 1 });         // Col H
-                    const distance = hf.getCellValue({ sheet: sid, col: 8, row: r - 1 });     // Col I
-                    const trackFactor = hf.getCellValue({ sheet: sid, col: 13, row: r - 1 }); // Col N
-
-                    // Bônus: Dados valiosos para Setup, Pneus e Ultrapassagem (já carregados pro Front)
-                    const downforce = hf.getCellValue({ sheet: sid, col: 1, row: r - 1 });    // Col B
-                    const overtaking = hf.getCellValue({ sheet: sid, col: 2, row: r - 1 });   // Col C
-                    const tyreWear = hf.getCellValue({ sheet: sid, col: 5, row: r - 1 });     // Col F
-                    const grip = hf.getCellValue({ sheet: sid, col: 16, row: r - 1 });        // Col Q
-                    
-                    // --- NOVAS VARIÁVEIS PARA O MOTOR DE ENERGIA REVERSO ---
-                    const avgSpeed = hf.getCellValue({ sheet: sid, col: 12, row: r - 1 });    // Col M
-                    const corners = hf.getCellValue({ sheet: sid, col: 14, row: r - 1 });     // Col O
+                    const length = hf.getCellValue({ sheet: sid, col: 6, row: r - 1 });
+                    const laps = hf.getCellValue({ sheet: sid, col: 7, row: r - 1 });
+                    const distance = hf.getCellValue({ sheet: sid, col: 8, row: r - 1 });
+                    const trackFactor = hf.getCellValue({ sheet: sid, col: 13, row: r - 1 });
+                    const downforce = hf.getCellValue({ sheet: sid, col: 1, row: r - 1 });
+                    const overtaking = hf.getCellValue({ sheet: sid, col: 2, row: r - 1 });
+                    const tyreWear = hf.getCellValue({ sheet: sid, col: 5, row: r - 1 });
+                    const grip = hf.getCellValue({ sheet: sid, col: 16, row: r - 1 });
+                    const avgSpeed = hf.getCellValue({ sheet: sid, col: 12, row: r - 1 });
+                    const corners = hf.getCellValue({ sheet: sid, col: 14, row: r - 1 });
 
                     tracks.push({ 
                         name: String(name), 
@@ -253,7 +244,6 @@ export async function GET(request: Request, context: any) {
             });
         }
         
-        // CORREÇÃO 2: LÓGICA 'get_planning' MOVIDA PARA CÁ
         if (action.includes('get_planning')) {
             if (!userId) return NextResponse.json({ sucesso: false, error: "Login necessário" }, { status: 401 });
             const { data, error } = await supabase
@@ -268,9 +258,9 @@ export async function GET(request: Request, context: any) {
 
         if (!userId) return NextResponse.json({ sucesso: false, error: "Login necessário" }, { status: 401 });
 
-        // No arquivo route.ts, procure por esta parte e adicione a linha indicada:
         if (action.includes('get_state')) {
             const userState = await getUserState(userId);
+            
             return NextResponse.json({
                 sucesso: true,
                 data: {
@@ -282,12 +272,18 @@ export async function GET(request: Request, context: any) {
                     weather: userState.weather,
                     tech_director: userState.tech_director,
                     staff_facilities: userState.staff_facilities,
-                    energy_coeffs: userState.energy_coeffs // <-- CORREÇÃO: ADICIONAR ESTA LINHA
+                    energy_coeffs: userState.energy_coeffs,
+                    menu_data: userState.menu_data,
+                    office_data: userState.office_data,
                 }
             });
         }
+        
         return NextResponse.json({ sucesso: false, message: "Action not found" }, { status: 404 });
-    } catch(e: any) { return NextResponse.json({sucesso: false, error: e.message}); }
+    } catch(e: any) { 
+        console.error("Erro no GET:", e);
+        return NextResponse.json({sucesso: false, error: e.message}); 
+    }
 }
 
 // --- ROTAS POST ---
@@ -342,7 +338,6 @@ export async function POST(request: Request, context: any) {
                 return NextResponse.json({ sucesso: false, error: "Aba Planejamento não encontrada" }, { status: 500 });
             }
 
-            // Injetar Dados do Piloto em Setup&WS para os PROCVs funcionarem
             if (body.driver) {
                 const d = body.driver;
                 const driverKeys: (keyof Driver)[] = ["concentracao", "talento", "agressividade", "experiencia", "tecnica", "resistencia", "carisma", "motivacao", "reputacao", "peso", "idade", "energia"];
@@ -354,14 +349,13 @@ export async function POST(request: Request, context: any) {
             const manualOverrides = body.manualOverrides || {};
             const partsOrder = ['chassi', 'motor', 'asa_diant', 'asa_tras', 'assoalho', 'laterais', 'radiador', 'cambio', 'freios', 'suspensao', 'eletronicos'];
 
-            // Loop pelas 17 pistas injetando os inputs
             seasonSlots.forEach((slot: any, i: number) => {
                 const { rowHeader, rowBody, colBase } = getPlanningCoordinates(i);
 
-                write(planningSid, colBase, rowHeader, slot.name); // Nome (B8, L8...)
-                write(planningSid, colBase + 3, rowHeader + 1, Number(slot.ctr) || 0); // CTR (E9, O9...)
-                write(planningSid, colBase + 5, rowHeader + 1, slot.testEnabled ? "Yes" : "No"); // Q9, AA9...
-                write(planningSid, colBase + 7, rowHeader + 1, Number(slot.testLaps) || 0); // Teste (I9, S9...)
+                write(planningSid, colBase, rowHeader, slot.name);
+                write(planningSid, colBase + 3, rowHeader + 1, Number(slot.ctr) || 0);
+                write(planningSid, colBase + 5, rowHeader + 1, slot.testEnabled ? "Yes" : "No");
+                write(planningSid, colBase + 7, rowHeader + 1, Number(slot.testLaps) || 0);
 
                 partsOrder.forEach((pId, pIdx) => {
                     const row = rowBody + pIdx;
@@ -371,15 +365,14 @@ export async function POST(request: Request, context: any) {
                 });
             });
 
-            // Ler resultados da aba Planejamento
             const results: any = {};
             partsOrder.forEach((pId, pIdx) => {
                 results[pId] = seasonSlots.map((_: any, i: number) => {
                     const { rowBody, colBase } = getPlanningCoordinates(i);
                     const row = rowBody + pIdx;
                     return {
-                        wear: safeVal(hf.getCellValue({ sheet: planningSid, col: colBase + 3, row: row - 1 })), // Wear (O11)
-                        final: safeVal(hf.getCellValue({ sheet: planningSid, col: colBase + 8, row: row - 1 })) // After (T11)
+                        wear: safeVal(hf.getCellValue({ sheet: planningSid, col: colBase + 3, row: row - 1 })),
+                        final: safeVal(hf.getCellValue({ sheet: planningSid, col: colBase + 8, row: row - 1 }))
                     };
                 });
             });
@@ -438,9 +431,113 @@ export async function POST(request: Request, context: any) {
             });
         }
 
-        // 2. UPDATE STATE
+        // ============================================
+        // 2. UPDATE STATE - CORRIGIDO COM MERGE
+        // ============================================
         if (action.includes('update_state')) {
-            await saveUserState(userId, body);
+            // 🔍 LOG: O que está chegando
+            console.log('🚨 UPDATE_STATE - Payload recebido:', {
+                hasDriver: !!body.driver,
+                driverName: body.driver?.name,
+                hasCar: !!body.car,
+                hasTechDirector: !!body.tech_director,
+                hasStaff: !!body.staff_facilities,
+                hasWeather: !!body.weather,
+                hasTestPoints: !!body.test_points,
+            });
+
+            // Buscar o estado atual do banco
+            const currentState = await getUserState(userId);
+            
+            // ============================================
+            // MERGE do driver - preservar campos enriquecidos
+            // ============================================
+            let mergedDriver = currentState.driver;
+            
+            if (body.driver) {
+                // Criar uma cópia do driver atual (com campos enriquecidos)
+                mergedDriver = { ...currentState.driver };
+                
+                // Mesclar apenas os campos que vieram no body
+                // Preservando os campos enriquecidos (name, nationality, overall, etc.)
+                for (const key of Object.keys(body.driver)) {
+                    if (body.driver[key] !== undefined) {
+                        // @ts-ignore - key existe em Driver
+                        mergedDriver[key] = body.driver[key];
+                    }
+                }
+                
+                console.log('🚨 UPDATE_STATE - Driver após merge:', {
+                    name: mergedDriver.name,
+                    overall: mergedDriver.overall,
+                    driverId: mergedDriver.driverId,
+                    concentracao: mergedDriver.concentracao,
+                    energia: mergedDriver.energia,
+                });
+            }
+            
+            // ============================================
+            // MERGE do tech_director
+            // ============================================
+            let mergedTechDirector = currentState.tech_director;
+            if (body.tech_director) {
+                mergedTechDirector = { ...currentState.tech_director, ...body.tech_director };
+            }
+            
+            // ============================================
+            // MERGE do staff_facilities
+            // ============================================
+            let mergedStaff = currentState.staff_facilities;
+            if (body.staff_facilities) {
+                mergedStaff = { ...currentState.staff_facilities, ...body.staff_facilities };
+            }
+            
+            // ============================================
+            // MERGE do weather
+            // ============================================
+            let mergedWeather = currentState.weather;
+            if (body.weather) {
+                mergedWeather = { ...currentState.weather, ...body.weather };
+            }
+            
+            // ============================================
+            // MERGE do test_points
+            // ============================================
+            let mergedTestPoints = currentState.test_points;
+            if (body.test_points) {
+                mergedTestPoints = { ...currentState.test_points, ...body.test_points };
+            }
+            
+            // ============================================
+            // MERGE do car
+            // ============================================
+            let mergedCar = currentState.car;
+            if (body.car && Array.isArray(body.car)) {
+                mergedCar = body.car.map((part: any, index: number) => {
+                    const currentPart = currentState.car[index] || { name: part.name || 'Part', lvl: 0, wear: 0 };
+                    return {
+                        ...currentPart,
+                        ...part,
+                    };
+                });
+            }
+
+            // ============================================
+            // SALVAR COM MERGE
+            // ============================================
+            await saveUserState(userId, {
+                track: body.track !== undefined ? body.track : currentState.track,
+                driver: mergedDriver,
+                car: mergedCar,
+                tech_director: mergedTechDirector,
+                staff_facilities: mergedStaff,
+                test_points: mergedTestPoints,
+                race_options: body.race_options !== undefined ? body.race_options : currentState.race_options,
+                weather: mergedWeather,
+                desgasteModifier: body.desgasteModifier !== undefined ? body.desgasteModifier : currentState.desgasteModifier,
+            });
+
+            // Buscar o estado atualizado para calcular o OA
             const saved = await getUserState(userId);
 
             if (saved.driver) {
@@ -454,6 +551,9 @@ export async function POST(request: Request, context: any) {
             }
 
             const oa = safeVal(hf.getCellValue({ sheet: mainSheetId, col: 4, row: 4 }));
+            
+            console.log('🚨 UPDATE_STATE - Finalizado com sucesso, OA:', oa);
+            
             return NextResponse.json({ sucesso: true, oa });
         }
 

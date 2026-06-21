@@ -2,27 +2,104 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
-import { supabase } from '../lib/supabase'; // Importando o Supabase para a verificação de sessão
+import { supabase } from '../lib/supabase';
 
 // ============================================================================
-// 1. DEFINIÇÃO DE TIPOS (TYPESCRIPT)
+// 1. DEFINIÇÃO DE TIPOS (TYPESCRIPT) - VERSÃO COMPLETA E ENRIQUECIDA
 // ============================================================================
 
 export type Driver = {
-  concentracao: number; talento: number; agressividade: number; experiencia: number;
-  tecnica: number; resistencia: number; carisma: number; motivacao: number;
-  reputacao: number; peso: number; idade: number; energia: number; total: number;
+  // ============================================
+  // NOVOS CAMPOS ENRIQUECIDOS DO GPRO (inglês)
+  // ============================================
+  name?: string;
+  nationality?: string;
+  nationalityName?: string;
+  
+  overall?: number;
+  salary?: string;
+  racesLeft?: string;
+  
+  trophies?: number;
+  races?: number;
+  wins?: number;
+  podiums?: number;
+  points?: number;
+  poles?: number;
+  fastLaps?: number;
+  
+  driverId?: number | null;
+  
+  // ============================================
+  // ALIASES (inglês) - facilitam migração gradual
+  // ============================================
+  energy?: number;
+  concentration?: number;
+  talent?: number;
+  aggressiveness?: number;
+  experience?: number;
+  techInsight?: number;
+  stamina?: number;
+  charisma?: number;
+  motivation?: number;
+  reputation?: number;
+  weight?: number;
+  age?: number;
+  
+  // ============================================
+  // CAMPOS LEGADOS (português) - PRESERVADOS
+  // ============================================
+  concentracao: number;
+  talento: number;
+  agressividade: number;
+  experiencia: number;
+  tecnica: number;
+  resistencia: number;
+  carisma: number;
+  motivacao: number;
+  reputacao: number;
+  peso: number;
+  idade: number;
+  energia: number;
+  
+  // Total calculado
+  total: number;
 };
 
 export type CarPart = {
-  name: string; lvl: number; wear: number;
+  name: string; 
+  lvl: number; 
+  wear: number;
 };
 
 export type TechDirector = {
-  rdMecanico: number; 
-  rdEletronico: number; 
+  // ============================================
+  // NOVOS CAMPOS ENRIQUECIDOS DO GPRO (inglês)
+  // ============================================
+  name?: string;
+  id?: string;
+  nationality?: string;
+  overall?: string;
+  salary?: string;
+  racesLeft?: string;
+  
+  // ============================================
+  // ALIASES (inglês) - facilitam migração gradual
+  // ============================================
+  mechanics?: number;
+  electronics?: number;
+  aerodynamics?: number;
+  experience?: number;
+  
+  // ============================================
+  // CAMPOS LEGADOS (português) - PRESERVADOS
+  // NOTA: pitCoord é o mesmo em inglês e português,
+  // então NÃO duplicamos como alias
+  // ============================================
+  rdMecanico: number;
+  rdEletronico: number;
   rdAerodinamico: number;
-  experiencia: number; 
+  experiencia: number;
   pitCoord: number;
 };
 
@@ -32,31 +109,90 @@ export type StaffFacilities = {
 };
 
 export type WeatherData = {
-  tempQ1: number; weatherQ1: string; tempQ2: number; weatherQ2: string;
+  tempQ1: number; 
+  weatherQ1: string; 
+  tempQ2: number; 
+  weatherQ2: string;
   weatherRace: string; 
-  r1_temp_min: number; r1_temp_max: number;
-  r2_temp_min: number; r2_temp_max: number; 
-  r3_temp_min: number; r3_temp_max: number;
-  r4_temp_min: number; r4_temp_max: number;
-  // ============================================
-  // NOVOS CAMPOS: Chances de chuva por período
-  // ============================================
+  r1_temp_min: number; 
+  r1_temp_max: number;
+  r2_temp_min: number; 
+  r2_temp_max: number; 
+  r3_temp_min: number; 
+  r3_temp_max: number;
+  r4_temp_min: number; 
+  r4_temp_max: number;
   r1_rain_chance: number;
   r2_rain_chance: number;
   r3_rain_chance: number;
   r4_rain_chance: number;
 };
 
-// NOVO TIPO: Pontos de Teste (Vindo do Dashboard)
 export type TestPoints = {
-  power: number; handling: number; accel: number;
+  power: number; 
+  handling: number; 
+  accel: number;
+};
+
+// ============================================
+// NOVOS TIPOS: Dados enriquecidos do GPRO
+// ============================================
+
+export type MenuData = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  nationality: string;
+  group: string;
+  groupShort: string;
+  cash: number;
+  credits: number;
+  champs: number;
+  teamId: number | null;
+  teamCredits: number;
+  driverId: number | null;
+  status: string;
+  apiRequestsRemaining: number;
+  
+  // Campos legados (compatibilidade)
+  IDM: number;
+  fName: string;
+  lName: string;
+  natCode: string;
+  accStatus: string;
+};
+
+export type OfficeData = {
+  season: string;
+  race: string;
+  trackName: string;
+  trackId: string;
+  points: string;
+  position: string;
+  average: string;
+  qual1Position: string;
+  qual2Position: string;
+  donePractice: string;
+  doneQ1: string;
+  doneQ2: string;
+  doneTesting: string;
+  
+  // Campos legados (compatibilidade)
+  seasonNb: string;
+  raceNb: string;
+  pts: string;
+  pos: string;
+  avg: string;
+  qual1Pos: string;
+  qual2Pos: string;
 };
 
 // Interface do Contexto
 export interface GameContextType {
   // Estados Globais
-  isGlobalLoading: boolean; // Flag de carregamento master (Novo)
-  isDataSynced: boolean;    // Flag se os dados são reais do banco
+  isGlobalLoading: boolean;
+  isDataSynced: boolean;
   
   role: 'admin' | 'user';
   track: string;
@@ -69,7 +205,11 @@ export interface GameContextType {
   techDirector: TechDirector;
   staffFacilities: StaffFacilities;
   weather: WeatherData;
-  testPoints: TestPoints; // Estado movido para o contexto
+  testPoints: TestPoints;
+  
+  // NOVAS ENTIDADES
+  menuData: MenuData | null;
+  officeData: OfficeData | null;
 
   // Calculados
   raceAvgTemp: number;
@@ -79,12 +219,12 @@ export interface GameContextType {
   // Ações / Setters
   updateRole: (newRole: 'admin' | 'user') => void;
   updateTrack: (t: string) => void;
-  updateDriver: (field: keyof Driver, value: number) => void;
+  updateDriver: (field: keyof Driver, value: Driver[keyof Driver]) => void;
   updateCar: (index: number, field: 'lvl' | 'wear', value: number) => void;
   updateTechDirector: (data: Partial<TechDirector>) => void;
   updateStaffFacilities: (data: Partial<StaffFacilities>) => void;
   updateWeather: (data: Partial<WeatherData>) => void;
-  updateTestPoints: (data: Partial<TestPoints>) => void; // Nova Ação
+  updateTestPoints: (data: Partial<TestPoints>) => void;
   updateDesgasteModifier: (val: number) => void;
   updateIdealSetup: (data: Record<string, any> | null) => void;
   markDataAsSynced: () => void;
@@ -95,9 +235,19 @@ export interface GameContextType {
 // ============================================================================
 
 const INITIAL_DRIVER: Driver = {
-  concentracao: 0, talento: 0, agressividade: 0, experiencia: 0,
-  tecnica: 0, resistencia: 0, carisma: 0, motivacao: 0,
-  reputacao: 0, peso: 0, idade: 0, energia: 0, total: 0
+  concentracao: 0, 
+  talento: 0, 
+  agressividade: 0, 
+  experiencia: 0,
+  tecnica: 0, 
+  resistencia: 0, 
+  carisma: 0, 
+  motivacao: 0,
+  reputacao: 0, 
+  peso: 0, 
+  idade: 0, 
+  energia: 0, 
+  total: 0
 };
 
 const INITIAL_CAR: CarPart[] = [
@@ -115,27 +265,43 @@ const INITIAL_CAR: CarPart[] = [
 ];
 
 const INITIAL_TECH_DIRECTOR: TechDirector = {
-  rdMecanico: 0, rdEletronico: 0, rdAerodinamico: 0, experiencia: 0, pitCoord: 0
+  rdMecanico: 0, 
+  rdEletronico: 0, 
+  rdAerodinamico: 0, 
+  experiencia: 0, 
+  pitCoord: 0
 };
 
 const INITIAL_STAFF_FACILITIES: StaffFacilities = {
-  toleranciaPressao: 0, concentracao: 0
+  toleranciaPressao: 0, 
+  concentracao: 0
 };
 
 const INITIAL_WEATHER: WeatherData = {
-  tempQ1: 0, weatherQ1: 'Dry', tempQ2: 0, weatherQ2: 'Dry', weatherRace: 'Dry',
-  r1_temp_min: 0, r1_temp_max: 0, r2_temp_min: 0, r2_temp_max: 0,
-  r3_temp_min: 0, r3_temp_max: 0, r4_temp_min: 0, r4_temp_max: 0,
-  // ============================================
-  // NOVOS CAMPOS: Inicializados com 0
-  // ============================================
-  r1_rain_chance: 0,
-  r2_rain_chance: 0,
-  r3_rain_chance: 0,
+  tempQ1: 0, 
+  weatherQ1: 'Dry', 
+  tempQ2: 0, 
+  weatherQ2: 'Dry', 
+  weatherRace: 'Dry',
+  r1_temp_min: 0, 
+  r1_temp_max: 0, 
+  r2_temp_min: 0, 
+  r2_temp_max: 0,
+  r3_temp_min: 0, 
+  r3_temp_max: 0, 
+  r4_temp_min: 0, 
+  r4_temp_max: 0,
+  r1_rain_chance: 0, 
+  r2_rain_chance: 0, 
+  r3_rain_chance: 0, 
   r4_rain_chance: 0,
 };
 
-const INITIAL_TEST_POINTS: TestPoints = { power: 0, handling: 0, accel: 0 };
+const INITIAL_TEST_POINTS: TestPoints = { 
+  power: 0, 
+  handling: 0, 
+  accel: 0 
+};
 
 // ============================================================================
 // 3. CRIAÇÃO DO CONTEXTO E PROVIDER
@@ -145,7 +311,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   // --- States Globais de Controle ---
-  const [isGlobalLoading, setIsGlobalLoading] = useState<boolean>(true); // Começa true bloqueando as telas
+  const [isGlobalLoading, setIsGlobalLoading] = useState<boolean>(true);
   const [isDataSynced, setIsDataSynced] = useState<boolean>(false);
 
   // --- States de Dados ---
@@ -161,24 +327,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [weather, setWeather] = useState<WeatherData>(INITIAL_WEATHER);
   const [testPoints, setTestPoints] = useState<TestPoints>(INITIAL_TEST_POINTS);
   
+  // NOVOS ESTADOS
+  const [menuData, setMenuData] = useState<MenuData | null>(null);
+  const [officeData, setOfficeData] = useState<OfficeData | null>(null);
+  
   const [desgasteModifier, setDesgasteModifier] = useState<number>(0);
   const [idealSetup, setIdealSetup] = useState<Record<string, any> | null>(null);
 
   // ==========================================================================
-  // O CORAÇÃO DO SISTEMA: HIDRATAÇÃO GLOBAL (Acorda no F5 / Login)
+  // HIDRATAÇÃO GLOBAL
   // ==========================================================================
   useEffect(() => {
     async function loadGlobalData() {
-      // 1. Verifica sessão
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Se não tem sessão, libera o loading para a página redirecionar para o /login
       if (!session) {
          setIsGlobalLoading(false);
          return;
       }
 
-      // 2. Busca dados no banco para o usuário logado
       try {
           const res = await fetch('/api/python?action=get_state', { 
             headers: { 'user-id': session.user.id } 
@@ -192,7 +359,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
               if (d.driver) setDriver(prev => ({ ...prev, ...d.driver }));
               if (d.test_points) setTestPoints(d.test_points);
               
-              // Mescla o carro preservando o nome das peças (Caso API retorne só lvl e wear)
               if (d.car) {
                   setCar(prev => {
                       const newCar = [...prev];
@@ -210,13 +376,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
               if (d.weather) setWeather(prev => ({ ...prev, ...d.weather }));
               if (d.desgasteModifier !== undefined) setDesgasteModifier(Number(d.desgasteModifier));
               
-              // Avisa que os dados foram puxados com sucesso do banco
+              if (d.menu_data) {
+                setMenuData(d.menu_data);
+                console.log('✅ MenuData carregado:', d.menu_data.fullName);
+              }
+              
+              if (d.office_data) {
+                setOfficeData(d.office_data);
+                console.log('✅ OfficeData carregado: Season', d.office_data.season, 'Race', d.office_data.race);
+              }
+              
               setIsDataSynced(true); 
           }
       } catch (e) { 
-          console.error("Erro na hidratação global (Contexto):", e); 
+          console.error("Erro na hidratação global:", e); 
       } finally {
-          // Independente de dar erro ou sucesso, libera a tela de carregamento
           setIsGlobalLoading(false);
       }
     }
@@ -247,10 +421,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return sum / 8 || 0;
   }, [weather]);
 
-  // --- Callbacks (Actions) ---
+  // --- Logs ---
+  useEffect(() => {
+    if (menuData) {
+      console.log('✅ MENU DATA:', { fullName: menuData.fullName, cash: menuData.cash });
+    }
+  }, [menuData]);
+
+  useEffect(() => {
+    if (officeData) {
+      console.log('✅ OFFICE DATA:', { season: officeData.season, race: officeData.race, trackName: officeData.trackName });
+    }
+  }, [officeData]);
+
+  useEffect(() => {
+    if (driver) {
+      console.log('✅ DRIVER:', { name: driver.name || 'N/A', overall: driver.overall || 'N/A' });
+    }
+  }, [driver]);
+
+  // --- Callbacks ---
   const updateRole = useCallback((newRole: 'admin' | 'user') => setRole(newRole), []);
   const updateTrack = useCallback((t: string) => setTrack(t), []);
-  const updateDriver = useCallback((field: keyof Driver, value: number) => setDriver(prev => ({ ...prev, [field]: value })), []);
+  
+  const updateDriver = useCallback((field: keyof Driver, value: Driver[keyof Driver]) => {
+    setDriver(prev => ({ ...prev, [field]: value }));
+  }, []);
   
   const updateCar = useCallback((index: number, field: 'lvl' | 'wear', value: number) => {
     setCar(prev => {
@@ -260,10 +456,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const updateTechDirector = useCallback((data: Partial<TechDirector>) => setTechDirector(prev => ({ ...prev, ...data })), []);
-  const updateStaffFacilities = useCallback((data: Partial<StaffFacilities>) => setStaffFacilities(prev => ({ ...prev, ...data })), []);
-  const updateWeather = useCallback((data: Partial<WeatherData>) => setWeather(prev => ({ ...prev, ...data })), []);
-  const updateTestPoints = useCallback((data: Partial<TestPoints>) => setTestPoints(prev => ({ ...prev, ...data })), []);
+  const updateTechDirector = useCallback((data: Partial<TechDirector>) => {
+    setTechDirector(prev => ({ ...prev, ...data }));
+  }, []);
+  
+  const updateStaffFacilities = useCallback((data: Partial<StaffFacilities>) => {
+    setStaffFacilities(prev => ({ ...prev, ...data }));
+  }, []);
+  
+  const updateWeather = useCallback((data: Partial<WeatherData>) => {
+    setWeather(prev => ({ ...prev, ...data }));
+  }, []);
+  
+  const updateTestPoints = useCallback((data: Partial<TestPoints>) => {
+    setTestPoints(prev => ({ ...prev, ...data }));
+  }, []);
   
   const updateDesgasteModifier = useCallback((val: number) => setDesgasteModifier(val), []);
   const updateIdealSetup = useCallback((data: Record<string, any> | null) => setIdealSetup(data), []);
@@ -272,7 +479,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // --- Render ---
   return (
     <GameContext.Provider value={{ 
-      isGlobalLoading, // Expondo
+      isGlobalLoading,
       isDataSynced,
       role,
       track, 
@@ -283,7 +490,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       techDirector,
       staffFacilities,
       weather, 
-      testPoints,      // Expondo
+      testPoints,
+      menuData,
+      officeData,
       raceAvgTemp, 
       desgasteModifier,
       idealSetup,
@@ -294,7 +503,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       updateTechDirector,
       updateStaffFacilities,
       updateWeather,
-      updateTestPoints, // Expondo
+      updateTestPoints,
       updateDesgasteModifier,
       updateIdealSetup,
       markDataAsSynced
@@ -315,3 +524,4 @@ export function useGame() {
   }
   return context;
 }
+// --- END OF FILE app/context/GameContext.tsx ---

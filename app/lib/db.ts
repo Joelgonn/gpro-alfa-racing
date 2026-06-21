@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData } from '@/app/context/GameContext';
+import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData, MenuData, OfficeData } from '@/app/context/GameContext';
 import { EnergyCoefficients, DEFAULT_COEFFS } from '@/app/services/engine/regressionEngine';
 
 // --- CONFIGURAÇÃO SUPABASE ---
@@ -21,9 +21,15 @@ export interface UserState {
   weather: WeatherData;
   desgasteModifier: number;
   sponsors_database: any[]; 
-  energy_coeffs: EnergyCoefficients; // Coeficientes de calibração
-  // NOVOS CAMPOS PARA SNAPSHOT DA ÚLTIMA IMPORTAÇÃO GPRO
-  // CORRIGIDO: test_points adicionado como opcional para compatibilidade com snapshots antigos
+  energy_coeffs: EnergyCoefficients;
+  
+  // ============================================
+  // NOVOS CAMPOS: Dados enriquecidos do GPRO
+  // ============================================
+  menu_data: MenuData | null;
+  office_data: OfficeData | null;
+  
+  // Snapshot da última importação GPRO
   last_import_snapshot?: {
     driver: Driver;
     car: CarPart[];
@@ -40,10 +46,86 @@ export interface UserState {
   last_import_at?: string | null;
 }
 
-// --- VALORES PADRÃO ---
-const DEFAULT_DRIVER: Driver = {
-    concentracao: 150, talento: 200, agressividade: 0, experiencia: 50, tecnica: 50,
-    resistencia: 50, carisma: 50, motivacao: 10, reputacao: 0, peso: 65, idade: 20, energia: 100, total: 0
+// ============================================
+// VALORES PADRÃO - ATUALIZADOS COM CAMPOS ENRIQUECIDOS
+// ============================================
+
+/**
+ * Driver padrão com todos os campos necessários.
+ * Inclui campos legados (português) e campos enriquecidos (inglês).
+ */
+const DEFAULT_DRIVER: Driver & {
+  name?: string;
+  nationality?: string;
+  nationalityName?: string;
+  overall?: number;
+  salary?: string;
+  racesLeft?: string;
+  trophies?: number;
+  races?: number;
+  wins?: number;
+  podiums?: number;
+  points?: number;
+  poles?: number;
+  fastLaps?: number;
+  driverId?: number | null;
+  energy?: number;
+  concentration?: number;
+  talent?: number;
+  aggressiveness?: number;
+  experience?: number;
+  techInsight?: number;
+  stamina?: number;
+  charisma?: number;
+  motivation?: number;
+  reputation?: number;
+  weight?: number;
+  age?: number;
+} = {
+  // Campos existentes (português) - PRESERVADOS
+  concentracao: 150,
+  talento: 200,
+  agressividade: 0,
+  experiencia: 50,
+  tecnica: 50,
+  resistencia: 50,
+  carisma: 50,
+  motivacao: 10,
+  reputacao: 0,
+  peso: 65,
+  idade: 20,
+  energia: 100,
+  total: 0,
+  
+  // Campos enriquecidos (inglês) - NOVOS
+  name: '',
+  nationality: '',
+  nationalityName: '',
+  overall: 0,
+  salary: '0',
+  racesLeft: '0',
+  trophies: 0,
+  races: 0,
+  wins: 0,
+  podiums: 0,
+  points: 0,
+  poles: 0,
+  fastLaps: 0,
+  driverId: null,
+  
+  // Aliases (inglês) - facilitam migração gradual
+  energy: 100,
+  concentration: 150,
+  talent: 200,
+  aggressiveness: 0,
+  experience: 50,
+  techInsight: 50,
+  stamina: 50,
+  charisma: 50,
+  motivation: 10,
+  reputation: 0,
+  weight: 65,
+  age: 20,
 };
 
 const DEFAULT_CAR: CarPart[] = [
@@ -54,6 +136,103 @@ const DEFAULT_CAR: CarPart[] = [
     { name: "Freios", lvl: 1, wear: 0 }, { name: "Suspensão", lvl: 1, wear: 0 },
     { name: "Eletrônicos", lvl: 1, wear: 0 },
 ];
+
+const DEFAULT_TECH_DIRECTOR: TechDirector & {
+  name?: string;
+  id?: string;
+  nationality?: string;
+  overall?: string;
+  salary?: string;
+  racesLeft?: string;
+  mechanics?: number;
+  electronics?: number;
+  aerodynamics?: number;
+  experience?: number;
+  pitCoord?: number;
+} = {
+  rdMecanico: 0,
+  rdEletronico: 0,
+  rdAerodinamico: 0,
+  experiencia: 0,
+  pitCoord: 0,
+  // Campos enriquecidos
+  name: '',
+  id: '',
+  nationality: '',
+  overall: '0',
+  salary: '0',
+  racesLeft: '0',
+  mechanics: 0,
+  electronics: 0,
+  aerodynamics: 0,
+  experience: 0,
+};
+
+// ============================================
+// HELPER: Merge de Driver com fallback
+// ============================================
+
+function mergeDriver(dbDriver: any): Driver {
+  if (!dbDriver || typeof dbDriver !== 'object') {
+    return DEFAULT_DRIVER as Driver;
+  }
+
+  const merged = {
+    ...DEFAULT_DRIVER,
+    ...dbDriver,
+  };
+
+  const enrichedFields = [
+    'name', 'nationality', 'nationalityName', 'overall', 'salary',
+    'racesLeft', 'trophies', 'races', 'wins', 'podiums',
+    'points', 'poles', 'fastLaps', 'driverId'
+  ];
+  
+  // Coerção de tipos explícita para evitar erro de indexação dinâmica do TS
+  const mergedObj = merged as Record<string, any>;
+  const defaultDriverObj = DEFAULT_DRIVER as Record<string, any>;
+
+  for (const field of enrichedFields) {
+    if (mergedObj[field] === undefined) {
+      mergedObj[field] = defaultDriverObj[field];
+    }
+  }
+
+  return merged as Driver;
+}
+
+// ============================================
+// HELPER: Merge de TechDirector com fallback
+// ============================================
+
+function mergeTechDirector(dbTechDirector: any): TechDirector {
+  if (!dbTechDirector || typeof dbTechDirector !== 'object') {
+    return DEFAULT_TECH_DIRECTOR as TechDirector;
+  }
+
+  const merged = {
+    ...DEFAULT_TECH_DIRECTOR,
+    ...dbTechDirector,
+  };
+
+  const enrichedFields = ['name', 'id', 'nationality', 'overall', 'salary', 'racesLeft'];
+  
+  // Coerção de tipos explícita para evitar erro de indexação dinâmica do TS
+  const mergedObj = merged as Record<string, any>;
+  const defaultTDObj = DEFAULT_TECH_DIRECTOR as Record<string, any>;
+
+  for (const field of enrichedFields) {
+    if (mergedObj[field] === undefined) {
+      mergedObj[field] = defaultTDObj[field];
+    }
+  }
+
+  return merged as TechDirector;
+}
+
+// ============================================
+// FUNÇÕES PRINCIPAIS
+// ============================================
 
 /**
  * Busca o estado completo do usuário no Supabase.
@@ -67,14 +246,13 @@ export async function getUserState(userId: string): Promise<UserState> {
         .eq('user_id', userId)
         .maybeSingle();
 
-    // Retorna valores padrão caso não exista registro ou ocorra erro
     if (error || !data) {
         return {
             role: 'user',
             track: 'Selecionar Pista',
-            driver: DEFAULT_DRIVER,
+            driver: DEFAULT_DRIVER as Driver,
             car: DEFAULT_CAR,
-            tech_director: { rdMecanico: 0, rdEletronico: 0, rdAerodinamico: 0, experiencia: 0, pitCoord: 0 },
+            tech_director: DEFAULT_TECH_DIRECTOR as TechDirector,
             staff_facilities: { toleranciaPressao: 0, concentracao: 0 },
             test_points: { power: 0, handling: 0, accel: 0 },
             race_options: {},
@@ -87,17 +265,31 @@ export async function getUserState(userId: string): Promise<UserState> {
             desgasteModifier: 0,
             sponsors_database: [],
             energy_coeffs: DEFAULT_COEFFS,
+            menu_data: null,
+            office_data: null,
             last_import_snapshot: null,
             last_import_at: null,
         };
     }
 
+    const driver = mergeDriver(data.driver_json);
+    const techDirector = mergeTechDirector(data.tech_director_json);
+
+    console.log('🔍 [db.ts] Driver após merge:', {
+        name: driver.name,
+        overall: driver.overall,
+        driverId: driver.driverId,
+        concentracao: driver.concentracao,
+        energia: driver.energia,
+        hasName: !!driver.name,
+    });
+
     return {
         role: data.role || 'user',
         track: data.track || 'Interlagos',
-        driver: data.driver_json || DEFAULT_DRIVER,
+        driver: driver,
         car: data.car_json || DEFAULT_CAR,
-        tech_director: data.tech_director_json || { rdMecanico: 0, rdEletronico: 0, rdAerodinamico: 0, experiencia: 0, pitCoord: 0 },
+        tech_director: techDirector,
         staff_facilities: data.staff_facilities_json || { toleranciaPressao: 0, concentracao: 0 },
         test_points: data.test_points_json || { power: 0, handling: 0, accel: 0 },
         race_options: data.race_options_json || {},
@@ -110,6 +302,8 @@ export async function getUserState(userId: string): Promise<UserState> {
         desgasteModifier: data.desgaste_modifier || 0,
         sponsors_database: data.sponsors_database_json || [],
         energy_coeffs: data.energy_coeffs_json || DEFAULT_COEFFS,
+        menu_data: data.menu_data || null,
+        office_data: data.office_data || null,
         last_import_snapshot: data.last_import_snapshot || null,
         last_import_at: data.last_import_at || null,
     };
@@ -126,7 +320,6 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
         updated_at: new Date().toISOString()
     };
 
-    // Mapeamento dinâmico para garantir que apenas campos fornecidos sejam atualizados
     if (data.track !== undefined) payload.track = data.track;
     if (data.driver) payload.driver_json = data.driver;
     if (data.car) payload.car_json = data.car;
@@ -139,7 +332,9 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
     if (data.sponsors_database) payload.sponsors_database_json = data.sponsors_database;
     if (data.energy_coeffs) payload.energy_coeffs_json = data.energy_coeffs;
     
-    // NOVOS CAMPOS: persistência do snapshot da última importação GPRO
+    if (data.menu_data !== undefined) payload.menu_data = data.menu_data;
+    if (data.office_data !== undefined) payload.office_data = data.office_data;
+    
     if (data.last_import_snapshot !== undefined) payload.last_import_snapshot = data.last_import_snapshot;
     if (data.last_import_at !== undefined) payload.last_import_at = data.last_import_at;
 
