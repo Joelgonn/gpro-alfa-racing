@@ -10,7 +10,7 @@ import {
   User, Car, Zap, Activity, MapPin,
   RefreshCw, Loader2, ChevronDown, ShieldCheck, Cpu, Search, X,
   Lock, Unlock, Edit3, Briefcase, Users, History,
-  Gauge, Flame, Target, Star, Trophy, Medal, Award, Calendar, DollarSign
+  Gauge, Flame, Target, Star, Trophy, Medal, Award, Calendar, DollarSign, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,13 +38,14 @@ const TRACK_FLAGS: { [key: string]: string } = {
 // COMPONENTES DE CARDS DE INFORMAÇÃO
 // ============================================
 
-// --- CARD DO GERENTE ---
-function ManagerCard({ menuData }: { menuData: any }) {
+// --- CARD DO GERENTE - COM AVATAR E UPLOAD ---
+function ManagerCard({ menuData, avatarUrl, onAvatarUpload, isUploading }: any) {
   if (!menuData) return null;
 
   const displayName = menuData.fullName || menuData.fName || 'N/A';
   const displayGroup = menuData.group || 'Rookie';
   const displayStatus = menuData.status || menuData.accStatus || 'N/A';
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatCurrency = (value: any) => {
     if (value === null || value === undefined || value === '') return '$0';
@@ -57,8 +58,29 @@ function ManagerCard({ menuData }: { menuData: any }) {
       
       <div>
         <div className="flex items-start gap-4 mb-5">
-          <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center text-white font-black text-xl shrink-0 shadow-[0_4px_12px_rgba(148,163,184,0.2)]">
-            {displayName.charAt(0).toUpperCase()}
+          <div className="relative group/avatar shrink-0">
+            <button
+              onClick={() => !isUploading && fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="relative w-14 h-14 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 hover:border-emerald-400 flex items-center justify-center text-xl font-black text-emerald-600 overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg"
+            >
+              {isUploading ? (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                  <Loader2 className="animate-spin text-emerald-600" size={20} />
+                </div>
+              ) : (
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center transition-opacity text-[8px] font-black text-white gap-0.5 z-10 rounded-full">
+                  <Camera size={14} />
+                  <span>EDITAR</span>
+                </div>
+              )}
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-black text-emerald-600">{displayName.charAt(0).toUpperCase()}</span>
+              )}
+            </button>
+            <input type="file" ref={fileInputRef} onChange={onAvatarUpload} accept="image/*" className="hidden" />
           </div>
           
           <div className="flex-1 min-w-0">
@@ -134,7 +156,6 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
   const displayNationality = driverStatic.nationality || 'N/A';
   const displayNationalityName = driverStatic.nationalityName || '';
   
-  // ✅ CAMPOS DO GPRO PARA O AVATAR - CORRIGIDO
   const faceSVG = driverStatic.faceSVG || driverStatic.faceImg || '';
   const background = driverStatic.background || driverStatic.driBackground || '';
   const backgroundUrl = background 
@@ -151,7 +172,6 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
     return `$${Number(value).toLocaleString('en-US')}`;
   };
 
-  // Stats principais
   const mainStats = [
     { label: 'Trophies', value: driverStatic.trophies, icon: '🏆', gold: true },
     { label: 'Wins', value: driverStatic.wins, icon: '🥇', gold: true },
@@ -164,7 +184,6 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
     { label: 'Fast Laps', value: driverStatic.fastLaps, icon: '⚡' },
   ];
 
-  // ✅ PEGA A BANDEIRA DO PAÍS USANDO O MESMO SISTEMA DAS PISTAS
   const getFlagUrl = (nationality: string) => {
     if (!nationality) return null;
     const flagMap: Record<string, string> = {
@@ -231,9 +250,7 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full pointer-events-none transition-all group-hover:bg-emerald-500/10" />
 
       <div>
-        {/* HEADER: Avatar + Nome + Nacionalidade */}
         <div className="flex items-start gap-4 mb-5">
-          {/* ✅ Avatar do Piloto com SVG e Background do GPRO */}
           <div className="relative shrink-0">
             <div 
               className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-200 shadow-[0_4px_12px_rgba(16,185,129,0.25)] bg-cover bg-center bg-no-repeat"
@@ -248,13 +265,11 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
                   dangerouslySetInnerHTML={{ __html: faceSVG }}
                 />
               ) : (
-                // Fallback: iniciais do piloto
                 <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-2xl">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
               
-              {/* Bandeira do país sobreposta no canto inferior direito */}
               {displayNationality && getFlagUrl(displayNationality) && (
                 <div className="absolute -bottom-1 -right-1 w-6 h-4 rounded-full border-2 border-white shadow-sm overflow-hidden">
                   <img 
@@ -270,7 +285,6 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
             </div>
           </div>
           
-          {/* Nome e informações básicas */}
           <div className="flex-1 min-w-0">
             <h4 className="text-base font-black text-slate-900 truncate">
               {he.decode(displayName)}
@@ -290,7 +304,6 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
           </div>
         </div>
 
-        {/* Cards de informação - Salário, Contrato, Total Corridas */}
         <div className="grid grid-cols-3 gap-2.5 mb-3">
           <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
             <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
@@ -321,7 +334,6 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
         </div>
       </div>
 
-      {/* Grid de Estatísticas - 6 colunas */}
       <div className="grid grid-cols-6 gap-1.5 mt-1 border-t border-slate-100 pt-3">
         {mainStats.map((stat) => (
           <div 
@@ -601,6 +613,29 @@ export default function DashboardHome() {
   // ✅ ESTADO LOCAL PARA PISTAS
   const [localTracks, setLocalTracks] = useState<string[]>([]);
 
+  // ✅ ESTADO PARA AVATAR
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // ✅ ESTADO PARA USUÁRIO
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const [performanceData, setPerformanceData] = useState({
+    power: { part: 0, test: 0, carro: 0, pista: 0 },
+    handling: { part: 0, test: 0, carro: 0, pista: 0 },
+    accel: { part: 0, test: 0, carro: 0, pista: 0 },
+    zs: { wings: 0, motor: 0, brakes: 0, gear: 0, susp: 0 }
+  });
+  const [calculatedWear, setCalculatedWear] = useState<number[]>([]);
+  const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const persistTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const calcTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // ✅ CARREGA A LISTA DE PISTAS DA API
   useEffect(() => {
     async function loadTracks() {
@@ -629,23 +664,7 @@ export default function DashboardHome() {
     return ["Selecionar Pista"];
   }, [contextTracks, localTracks]);
 
-  const [performanceData, setPerformanceData] = useState({
-    power: { part: 0, test: 0, carro: 0, pista: 0 },
-    handling: { part: 0, test: 0, carro: 0, pista: 0 },
-    accel: { part: 0, test: 0, carro: 0, pista: 0 },
-    zs: { wings: 0, motor: 0, brakes: 0, gear: 0, susp: 0 }
-  });
-  const [calculatedWear, setCalculatedWear] = useState<number[]>([]);
-  const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-
-  const persistTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const calcTimerRef = useRef<NodeJS.Timeout | null>(null);
-
+  // ✅ CHECK SESSION E USER ID
   useEffect(() => {
     async function checkSession() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -654,6 +673,32 @@ export default function DashboardHome() {
     }
     checkSession();
   }, [router]);
+
+  // ✅ CARREGA AVATAR DO USER_STATE
+  useEffect(() => {
+    async function loadAvatar() {
+      if (!userId) return;
+      try {
+        const { data: userState } = await supabase
+          .from('user_state')
+          .select('avatar_url')
+          .eq('user_id', userId)
+          .single();
+        
+        if (userState?.avatar_url) {
+          setAvatarUrl(userState.avatar_url);
+        } else {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.user_metadata?.avatar_url) {
+            setAvatarUrl(user.user_metadata.avatar_url);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar avatar:', error);
+      }
+    }
+    loadAvatar();
+  }, [userId]);
 
   // ============================================
   // PERSISTÊNCIA
@@ -776,6 +821,52 @@ export default function DashboardHome() {
     }
     return () => { if (calcTimerRef.current) clearTimeout(calcTimerRef.current); };
   }, [track, driverStatic, driverEditable, car, testPoints, desgasteModifier, fetchCalculations, isGlobalLoading, userId]);
+
+  // ============================================
+  // UPLOAD DE AVATAR
+  // ============================================
+  
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Selecione uma imagem de até 3MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${userId}/profile-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl }
+      });
+
+      await supabase
+        .from('user_state')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', userId);
+
+      setAvatarUrl(publicUrl);
+    } catch (err: any) {
+      console.error('Erro ao enviar imagem:', err);
+      alert('Erro ao carregar imagem: ' + (err.message || err));
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // ============================================
   // IMPORTAÇÃO GPRO
@@ -996,7 +1087,6 @@ export default function DashboardHome() {
   return (
     <div className="min-h-screen pb-32 md:pb-12 bg-[#eef2f6] text-slate-700 font-mono selection:bg-emerald-500/20 relative overflow-hidden">
 
-      {/* GLOWS AMBIENTAIS DE FUNDO MUITO SUAVES */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.02] blur-[120px] rounded-full" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/[0.01] blur-[120px] rounded-full" />
@@ -1005,7 +1095,6 @@ export default function DashboardHome() {
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 relative z-10">
 
-        {/* HEADER BAR (ICE MODE) - OTIMIZADO PARA MOBILE */}
         <motion.div 
           initial={{ opacity: 0, y: -15 }} 
           animate={{ opacity: 1, y: 0 }} 
@@ -1015,9 +1104,7 @@ export default function DashboardHome() {
           
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 relative">
             
-            {/* ESQUERDA: FLAG + TRACK + TEMPORADA */}
             <div className="flex items-start sm:items-center gap-3 w-full lg:w-auto">
-              {/* Flag */}
               <div className="w-12 h-8 sm:w-16 sm:h-10 bg-white border border-slate-200 rounded-lg sm:rounded-xl flex items-center justify-center overflow-hidden shrink-0 shadow-sm hover:shadow-md transition-shadow duration-300">
                 {track && TRACK_FLAGS[track] ? (
                   <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" />
@@ -1026,7 +1113,6 @@ export default function DashboardHome() {
                 )}
               </div>
 
-              {/* Track + Temporada */}
               <div className="flex-1 min-w-0">
                 <h2 className="text-[7px] sm:text-[8px] text-slate-400 font-black uppercase tracking-widest mb-1 flex items-center gap-1.5">
                   <MapPin size={10} className="text-emerald-500 shrink-0" />
@@ -1061,13 +1147,10 @@ export default function DashboardHome() {
               </div>
             </div>
 
-            {/* DIREITA: BOTÕES DE CONTROLE */}
             <div className="flex items-center justify-between sm:justify-end gap-3 w-full lg:w-auto border-t lg:border-t-0 border-slate-200 pt-3 lg:pt-0">
               
-              {/* Grupo de Botões */}
               <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
                 
-                {/* Restaurar Snapshot */}
                 <button 
                   onClick={handleRestoreImportSnapshot} 
                   disabled={isRestoring} 
@@ -1088,7 +1171,6 @@ export default function DashboardHome() {
                   </span>
                 </button>
 
-                {/* GPRO Sync */}
                 <button 
                   onClick={handleImportGPRO} 
                   disabled={isImporting} 
@@ -1109,7 +1191,6 @@ export default function DashboardHome() {
                   </span>
                 </button>
 
-                {/* Gravar */}
                 <button 
                   onClick={persistState} 
                   className="group flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
@@ -1130,7 +1211,6 @@ export default function DashboardHome() {
                 </button>
               </div>
 
-              {/* Modo Edição */}
               <button 
                 onClick={() => setIsEditMode(!isEditMode)} 
                 className={`
@@ -1156,26 +1236,22 @@ export default function DashboardHome() {
           </div>
         </motion.div>
 
-        {/* ==========================================
-            ROW 0: CARDS DE INFORMAÇÃO
-            ========================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-8 gap-4 items-stretch">
-          {/* Gerente - 4 colunas */}
           <div className="lg:col-span-4 flex flex-col h-full">
-            <ManagerCard menuData={menuData} />
+            <ManagerCard 
+              menuData={menuData}
+              avatarUrl={avatarUrl}
+              onAvatarUpload={handleAvatarUpload}
+              isUploading={isUploading}
+            />
           </div>
-          {/* Piloto - DADOS IMUTÁVEIS - 4 colunas */}
           <div className="lg:col-span-4 flex flex-col h-full">
             <DriverStaticCard driverStatic={driverStatic} />
           </div>
         </div>
 
-        {/* ==========================================
-            ROW 1: TELEMETRIA + CARRO + PERFORMANCE
-            ========================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 relative z-0">
 
-          {/* COLUNA 1: PILOTO TELEMETRIA (EDITÁVEL) */}
           <div className={`lg:col-span-4 border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             {!isEditMode && <div className="absolute top-2 right-2 text-slate-200 opacity-40 pointer-events-none" title="Controle travado. Ative o modo edição."><Lock size={64} /></div>}
@@ -1208,7 +1284,6 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          {/* COLUNA 2: DIAGNÓSTICO DO CARRO */}
           <section className="lg:col-span-4 bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm relative hover:shadow-md hover:border-slate-300 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-slate-50 p-3.5 border-b border-slate-200 flex justify-between items-center mb-1">
@@ -1226,7 +1301,6 @@ export default function DashboardHome() {
             </div>
           </section>
 
-          {/* COLUNA 3: PERFORMANCE */}
           <section className="lg:col-span-4 bg-white/90 border border-slate-200 rounded-2xl p-4.5 shadow-sm h-full space-y-4 flex flex-col backdrop-blur-sm relative hover:shadow-md hover:border-slate-300 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5 relative">
@@ -1248,12 +1322,8 @@ export default function DashboardHome() {
           </section>
         </div>
 
-        {/* ==========================================
-            ROW 2: STAFF & TECH DIRECTOR
-            ========================================== */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-0">
 
-          {/* DIRETOR TÉCNICO */}
           <div className={`border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             
@@ -1286,7 +1356,6 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          {/* STAFF */}
           <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="flex justify-between items-center relative z-10 border-b border-slate-100 pb-2 mb-3">
@@ -1305,7 +1374,6 @@ export default function DashboardHome() {
 
       </div>
 
-      {/* Scrollbar Styles */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

@@ -94,8 +94,8 @@ export default function ManagerPage() {
     status: menuData?.status || menuData?.accStatus || 'Activated',
   };
 
-  // ✅ Dados da ÚLTIMA CORRIDA (apenas resultados - do officeData)
-  const lastRace = {
+  // ✅ Dados do CAMPEONATO (última corrida - do officeData)
+  const championship = {
     position: officeData?.position || officeData?.pos || 'N/A',
     points: officeData?.points || officeData?.pts || '0',
     average: officeData?.average || officeData?.avg || '0',
@@ -132,6 +132,68 @@ export default function ManagerPage() {
     concentracao: driverEditable?.concentracao || 0,
     talento: driverEditable?.talento || 0,
     experiencia: driverEditable?.experiencia || 0,
+  };
+
+  // ✅ PEGA A BANDEIRA DO PAÍS DO PILOTO (mesmo sistema do Dashboard)
+  const getFlagUrl = (nationality: string) => {
+    if (!nationality) return null;
+    const flagMap: Record<string, string> = {
+      'Brazil': 'br',
+      'United Kingdom': 'gb',
+      'England': 'gb',
+      'Great Britain': 'gb',
+      'UK': 'gb',
+      'United States': 'us',
+      'USA': 'us',
+      'Germany': 'de',
+      'France': 'fr',
+      'Italy': 'it',
+      'Spain': 'es',
+      'Portugal': 'pt',
+      'Netherlands': 'nl',
+      'Belgium': 'be',
+      'Switzerland': 'ch',
+      'Austria': 'at',
+      'Finland': 'fi',
+      'Sweden': 'se',
+      'Norway': 'no',
+      'Denmark': 'dk',
+      'Japan': 'jp',
+      'China': 'cn',
+      'Australia': 'au',
+      'New Zealand': 'nz',
+      'Canada': 'ca',
+      'Mexico': 'mx',
+      'Argentina': 'ar',
+      'Colombia': 'co',
+      'Venezuela': 've',
+      'Chile': 'cl',
+      'Peru': 'pe',
+      'India': 'in',
+      'South Africa': 'za',
+      'Russia': 'ru',
+      'Poland': 'pl',
+      'Czech Republic': 'cz',
+      'Hungary': 'hu',
+      'Romania': 'ro',
+      'Bulgaria': 'bg',
+      'Greece': 'gr',
+      'Turkey': 'tr',
+      'Israel': 'il',
+      'United Arab Emirates': 'ae',
+      'Qatar': 'qa',
+      'Bahrain': 'bh',
+      'Malaysia': 'my',
+      'Singapore': 'sg',
+      'South Korea': 'kr',
+      'Thailand': 'th',
+      'Indonesia': 'id',
+      'Philippines': 'ph',
+      'Pakistan': 'pk',
+    };
+    
+    const code = flagMap[nationality] || nationality.toLowerCase().substring(0, 2);
+    return `/flags/${code}.png`;
   };
 
   // ✅ Upload de avatar
@@ -202,11 +264,11 @@ export default function ManagerPage() {
   if (isGlobalLoading) {
     return (
       <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#eef2f6] text-emerald-600 font-mono text-xs gap-4">
-        <div className="w-12 h-12 border-2 border-emerald-500/10 rounded-full flex items-center justify-center relative">
-          <div className="w-12 h-12 border-2 border-t-emerald-600 rounded-full animate-spin absolute" />
-          <Settings size={16} className="animate-pulse text-emerald-600" />
+        <div className="relative">
+          <div className="w-16 h-16 border-2 border-emerald-500/10 rounded-full absolute"></div>
+          <Loader2 className="animate-spin w-8 h-8 text-emerald-600" />
         </div>
-        <span className="tracking-widest uppercase font-bold text-xs">CARREGANDO PERFIL...</span>
+        <span className="animate-pulse tracking-widest text-emerald-700 font-bold">CARREGANDO PERFIL...</span>
       </div>
     );
   }
@@ -219,7 +281,7 @@ export default function ManagerPage() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px]" />
           <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px]" />
         </div>
-        <div className="relative z-10 max-w-lg w-full bg-white/90 border border-slate-200 rounded-3xl p-8 shadow-2xl backdrop-blur-xl text-center">
+        <div className="relative z-10 max-w-lg w-full bg-white/90 backdrop-blur-xl border border-slate-200 rounded-3xl p-8 shadow-2xl text-center">
           <div className="mx-auto w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
             <Zap size={24} className="text-emerald-500 animate-pulse" />
           </div>
@@ -253,6 +315,7 @@ export default function ManagerPage() {
   const decodedFirstName = decodeText(manager.firstName);
   const decodedLastName = decodeText(manager.lastName);
   const decodedDriverName = decodeText(driver.name);
+  const decodedNationalityName = decodeText(driver.nationalityName);
 
   return (
     <div className="min-h-screen bg-[#eef2f6] text-slate-700 font-mono pb-24 md:pb-12 selection:bg-emerald-500/20 relative overflow-hidden">
@@ -304,121 +367,216 @@ export default function ManagerPage() {
 
       <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10">
         
-        {/* PERFIL DO GERENTE */}
-        <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+        {/* ROW 0: GERENTE + PILOTO (lado a lado no desktop) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           
-          <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
-                <User size={14} className="text-white" />
+          {/* PERFIL DO GERENTE - COM EFEITOS */}
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            
+            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
+                  <User size={14} className="text-white" />
+                </div>
+                <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Gerente</h2>
               </div>
-              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Perfil do Gerente</h2>
+              <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border text-emerald-600 bg-emerald-50 border-emerald-200">
+                CONECTADO
+              </span>
             </div>
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border text-emerald-600 bg-emerald-50 border-emerald-200">
-              CONECTADO
-            </span>
+
+            <div className="relative p-4 md:p-6 bg-white">
+              <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                
+                {/* Avatar */}
+                <div className="relative group/avatar shrink-0">
+                  <button
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 hover:border-emerald-400 flex items-center justify-center text-2xl font-black text-emerald-600 overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    {isUploading ? (
+                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                        <Loader2 className="animate-spin text-emerald-600" size={24} />
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center transition-opacity text-[8px] font-black text-white gap-1 z-10 rounded-2xl">
+                        <Camera size={18} />
+                        <span>EDITAR</span>
+                      </div>
+                    )}
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={decodedFirstName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{decodedFirstName.charAt(0)}{decodedLastName.charAt(0)}</span>
+                    )}
+                  </button>
+                  <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} accept="image/*" className="hidden" />
+                </div>
+
+                <div className="flex-1 text-center md:text-left">
+                  <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                    {decodedFirstName} <span className="text-emerald-600">{decodedLastName}</span>
+                  </h2>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1 text-sm text-slate-500">
+                    <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                      <Globe size={13} className="text-emerald-500" />
+                      {manager.group}
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="font-bold text-amber-600">{manager.champs || 0} 🏆</span>
+                    <span className="text-slate-300">•</span>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${manager.status === 'Activated' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {manager.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Finanças */}
+                <div className="grid grid-cols-2 gap-2.5 w-full md:w-auto">
+                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
+                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Saldo</span>
+                    <p className="text-sm font-black text-emerald-600 mt-0.5">${formatCash(manager.cash || 0)}</p>
+                  </div>
+                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
+                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Créditos</span>
+                    <p className="text-sm font-black text-amber-500 mt-0.5">{manager.credits || 0}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="relative p-4 md:p-6 bg-white">
-            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-              
-              {/* Avatar */}
-              <div className="relative group shrink-0">
-                <button
-                  onClick={() => !isUploading && fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 hover:border-emerald-400 flex items-center justify-center text-2xl font-black text-emerald-600 overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg"
-                >
-                  {isUploading ? (
-                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-                      <Loader2 className="animate-spin text-emerald-600" size={24} />
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-[8px] font-black text-white gap-1 z-10 rounded-2xl">
-                      <Camera size={18} />
-                      <span>EDITAR</span>
-                    </div>
-                  )}
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt={decodedFirstName} className="w-full h-full object-cover" />
-                  ) : (
-                    <span>{decodedFirstName.charAt(0)}{decodedLastName.charAt(0)}</span>
-                  )}
-                </button>
-                <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} accept="image/*" className="hidden" />
-              </div>
-
-              <div className="flex-1 text-center md:text-left">
-                <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                  {decodedFirstName} <span className="text-emerald-600">{decodedLastName}</span>
-                </h2>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1 text-sm text-slate-500">
-                  <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-                    <Globe size={13} className="text-emerald-500" />
-                    {manager.group}
-                  </span>
-                  <span className="text-slate-300">•</span>
-                  <span className="font-bold text-amber-600">{manager.champs || 0} 🏆</span>
-                  <span className="text-slate-300">•</span>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${manager.status === 'Activated' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {manager.status}
-                  </span>
+          {/* PERFIL DO PILOTO - COM BANDEIRA E EFEITOS */}
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            
+            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
+                  <ShieldCheck size={14} className="text-white" />
                 </div>
+                <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Piloto</h2>
               </div>
+              <span className="text-[10px] font-mono font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
+                OA {driver.overall}
+              </span>
+            </div>
 
-              {/* Finanças */}
-              <div className="grid grid-cols-2 gap-2.5 w-full md:w-auto">
-                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
-                  <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Saldo</span>
-                  <p className="text-sm font-black text-emerald-600 mt-0.5">${formatCash(manager.cash || 0)}</p>
+            <div className="relative p-4 md:p-6 bg-white">
+              <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                
+                {/* Avatar do Piloto com Bandeira */}
+                <div className="relative shrink-0">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-3xl font-black text-white shadow-md relative">
+                    {decodedDriverName.charAt(0).toUpperCase() || '?'}
+                    {/* ✅ Bandeira do país sobreposta no canto inferior direito */}
+                    {driver.nationality && getFlagUrl(driver.nationality) && (
+                      <div className="absolute -bottom-1 -right-1 w-7 h-5 rounded-full border-2 border-white shadow-sm overflow-hidden">
+                        <img 
+                          src={getFlagUrl(driver.nationality)!} 
+                          alt={driver.nationality}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
-                  <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Créditos</span>
-                  <p className="text-sm font-black text-amber-500 mt-0.5">{manager.credits || 0}</p>
+
+                <div className="flex-1 text-center md:text-left">
+                  <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                    {decodedDriverName}
+                  </h2>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1 text-sm text-slate-500">
+                    {/* ✅ Bandeira do país + nome (igual ao Dashboard) */}
+                    {driver.nationality && getFlagUrl(driver.nationality) ? (
+                      <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                        <img 
+                          src={getFlagUrl(driver.nationality)!} 
+                          alt={driver.nationality} 
+                          className="w-4 h-3 object-cover rounded-sm border border-slate-200"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        {decodedNationalityName || driver.nationality}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                        <Globe size={13} className="text-emerald-500" />
+                        {decodedNationalityName || driver.nationality || 'N/A'}
+                      </span>
+                    )}
+                    <span className="text-slate-300">•</span>
+                    <span className="font-bold">{driver.racesLeft} corridas</span>
+                    <span className="text-slate-300">•</span>
+                    <span className={`font-bold ${driver.energia >= 80 ? 'text-emerald-500' : driver.energia >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
+                      🔋 {driver.energia}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Stats Rápidas */}
+                <div className="grid grid-cols-3 gap-1.5 w-full md:w-auto">
+                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-2 py-1.5 text-center shadow-sm hover:border-emerald-300 transition-all">
+                    <span className="text-[7px] text-slate-400 font-black uppercase block">Vitórias</span>
+                    <p className="text-sm font-black text-emerald-600">{driver.wins}</p>
+                  </div>
+                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-2 py-1.5 text-center shadow-sm hover:border-emerald-300 transition-all">
+                    <span className="text-[7px] text-slate-400 font-black uppercase block">Pódios</span>
+                    <p className="text-sm font-black text-amber-500">{driver.podiums}</p>
+                  </div>
+                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-2 py-1.5 text-center shadow-sm hover:border-emerald-300 transition-all">
+                    <span className="text-[7px] text-slate-400 font-black uppercase block">Corridas</span>
+                    <p className="text-sm font-black text-slate-700">{driver.races}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* CARDS LADO A LADO: ÚLTIMA CORRIDA + PRÓXIMA CORRIDA */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* ROW 1: CAMPEONATO + PRÓXIMA CORRIDA (lado a lado no desktop) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           
-          {/* ÚLTIMA CORRIDA - Apenas resultados */}
-          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          {/* CAMPEONATO - Última corrida */}
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             
             <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
-                  <Flag size={14} className="text-white" />
+                  <Trophy size={14} className="text-white" />
                 </div>
                 <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Campeonato</h3>
               </div>
               <span className="text-[10px] font-mono font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
-                S{lastRace.season} • R{lastRace.race}
+                S{championship.season} • R{championship.race}
               </span>
             </div>
 
             <div className="relative p-4 bg-white grid grid-cols-3 gap-3">
               <div className="space-y-0.5 text-center">
                 <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Posição</span>
-                <p className="text-lg font-black text-emerald-600">{lastRace.position}</p>
+                <p className="text-lg font-black text-emerald-600">{championship.position}</p>
               </div>
               <div className="space-y-0.5 text-center">
                 <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Pontos</span>
-                <p className="text-lg font-black text-amber-500">{lastRace.points}</p>
+                <p className="text-lg font-black text-amber-500">{championship.points}</p>
               </div>
               <div className="space-y-0.5 text-center">
                 <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Média</span>
-                <p className="text-sm font-black text-slate-700">{lastRace.average}</p>
+                <p className="text-sm font-black text-slate-700">{championship.average}</p>
               </div>
             </div>
           </div>
 
-          {/* PRÓXIMA CORRIDA - Pista com bandeira e status */}
-          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          {/* PRÓXIMA CORRIDA */}
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
             <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             
             <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
@@ -454,7 +612,7 @@ export default function ManagerPage() {
                 </div>
                 
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm">
+                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm hover:border-amber-300 transition-all">
                     <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Treinos</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className={`text-[10px] font-black ${nextRace.donePractice === '1' ? 'text-emerald-500' : 'text-amber-500'}`}>
@@ -466,7 +624,7 @@ export default function ManagerPage() {
                     </div>
                   </div>
                   
-                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm">
+                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm hover:border-amber-300 transition-all">
                     <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Qualificação</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className={`text-[10px] font-black ${nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? 'text-emerald-500' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? 'text-amber-500' : 'text-slate-400'}`}>
@@ -483,31 +641,39 @@ export default function ManagerPage() {
           </div>
         </div>
 
-        {/* INFO RÁPIDA: PILOTO + CLIMA + CARRO */}
+        {/* INFO RÁPIDA: RESUMO PILOTO + CLIMA + CARRO */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          {/* Piloto */}
-          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          {/* Resumo Piloto */}
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
-              <ShieldCheck size={14} className="text-emerald-600" />
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Piloto</h4>
+              <Target size={14} className="text-emerald-600" />
+              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Resumo Piloto</h4>
             </div>
-            <div className="relative p-3 bg-white">
-              <p className="text-sm font-black text-slate-800 truncate">{decodedDriverName}</p>
-              <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                <span className="bg-emerald-50 px-2 py-0.5 rounded text-emerald-600 font-black">OA {driver.overall}</span>
-                <span>•</span>
-                <span>{driver.racesLeft} corridas</span>
-                <span>•</span>
-                <span className={`font-bold ${driver.energia >= 80 ? 'text-emerald-500' : driver.energia >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
-                  🔋 {driver.energia}%
-                </span>
+            <div className="relative p-3 bg-white grid grid-cols-2 gap-1.5">
+              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
+                <span className="text-[7px] text-slate-400 font-black uppercase block">Talento</span>
+                <p className="text-sm font-black text-slate-800">{driver.talento}</p>
+              </div>
+              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
+                <span className="text-[7px] text-slate-400 font-black uppercase block">Concentração</span>
+                <p className="text-sm font-black text-slate-800">{driver.concentracao}</p>
+              </div>
+              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
+                <span className="text-[7px] text-slate-400 font-black uppercase block">Experiência</span>
+                <p className="text-sm font-black text-slate-800">{driver.experiencia}</p>
+              </div>
+              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
+                <span className="text-[7px] text-slate-400 font-black uppercase block">Energia</span>
+                <p className={`text-sm font-black ${driver.energia >= 80 ? 'text-emerald-500' : driver.energia >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>{driver.energia}%</p>
               </div>
             </div>
           </div>
 
           {/* Clima */}
-          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
               <Activity size={14} className="text-amber-600" />
               <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Clima</h4>
@@ -531,7 +697,8 @@ export default function ManagerPage() {
           </div>
 
           {/* Carro - Resumo */}
-          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
               <Car size={14} className="text-indigo-600" />
               <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Carro</h4>
@@ -562,7 +729,8 @@ export default function ManagerPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
           {/* Tech Director */}
-          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
               <Briefcase size={14} className="text-cyan-600" />
               <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Diretor Técnico</h4>
@@ -583,7 +751,8 @@ export default function ManagerPage() {
           </div>
 
           {/* Staff */}
-          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
               <Users size={14} className="text-purple-600" />
               <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Equipe (Staff)</h4>
