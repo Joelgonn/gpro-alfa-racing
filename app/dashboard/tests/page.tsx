@@ -157,68 +157,120 @@ function PrioritySelector({ value, onChange }: { value: string, onChange: (val: 
     );
 }
 
+// ✅ TRACK SELECTOR - MANTIDO O MESMO, APENAS COM OVERFLOW VISIBLE NO CONTAINER PAI
 function TrackSelector({ currentTrack, tracksList, onSelect }: any) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
+    const dropdownRef = useRef<HTMLDivElement>(null);
     
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef]);
+
     const filteredTracks = useMemo(() => tracksList.filter((t: any) => {
         const name = typeof t === 'object' ? (t.name || "") : (t || "");
         return name.toLowerCase().includes(search.toLowerCase());
     }), [tracksList, search]);
 
     return (
-        <div className="relative z-50 w-full md:w-auto">
+        <div className="relative z-50" ref={dropdownRef}>
             <button 
                 onClick={() => setIsOpen(!isOpen)} 
-                className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 text-xs text-slate-800 font-black tracking-wider bg-white px-3.5 py-2 rounded-xl border border-slate-200 uppercase outline-none hover:border-emerald-400 hover:shadow-md active:scale-95 transition-all duration-200 shadow-sm"
+                className="
+                    flex items-center gap-2 sm:gap-2.5 
+                    text-[9px] sm:text-xs 
+                    text-slate-800 font-black tracking-wider 
+                    hover:text-emerald-600 transition-all duration-300 
+                    outline-none group 
+                    bg-white px-2.5 py-1.5 sm:px-3.5 sm:py-2 
+                    rounded-lg sm:rounded-xl 
+                    border border-slate-200 
+                    active:scale-[0.98] 
+                    shadow-sm hover:shadow-md 
+                    min-w-[100px] sm:min-w-[140px]
+                    truncate
+                "
             >
-                <span className="truncate max-w-[120px]">
+                <span className="truncate text-[9px] sm:text-xs">
                     {currentTrack || "SELECIONAR PISTA"}
                 </span>
                 <ChevronDown 
+                    className={`
+                        transition-transform duration-300 
+                        text-slate-400 group-hover:text-emerald-600 
+                        ${isOpen ? 'rotate-180' : ''}
+                        w-3 h-3 sm:w-4 sm:h-4
+                    `} 
                     size={14} 
-                    className={`text-slate-400 transition-all duration-300 ${isOpen ? 'rotate-180 text-emerald-600' : ''}`} 
                 />
             </button>
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-full md:w-64 bg-white border border-slate-200 rounded-xl shadow-2xl z-[60] overflow-hidden">
-                        <div className="p-3 border-b border-slate-100 bg-slate-50">
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }} 
+                        className="absolute top-full left-0 mt-2 w-[240px] sm:w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-[60]"
+                    >
+                        <div className="p-2 sm:p-3 border-b border-slate-100 bg-slate-50">
                             <div className="relative">
-                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input 
                                     autoFocus 
                                     type="text" 
-                                    placeholder="Buscar..." 
+                                    placeholder="Buscar pista..." 
                                     value={search} 
                                     onChange={(e) => setSearch(e.target.value)} 
-                                    className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 text-xs text-slate-800 outline-none focus:border-emerald-500 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] transition-all" 
+                                    className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 outline-none font-bold uppercase tracking-wider" 
                                 />
                                 {search && (
                                     <button 
                                         onClick={() => setSearch('')} 
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 transition-colors"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
                                     >
                                         <X size={12} />
                                     </button>
                                 )}
                             </div>
                         </div>
-                        <div className="max-h-[300px] overflow-y-auto p-1 custom-scrollbar bg-white space-y-0.5">
+                        <div className="max-h-[200px] sm:max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5 bg-white">
                             {filteredTracks.map((t: any) => {
                                 const name = typeof t === 'object' ? t.name : t;
                                 return (
-                                    <button 
-                                        key={name} 
+                                    <button
+                                        key={name}
                                         onClick={() => { 
                                             const trackName = typeof t === 'object' ? t.name : t;
                                             onSelect(trackName); 
                                             setIsOpen(false); 
-                                        }} 
-                                        className="w-full text-left px-4 py-2.5 rounded-lg text-xs font-black uppercase text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:shadow-sm transition-all duration-150 flex items-center gap-3"
+                                            setSearch("");
+                                        }}
+                                        className={`
+                                            w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 
+                                            rounded-lg text-[9px] sm:text-xs 
+                                            font-black uppercase tracking-wider 
+                                            flex items-center justify-between group transition-all
+                                            ${currentTrack === name 
+                                                ? 'bg-emerald-600 text-white' 
+                                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                            }
+                                        `}
                                     >
-                                        {TRACK_FLAGS[name] && <img src={`/flags/${TRACK_FLAGS[name]}.png`} className="w-5 h-3.5 object-cover rounded-sm border border-slate-200 shadow-sm" alt="flag"/>}
-                                        {name}
+                                        <div className="flex items-center gap-2 sm:gap-2.5">
+                                            {TRACK_FLAGS[name] ? (
+                                                <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-3 h-2 sm:w-4 sm:h-2.5 object-cover rounded-sm shadow-sm" />
+                                            ) : (
+                                                <div className="w-3 h-2 sm:w-4 sm:h-2.5 bg-slate-100 rounded-sm border border-slate-200"></div>
+                                            )}
+                                            <span className="truncate max-w-[120px] sm:max-w-none">{name}</span>
+                                        </div>
+                                        {currentTrack === name && <ShieldCheck size={12} className="shrink-0" />}
                                     </button>
                                 );
                             })}
@@ -242,7 +294,7 @@ function DriverStatRow({ label, value, onChange, max = 250 }: any) {
                 type="number" 
                 value={value} 
                 onChange={(e) => onChange(Number(e.target.value))} 
-                onFocus={(e) => e.target.select()}
+                onFocus={(e) => e.target.select()} 
                 className="w-10 shrink-0 h-7 text-center bg-[#f8fafc] border border-slate-200 rounded-lg text-[10px] font-black text-slate-800 outline-none focus:border-emerald-500 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] transition-all hover:border-slate-300" 
             />
         </div>
@@ -705,52 +757,57 @@ export default function TestsPage() {
         )}
       </AnimatePresence>
 
-      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3.5 sm:p-4.5 relative shadow-sm">
+      {/* ✅ HEADER PADRONIZADO - MESMO ESTILO DAS PÁGINAS DE SETUP E ESTRATÉGIA */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3 sm:p-4 relative shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
-        <div className="max-w-[1600px] mx-auto flex justify-between items-center relative z-10">
+        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 lg:gap-4 relative z-10">
+          
+          {/* ESQUERDA: Logo + Título */}
           <div className="flex items-center gap-3">
-            <div className="bg-emerald-600 p-2.5 rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)]">
-              <Settings size={14} className="text-white" />
+            <div className="bg-emerald-600 p-2 rounded-lg sm:rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)] shrink-0">
+              <Settings size={14} className="sm:w-4 sm:h-4 text-white" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+              <h1 className="text-[10px] sm:text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
                 Testes & Simulação
-                <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
+                <span className="text-[7px] sm:text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
               </h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[120px]">{userEmail}</p>
+              <p className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase truncate max-w-[100px] sm:max-w-[120px]">{userEmail}</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
-              <div className="w-8 h-6 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+          {/* DIREITA: Circuito + Status + Temp */}
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full lg:w-auto">
+            
+            {/* Circuito Selecionado */}
+            <div className="flex items-center gap-2 border-r border-slate-200 pr-3 sm:pr-4">
+              <div className="w-7 h-5 sm:w-8 sm:h-6 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                 {testTrack && TRACK_FLAGS[testTrack] ? (
-                    <img 
-                        src={`/flags/${TRACK_FLAGS[testTrack]}.png`} 
-                        alt={testTrack} 
-                        className="w-full h-full object-cover" 
-                    />
+                  <img src={`/flags/${TRACK_FLAGS[testTrack]}.png`} alt={testTrack} className="w-full h-full object-cover" />
                 ) : (
-                    <span className="text-xs">🏁</span>
+                  <span className="text-[10px] sm:text-xs">🏁</span>
                 )}
               </div>
               <div className="flex flex-col">
-                <span className="text-[7px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
+                <span className="text-[6px] sm:text-[7px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
                 <TrackSelector currentTrack={testTrack} tracksList={tracks} onSelect={setTestTrack} />
               </div>
             </div>
 
+            {/* Status + Temperatura */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.3)]' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'}`} />
-                <span className={`text-[10px] font-bold ${isSyncing ? 'text-amber-600' : 'text-emerald-600'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'}`} />
+                <span className={`text-[8px] sm:text-[10px] font-bold ${isSyncing ? 'text-amber-600' : 'text-emerald-600'}`}>
                   {isSyncing ? 'CALCULANDO' : 'PRONTO'}
                 </span>
               </div>
               
-              <div className="text-right border-l border-slate-200 pl-4 shrink-0 flex flex-col justify-center">
-                <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Temp. Pista</p>
-                <p className="text-xl font-black text-emerald-600 leading-none">{inputs.temp || '--'}°C</p>
+              <div className="text-right border-l border-slate-200 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
+                <p className="text-[7px] sm:text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5 sm:mb-1">Temp. Pista</p>
+                <p className="text-base sm:text-xl font-black text-emerald-600 leading-none">
+                  {inputs.temp || '--'}°C
+                </p>
               </div>
             </div>
           </div>
