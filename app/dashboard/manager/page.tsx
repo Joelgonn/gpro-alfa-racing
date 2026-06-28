@@ -1,90 +1,64 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/app/lib/supabase';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useGame } from '@/app/context/GameContext';
+import { supabase } from '@/app/lib/supabase';
 import he from 'he';
 import {
-  User, Trophy, Coins, Cpu, CheckCircle2, XCircle, AlertCircle,
-  Loader2, Sparkles, Activity, ShieldAlert, Zap, Globe,
-  Camera, Gauge, Layers, RefreshCw, Clock, TrendingUp,
-  Shield, Award, MapPin, Dumbbell, Brain, Wrench, Heart
+  User, Settings, Loader2, Zap, Globe,
+  Camera, MapPin, Calendar, DollarSign, Trophy,
+  ChevronDown, Search, X, ShieldCheck, Award, Clock, TrendingUp, Flag,
+  Car, Wrench, Gauge, Users, Briefcase, Medal, Star, Target, Activity
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-interface ManagerData {
-  source?: string;
-  lastSyncAt?: string;
-  manager: {
-    id: number;
-    firstName: string;
-    lastName: string;
-    country: string;
-    group: string;
-    groupShort: string;
-    cash: number;
-    credits: number;
-    teamId: number | null;
-    teamCredits: number;
-    champs: number;
-    accStatus: string;
-    apiRequestsRemaining: number;
-    driverId: number | null;
-  };
-  driver: {
-    id: number;
-    name: string;
-    energy: number;
-    concentration: number;
-    talent: number;
-    aggressiveness: number;
-    experience: number;
-    technique: number;
-    stamina: number;
-    charisma: number;
-    motivation: number;
-    reputation: number;
-    weight: number;
-    age: number;
-    overall: number;
-    salary: string;
-    racesLeft: string;
-  } | null;
-  car: Array<{
-    name: string;
-    lvl: number;
-    wear: number;
-  }>;
-  race: {
-    season: string;
-    race: string;
-    track: string;
-    trackId: string;
-    points: string;
-    position: string;
-    average: string;
-    champs: string;
-    qual1Pos: string;
-    qual2Pos: string;
-    donePractice: string;
-    doneQ1: string;
-    doneQ2: string;
-  };
-  weather: any;
-  testPoints: any;
-}
+// --- MAPEAMENTO DE BANDEIRAS ---
+const TRACK_FLAGS: { [key: string]: string } = {
+  "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
+  "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
+  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb",
+  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
+  "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu",
+  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in",
+  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
+  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
+  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
+  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
+  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
+  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
+  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
+  "Valencia": "es", "Vallelunga": "it",
+  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
+};
 
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 export default function ManagerPage() {
-  const { isGlobalLoading } = useGame();
+  const router = useRouter();
+  const { 
+    isGlobalLoading, 
+    menuData,
+    officeData,
+    driverStatic,
+    driverEditable,
+    weather,
+    car,
+    techDirector,
+    staffFacilities,
+    reloadUserState
+  } = useGame();
+  
+  // Estado local
   const [userId, setUserId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [managerData, setManagerData] = useState<ManagerData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('Gerente');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ✅ Auth
   useEffect(() => {
     async function getUserId() {
       try {
@@ -92,6 +66,7 @@ export default function ManagerPage() {
         if (session?.user) {
           setUserId(session.user.id);
           setAvatarUrl(session.user.user_metadata?.avatar_url || null);
+          if (session.user.email) setUserEmail(session.user.email);
         }
       } catch (error) {
         console.error('Erro ao obter userId:', error);
@@ -100,49 +75,66 @@ export default function ManagerPage() {
     getUserId();
   }, []);
 
-  async function loadManagerData(forceRefresh: boolean = false) {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
-
-    setIsRefreshing(forceRefresh);
-    if (!forceRefresh) setIsLoading(true);
-
-    try {
-      const url = forceRefresh 
-        ? `/api/manager/profile?refresh=true` 
-        : '/api/manager/profile';
-      
-      const response = await fetch(url, {
-        headers: {
-          'user-id': userId,
-        },
-        cache: forceRefresh ? 'no-store' : 'default',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao buscar dados');
-      }
-
-      const data = await response.json();
-      setManagerData(data);
-      setLastUpdated(new Date().toISOString());
-      setError(null);
-    } catch (error: any) {
-      console.error('Erro:', error);
-      setError(error.message || 'Erro ao carregar dados do gerente');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }
-
+  // ✅ Atualiza lastUpdated quando os dados do sync mudarem
   useEffect(() => {
-    loadManagerData();
-  }, [userId]);
+    if (menuData || officeData) {
+      setLastUpdated(new Date().toISOString());
+    }
+  }, [menuData, officeData]);
 
+  // ✅ Dados do gerente (do sync)
+  const manager = {
+    firstName: menuData?.firstName || menuData?.fName || 'N/A',
+    lastName: menuData?.lastName || menuData?.lName || 'N/A',
+    group: menuData?.group || 'Rookie',
+    id: menuData?.id || menuData?.IDM || null,
+    cash: menuData?.cash || 0,
+    credits: menuData?.credits || 0,
+    champs: menuData?.champs || 0,
+    status: menuData?.status || menuData?.accStatus || 'Activated',
+  };
+
+  // ✅ Dados da ÚLTIMA CORRIDA (apenas resultados - do officeData)
+  const lastRace = {
+    position: officeData?.position || officeData?.pos || 'N/A',
+    points: officeData?.points || officeData?.pts || '0',
+    average: officeData?.average || officeData?.avg || '0',
+    season: officeData?.season || officeData?.seasonNb || '?',
+    race: officeData?.race || officeData?.raceNb || '?',
+  };
+
+  // ✅ Dados da PRÓXIMA CORRIDA (pista e status - do officeData)
+  const nextRace = {
+    season: officeData?.season || officeData?.seasonNb || '?',
+    race: officeData?.race || officeData?.raceNb || '?',
+    track: officeData?.trackName || 'N/A',    
+    donePractice: officeData?.donePractice || '0',
+    doneQ1: officeData?.doneQ1 || '0',
+    doneQ2: officeData?.doneQ2 || '0',
+  };
+
+  // ✅ Dados do piloto (do sync)
+  const driver = {
+    name: driverStatic?.name || 'N/A',
+    overall: driverStatic?.overall || 0,
+    nationality: driverStatic?.nationality || 'N/A',
+    nationalityName: driverStatic?.nationalityName || '',
+    salary: driverStatic?.salary || '0',
+    racesLeft: driverStatic?.racesLeft || '0',
+    races: driverStatic?.races || 0,
+    wins: driverStatic?.wins || 0,
+    podiums: driverStatic?.podiums || 0,
+    points: driverStatic?.points || 0,
+    trophies: driverStatic?.trophies || 0,
+    poles: driverStatic?.poles || 0,
+    fastLaps: driverStatic?.fastLaps || 0,
+    energia: driverEditable?.energia || 0,
+    concentracao: driverEditable?.concentracao || 0,
+    talento: driverEditable?.talento || 0,
+    experiencia: driverEditable?.experiencia || 0,
+  };
+
+  // ✅ Upload de avatar
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userId) return;
@@ -167,11 +159,9 @@ export default function ManagerPage() {
         .from('avatars')
         .getPublicUrl(filePath);
 
-      const { error: updateAuthError } = await supabase.auth.updateUser({
+      await supabase.auth.updateUser({
         data: { avatar_url: publicUrl }
       });
-
-      if (updateAuthError) throw updateAuthError;
 
       await supabase
         .from('user_state')
@@ -187,13 +177,10 @@ export default function ManagerPage() {
     }
   };
 
+  // ✅ Helpers
   const formatCash = (value: number) => {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(2)}M`;
-    }
-    if (value >= 1000) {
-      return `${(value / 1000).toFixed(0)}K`;
-    }
+    if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
     return value.toString();
   };
 
@@ -201,9 +188,9 @@ export default function ManagerPage() {
     if (!date) return 'Nunca';
     const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
     if (diff < 60) return 'Agora mesmo';
-    if (diff < 3600) return `${Math.floor(diff / 60)}min atrás`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
-    return `${Math.floor(diff / 86400)}d atrás`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}min`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    return `${Math.floor(diff / 86400)}d`;
   };
 
   const decodeText = (text: string | null | undefined): string => {
@@ -211,43 +198,50 @@ export default function ManagerPage() {
     return he.decode(text);
   };
 
-  if (isLoading || isGlobalLoading) {
+  // ✅ Loading
+  if (isGlobalLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh] bg-gradient-to-br from-[#030307] via-[#080810] to-[#030307] p-6">
-        <div className="relative flex items-center justify-center mb-6">
-          <div className="w-16 h-16 border border-cyan-500/10 rounded-full absolute animate-pulse"></div>
-          <div className="w-16 h-16 border-2 border-t-cyan-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-          <Sparkles className="text-cyan-400 absolute animate-pulse" size={20} />
+      <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#eef2f6] text-emerald-600 font-mono text-xs gap-4">
+        <div className="w-12 h-12 border-2 border-emerald-500/10 rounded-full flex items-center justify-center relative">
+          <div className="w-12 h-12 border-2 border-t-emerald-600 rounded-full animate-spin absolute" />
+          <Settings size={16} className="animate-pulse text-emerald-600" />
         </div>
-        <p className="font-mono text-xs tracking-widest text-cyan-400/80 uppercase animate-pulse">Sincronizando Telemetria...</p>
+        <span className="tracking-widest uppercase font-bold text-xs">CARREGANDO PERFIL...</span>
       </div>
     );
   }
 
-  if (error) {
+  // ✅ Sem dados do sync
+  if (!menuData || !officeData) {
     return (
-      <div className="flex items-center justify-center min-h-[80vh] bg-gradient-to-br from-[#030307] via-[#080810] to-[#030307] p-4">
-        <div className="text-center max-w-sm bg-zinc-950/80 backdrop-blur-md border border-rose-500/20 p-6 rounded-2xl shadow-2xl">
-          <div className="text-rose-500 mb-4 flex justify-center">
-            <span className="p-3 bg-rose-500/10 rounded-full border border-rose-500/20">
-              <AlertCircle size={28} />
-            </span>
+      <div className="flex flex-col h-screen items-center justify-center bg-[#eef2f6] text-slate-800 p-6 relative overflow-hidden font-mono">
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px]" />
+        </div>
+        <div className="relative z-10 max-w-lg w-full bg-white/90 border border-slate-200 rounded-3xl p-8 shadow-2xl backdrop-blur-xl text-center">
+          <div className="mx-auto w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+            <Zap size={24} className="text-emerald-500 animate-pulse" />
           </div>
-          <h2 className="text-base font-bold text-white uppercase tracking-wider mb-2">Erro de Conexão</h2>
-          <p className="text-slate-400 text-xs mb-6">{error}</p>
-          <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider mb-2">Aguardando Sincronização</h2>
+          <p className="text-xs text-slate-500 font-bold leading-relaxed mb-8 px-4">
+            Os dados do GPRO estão sendo sincronizados. <br/>
+            Aguarde ou force a sincronização manual.
+          </p>
+          <div className="flex flex-col gap-3">
             <button
-              onClick={() => loadManagerData(true)}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all"
+              onClick={() => reloadUserState()}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-200 flex items-center justify-center gap-3 shadow-md hover:shadow-lg active:scale-95 group"
             >
-              <RefreshCw size={12} className="inline mr-2" />
-              Tentar Novamente
+              <Zap size={14} className="group-hover:rotate-180 transition-transform duration-500" />
+              Sincronizar Agora
             </button>
             <a
               href="/dashboard/configuracoes/integracao"
-              className="w-full bg-zinc-900 hover:bg-zinc-800 text-slate-300 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider border border-white/5 transition-all text-center"
+              className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-200 flex items-center justify-center gap-3 shadow-sm hover:shadow-md active:scale-95"
             >
-              Ajustar Integração
+              <Settings size={14} />
+              Configurar Integração
             </a>
           </div>
         </div>
@@ -255,480 +249,379 @@ export default function ManagerPage() {
     );
   }
 
-  if (!managerData) {
-    return (
-      <div className="flex items-center justify-center min-h-[80vh] bg-gradient-to-br from-[#030307] via-[#080810] to-[#030307] p-4">
-        <div className="text-center max-w-sm bg-zinc-950/80 backdrop-blur-md border border-cyan-500/20 p-6 rounded-2xl shadow-2xl">
-          <div className="text-cyan-400 mb-4 flex justify-center">
-            <span className="p-3 bg-cyan-500/10 rounded-full border border-cyan-500/20 animate-pulse">
-              <Activity size={28} />
-            </span>
-          </div>
-          <h2 className="text-base font-bold text-white uppercase tracking-wider mb-2">Conectar GPRO</h2>
-          <p className="text-slate-400 text-xs mb-6">Importe os dados em tempo real da sua conta de forma integrada.</p>
-          <a
-            href="/dashboard/configuracoes/integracao"
-            className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg shadow-cyan-500/10"
-          >
-            <Zap size={14} />
-            Vincular Conta GPRO
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  const { manager, driver, car, race, source } = managerData;
-
+  // ✅ Decode nomes
   const decodedFirstName = decodeText(manager.firstName);
   const decodedLastName = decodeText(manager.lastName);
-  const decodedDriverName = decodeText(driver?.name);
-
-  const energy = driver?.energy ?? 0;
-  const energiaStatus = energy >= 80 ? "Excelente" : energy >= 50 ? "Média" : "Crítica";
-  const energiaColor = energy >= 80 ? "text-emerald-400" : energy >= 50 ? "text-amber-400" : "text-rose-500";
-  const energiaProgress = energy >= 80 ? "bg-emerald-400" : energy >= 50 ? "bg-amber-400" : "bg-rose-500";
-
-  const totalParts = car?.length || 0;
-  const avgWear = totalParts > 0 
-    ? car.reduce((acc, part) => acc + part.wear, 0) / totalParts 
-    : 0;
-  const carHealth = Math.round(100 - avgWear);
-  const carStatus = carHealth >= 80 ? "Excelente" : carHealth >= 50 ? "Regular" : "Crítico";
-  const carColor = carHealth >= 80 ? "text-emerald-400" : carHealth >= 50 ? "text-amber-400" : "text-rose-500";
-  const carProgress = carHealth >= 80 ? "bg-emerald-400" : carHealth >= 50 ? "bg-amber-400" : "bg-rose-500";
-
-  const isQ1Done = race?.doneQ1 === '1';
-  const isQ2Done = race?.doneQ2 === '1';
-  const qualyStatus = (isQ1Done && isQ2Done) ? "✅ Completa" : (isQ1Done || isQ2Done) ? "⏳ Parcial" : "❌ Pendente";
-  const qualyColor = (isQ1Done && isQ2Done) ? "text-emerald-400" : (isQ1Done || isQ2Done) ? "text-amber-400" : "text-slate-500";
-
-  const practiceDone = race?.donePractice === '1';
-  const prepStatus = practiceDone ? "✅ Feito" : "❌ Pendente";
-  const prepColor = practiceDone ? "text-emerald-400" : "text-amber-400";
-
-  const getStatusIcon = (status: string) => {
-    if (status === 'Excelente' || status === '✅ Completa' || status === '✅ Feito') 
-      return <CheckCircle2 size={12} className="text-emerald-400" />;
-    if (status === 'Média' || status === 'Regular' || status === '⏳ Parcial') 
-      return <AlertCircle size={12} className="text-amber-400" />;
-    return <XCircle size={12} className="text-rose-400" />;
-  };
+  const decodedDriverName = decodeText(driver.name);
 
   return (
-    <div className="min-h-screen bg-[#030307] text-slate-100 pb-20 md:pb-8">
+    <div className="min-h-screen bg-[#eef2f6] text-slate-700 font-mono pb-24 md:pb-12 selection:bg-emerald-500/20 relative overflow-hidden">
       
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleAvatarUpload} 
-        accept="image/*" 
-        className="hidden" 
-      />
+      {/* GLOWS */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.01] blur-[150px] rounded-full" />
+      </div>
 
-      <div className="max-w-5xl mx-auto px-4 pt-4 space-y-4 sm:space-y-6">
-
-        {/* HEADER */}
-        <div className="flex items-center justify-between p-3.5 bg-zinc-950/60 backdrop-blur-md border border-white/5 rounded-2xl shadow-xl">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${source === 'gpro-fallback' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${source === 'gpro-fallback' ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
-            </span>
-            <span className="text-[10px] font-mono tracking-widest text-slate-400 uppercase">
-              {source === 'gpro-fallback' ? 'GPRO LIVE MODE' : 'CONEXÃO ESTÁVEL'}
-            </span>
+      {/* HEADER - SEM SELETOR DE PISTA */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3 sm:p-4 relative shadow-sm hover:shadow-md transition-shadow duration-300">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
+        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 lg:gap-4 relative z-10">
+          
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-600 p-2 rounded-lg sm:rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)] shrink-0">
+              <User size={14} className="sm:w-4 sm:h-4 text-white" />
+            </div>
+            <div className="flex flex-col text-left">
+              <h1 className="text-[10px] sm:text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+                Perfil do Manager
+                <span className="text-[7px] sm:text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
+              </h1>
+              <p className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase truncate max-w-[100px] sm:max-w-[120px]">{userEmail}</p>
+            </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] text-slate-500 font-mono hidden sm:inline">
-              Sincronizado: {formatTimeAgo(lastUpdated)}
-            </span>
-            <button
-              onClick={() => loadManagerData(true)}
-              disabled={isRefreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-[10px] font-bold uppercase tracking-wider transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={10} className={`${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing ? 'Syncing' : 'Atualizar'}
-            </button>
+          
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full lg:w-auto">
+            
+            {/* Apenas Status + Sincronização */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                <span className="text-[8px] sm:text-[10px] font-bold text-emerald-600">CONECTADO</span>
+              </div>
+              
+              <div className="text-right border-l border-slate-200 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
+                <p className="text-[7px] sm:text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5 sm:mb-1">Última Sinc.</p>
+                <p className="text-xs sm:text-sm font-black text-emerald-600 leading-none">
+                  {formatTimeAgo(lastUpdated)}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
+      </header>
 
+      <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10">
+        
         {/* PERFIL DO GERENTE */}
-        <div className="bg-gradient-to-b from-zinc-950 to-zinc-900/40 border border-white/5 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           
-          <div className="flex flex-col sm:flex-row gap-5 items-center justify-between relative z-10">
-            <div className="flex flex-col sm:flex-row gap-4 items-center text-center sm:text-left">
+          <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
+                <User size={14} className="text-white" />
+              </div>
+              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Perfil do Gerente</h2>
+            </div>
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border text-emerald-600 bg-emerald-50 border-emerald-200">
+              CONECTADO
+            </span>
+          </div>
+
+          <div className="relative p-4 md:p-6 bg-white">
+            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
               
-              {/* Avatar Uploader */}
+              {/* Avatar */}
               <div className="relative group shrink-0">
                 <button
                   onClick={() => !isUploading && fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center text-xl font-bold text-cyan-400 overflow-hidden transition-transform active:scale-95 shadow-md"
+                  className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 hover:border-emerald-400 flex items-center justify-center text-2xl font-black text-emerald-600 overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg"
                 >
                   {isUploading ? (
-                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10 backdrop-blur-xs">
-                      <Loader2 className="animate-spin text-cyan-400" size={18} />
+                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                      <Loader2 className="animate-spin text-emerald-600" size={24} />
                     </div>
                   ) : (
-                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-[8px] font-bold gap-1 z-10">
-                      <Camera size={14} />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-[8px] font-black text-white gap-1 z-10 rounded-2xl">
+                      <Camera size={18} />
                       <span>EDITAR</span>
                     </div>
                   )}
-
                   {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt={`${decodedFirstName}`} 
-                      className="w-full h-full object-cover" 
-                    />
+                    <img src={avatarUrl} alt={decodedFirstName} className="w-full h-full object-cover" />
                   ) : (
-                    <span>
-                      {decodedFirstName.charAt(0)}
-                      {decodedLastName.charAt(0)}
-                    </span>
+                    <span>{decodedFirstName.charAt(0)}{decodedLastName.charAt(0)}</span>
                   )}
                 </button>
+                <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} accept="image/*" className="hidden" />
               </div>
 
-              <div>
-                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight uppercase">
-                  {decodedFirstName} <span className="text-cyan-400">{decodedLastName}</span>
+              <div className="flex-1 text-center md:text-left">
+                <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                  {decodedFirstName} <span className="text-emerald-600">{decodedLastName}</span>
                 </h2>
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-1 text-[11px] text-slate-400">
-                  <span className="flex items-center gap-1 font-semibold text-slate-300">
-                    <Globe size={11} className="text-cyan-500" />
-                    {manager.group || 'Rookie'}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1 text-sm text-slate-500">
+                  <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                    <Globe size={13} className="text-emerald-500" />
+                    {manager.group}
                   </span>
-                  <span className="text-slate-700">•</span>
-                  <span className="font-mono">ID {manager.id}</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="font-bold text-amber-600">{manager.champs || 0} 🏆</span>
+                  <span className="text-slate-300">•</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${manager.status === 'Activated' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {manager.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Finanças */}
+              <div className="grid grid-cols-2 gap-2.5 w-full md:w-auto">
+                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
+                  <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Saldo</span>
+                  <p className="text-sm font-black text-emerald-600 mt-0.5">${formatCash(manager.cash || 0)}</p>
+                </div>
+                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
+                  <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Créditos</span>
+                  <p className="text-sm font-black text-amber-500 mt-0.5">{manager.credits || 0}</p>
                 </div>
               </div>
             </div>
-
-            {/* Finanças e status do Gerente */}
-            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
-              <div className="bg-zinc-950/40 border border-white/5 rounded-xl px-3.5 py-2">
-                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider block">Saldo</span>
-                <p className="text-sm font-black text-emerald-400 mt-0.5">${formatCash(manager.cash || 0)}</p>
-              </div>
-              <div className="bg-zinc-950/40 border border-white/5 rounded-xl px-3.5 py-2">
-                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider block">Créditos</span>
-                <p className="text-sm font-black text-amber-400 mt-0.5">{manager.credits || 0}</p>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* METRICAS DE DIAGNÓSTICO */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {/* Driver Integrity */}
-          <div className="bg-zinc-950/50 border border-white/5 rounded-xl p-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Piloto</span>
-              <span className={`text-[10px] font-bold ${energiaColor}`}>{driver?.energy}%</span>
-            </div>
-            <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ${energiaProgress}`} style={{ width: `${energy}%` }} />
-            </div>
-          </div>
-
-          {/* Car Integrity */}
-          <div className="bg-zinc-950/50 border border-white/5 rounded-xl p-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Carro</span>
-              <span className={`text-[10px] font-bold ${carColor}`}>{carHealth}%</span>
-            </div>
-            <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ${carProgress}`} style={{ width: `${carHealth}%` }} />
-            </div>
-          </div>
-
-          {/* Qualy Info */}
-          <div className="bg-zinc-950/50 border border-white/5 rounded-xl p-3 flex flex-col justify-center">
-            <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Qualificação</span>
-            <div className="flex items-center gap-1.5">
-              <span className={`text-xs font-black ${qualyColor}`}>{qualyStatus}</span>
-            </div>
-          </div>
-
-          {/* Practice Info */}
-          <div className="bg-zinc-950/50 border border-white/5 rounded-xl p-3 flex flex-col justify-center">
-            <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Treinos Livres</span>
-            <div className="flex items-center gap-1.5">
-              <span className={`text-xs font-black ${prepColor}`}>{prepStatus}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* CORRIDA ATUAL / PRÓXIMO GP */}
-        <div className="bg-gradient-to-b from-zinc-950 to-zinc-950/80 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-          <div className="px-4 py-3 bg-white/2 flex items-center justify-between border-b border-white/5">
-            <div className="flex items-center gap-2">
-              <MapPin size={13} className="text-cyan-400" />
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">GP Atual</h3>
-            </div>
-            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded-md font-semibold">
-              S{race?.season || '?'} • R{race?.race || '?'}
-            </span>
-          </div>
-
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Circuito</span>
-              <p className="text-sm font-black text-white truncate">{race?.track || 'N/A'}</p>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Última Pos. Concluída</span>
-              <p className="text-sm font-black text-cyan-400">{race?.position || 'N/A'}</p>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">Média Geral do GP</span>
-              <p className="text-sm font-black text-slate-300">{race?.average || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* DETALHES DO PILOTO */}
-        {driver ? (
-          <div className="bg-zinc-950/80 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-            <div className="px-4 py-3 bg-white/2 flex items-center justify-between border-b border-white/5">
+        {/* CARDS LADO A LADO: ÚLTIMA CORRIDA + PRÓXIMA CORRIDA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* ÚLTIMA CORRIDA - Apenas resultados */}
+          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            
+            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Shield size={13} className="text-cyan-400" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
-                  {decodedDriverName || 'Contratado'}
-                </h3>
+                <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
+                  <Flag size={14} className="text-white" />
+                </div>
+                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Campeonato</h3>
               </div>
-              <span className="text-[10px] font-mono text-amber-400 bg-amber-950/30 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                OA {driver.overall}
+              <span className="text-[10px] font-mono font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
+                S{lastRace.season} • R{lastRace.race}
               </span>
             </div>
 
-            <div className="p-4 space-y-4">
-              {/* Informações Básicas */}
-              <div className="grid grid-cols-3 gap-2.5 bg-zinc-900/30 p-2.5 rounded-xl border border-white/5">
-                <div className="text-center">
-                  <span className="text-[8px] text-slate-500 font-semibold block uppercase">Idade</span>
-                  <span className="text-xs font-bold text-white">{driver.age} anos</span>
-                </div>
-                <div className="text-center border-x border-white/5">
-                  <span className="text-[8px] text-slate-500 font-semibold block uppercase">Peso</span>
-                  <span className="text-xs font-bold text-white">{driver.weight} kg</span>
-                </div>
-                <div className="text-center">
-                  <span className="text-[8px] text-slate-500 font-semibold block uppercase">Contrato</span>
-                  <span className="text-xs font-bold text-amber-400">{driver.racesLeft} corridas</span>
-                </div>
+            <div className="relative p-4 bg-white grid grid-cols-3 gap-3">
+              <div className="space-y-0.5 text-center">
+                <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Posição</span>
+                <p className="text-lg font-black text-emerald-600">{lastRace.position}</p>
               </div>
-
-              {/* Atributos Mapeados */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                
-                {/* Técnico */}
-                <div className="bg-zinc-900/10 p-3 rounded-xl border border-white/5 space-y-2.5">
-                  <div className="flex items-center gap-1.5 border-b border-white/5 pb-1.5">
-                    <Wrench size={12} className="text-cyan-400" />
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">Técnico</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Talento</span>
-                        <span className="font-bold text-white">{driver.talent}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-500" style={{ width: `${Math.min(100, (driver.talent / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Técnica</span>
-                        <span className="font-bold text-white">{driver.technique}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-500" style={{ width: `${Math.min(100, (driver.technique / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Experiência</span>
-                        <span className="font-bold text-white">{driver.experience}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-500" style={{ width: `${Math.min(100, (driver.experience / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mental */}
-                <div className="bg-zinc-900/10 p-3 rounded-xl border border-white/5 space-y-2.5">
-                  <div className="flex items-center gap-1.5 border-b border-white/5 pb-1.5">
-                    <Brain size={12} className="text-indigo-400" />
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">Mental</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Concentração</span>
-                        <span className="font-bold text-white">{driver.concentration}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, (driver.concentration / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Agressividade</span>
-                        <span className="font-bold text-white">{driver.aggressiveness}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, (driver.aggressiveness / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Motivação</span>
-                        <span className="font-bold text-white">{driver.motivation}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, (driver.motivation / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Físico & Imagem */}
-                <div className="bg-zinc-900/10 p-3 rounded-xl border border-white/5 space-y-2.5">
-                  <div className="flex items-center gap-1.5 border-b border-white/5 pb-1.5">
-                    <Dumbbell size={12} className="text-emerald-400" />
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">Físico & Outros</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Resistência</span>
-                        <span className="font-bold text-white">{driver.stamina}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, (driver.stamina / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Carisma</span>
-                        <span className="font-bold text-white">{driver.charisma}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, (driver.charisma / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] mb-0.5">
-                        <span className="text-slate-400">Reputação</span>
-                        <span className="font-bold text-white">{driver.reputation}</span>
-                      </div>
-                      <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, (driver.reputation / 250) * 100)}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
+              <div className="space-y-0.5 text-center">
+                <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Pontos</span>
+                <p className="text-lg font-black text-amber-500">{lastRace.points}</p>
+              </div>
+              <div className="space-y-0.5 text-center">
+                <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Média</span>
+                <p className="text-sm font-black text-slate-700">{lastRace.average}</p>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="bg-zinc-950/80 border border-white/5 rounded-2xl p-6 text-center shadow-md">
-            <User size={24} className="text-slate-600 mx-auto mb-2" />
-            <p className="text-slate-400 font-bold text-xs uppercase tracking-wider">Nenhum piloto contratado</p>
-          </div>
-        )}
 
-        {/* STATUS DO CARRO POR PEÇA */}
-        {car && car.length > 0 && (
-          <div className="bg-zinc-950/80 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-            <div className="px-4 py-3 bg-white/2 flex items-center justify-between border-b border-white/5">
+          {/* PRÓXIMA CORRIDA - Pista com bandeira e status */}
+          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            
+            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Gauge size={13} className="text-emerald-400" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">Componentes do Carro</h3>
+                <div className="p-1.5 bg-amber-600 rounded-lg shadow-sm">
+                  <Calendar size={14} className="text-white" />
+                </div>
+                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Próxima Corrida</h3>
               </div>
-              <span className={`text-[10px] font-semibold ${carColor}`}>Desgaste Médio {avgWear.toFixed(1)}%</span>
+              <span className="text-[10px] font-mono font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md">
+                S{nextRace.season} • R{nextRace.race}
+              </span>
             </div>
 
-            <div className="p-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {car.map((part) => {
-                  const partWear = part.wear;
-                  const isCritical = partWear > 80;
-                  const isWarning = partWear > 50 && partWear <= 80;
-                  
-                  const statusColor = isCritical ? 'text-rose-400' : isWarning ? 'text-amber-400' : 'text-emerald-400';
-                  const progressColor = isCritical ? 'bg-rose-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500';
-
-                  return (
-                    <div key={part.name} className="bg-zinc-900/20 border border-white/5 rounded-xl p-2.5 flex flex-col justify-between">
-                      <div>
-                        <div className="flex justify-between items-start gap-1">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase truncate max-w-[80px]">{part.name}</span>
-                          <span className={`text-[10px] font-black ${statusColor}`}>{partWear}%</span>
-                        </div>
-                        <span className="text-[8px] text-slate-500">Nível {part.lvl}</span>
-                      </div>
-                      <div className="w-full h-1 bg-zinc-900 rounded-full overflow-hidden mt-2">
-                        <div className={`h-full ${progressColor}`} style={{ width: `${partWear}%` }} />
-                      </div>
+            <div className="relative p-4 bg-white">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {/* Bandeira do país da pista */}
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-xl shadow-sm overflow-hidden">
+                    {nextRace.track && TRACK_FLAGS[nextRace.track] ? (
+                      <img 
+                        src={`/flags/${TRACK_FLAGS[nextRace.track]}.png`} 
+                        alt={nextRace.track} 
+                        className="w-8 h-6 object-cover rounded-sm" 
+                      />
+                    ) : (
+                      <span className="text-2xl">🏁</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800">{nextRace.track}</p>                    
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm">
+                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Treinos</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[10px] font-black ${nextRace.donePractice === '1' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {nextRace.donePractice === '1' ? '✅' : '⏳'}
+                      </span>
+                      <span className={`text-[10px] font-black ${nextRace.donePractice === '1' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {nextRace.donePractice === '1' ? 'Feito' : 'Pendente'}
+                      </span>
                     </div>
-                  );
-                })}
+                  </div>
+                  
+                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm">
+                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Qualificação</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[10px] font-black ${nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? 'text-emerald-500' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? 'text-amber-500' : 'text-slate-400'}`}>
+                        {nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? '✅' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? '⏳' : '❌'}
+                      </span>
+                      <span className={`text-[10px] font-black ${nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? 'text-emerald-500' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? 'text-amber-500' : 'text-slate-400'}`}>
+                        {nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? 'Completa' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? 'Parcial' : 'Pendente'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* AÇÕES E LINKS RÁPIDOS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <a
-            href="/dashboard/setup"
-            className="flex flex-col items-center justify-center p-3.5 bg-zinc-950/60 border border-white/5 rounded-xl hover:bg-zinc-900/40 transition-colors"
-          >
-            <span className="text-base mb-1">🔧</span>
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Ajustar Setup</span>
-          </a>
-          <a
-            href="/dashboard/strategy"
-            className="flex flex-col items-center justify-center p-3.5 bg-zinc-950/60 border border-white/5 rounded-xl hover:bg-zinc-900/40 transition-colors"
-          >
-            <span className="text-base mb-1">📊</span>
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Estratégia</span>
-          </a>
-          <a
-            href="/dashboard/tests"
-            className="flex flex-col items-center justify-center p-3.5 bg-zinc-950/60 border border-white/5 rounded-xl hover:bg-zinc-900/40 transition-colors"
-          >
-            <span className="text-base mb-1">🧪</span>
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Pista de Testes</span>
-          </a>
-          <a
-            href="/dashboard"
-            className="flex flex-col items-center justify-center p-3.5 bg-zinc-950/60 border border-white/5 rounded-xl hover:bg-zinc-900/40 transition-colors"
-          >
-            <span className="text-base mb-1">📋</span>
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Geral</span>
-          </a>
+        {/* INFO RÁPIDA: PILOTO + CLIMA + CARRO */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          {/* Piloto */}
+          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
+              <ShieldCheck size={14} className="text-emerald-600" />
+              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Piloto</h4>
+            </div>
+            <div className="relative p-3 bg-white">
+              <p className="text-sm font-black text-slate-800 truncate">{decodedDriverName}</p>
+              <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                <span className="bg-emerald-50 px-2 py-0.5 rounded text-emerald-600 font-black">OA {driver.overall}</span>
+                <span>•</span>
+                <span>{driver.racesLeft} corridas</span>
+                <span>•</span>
+                <span className={`font-bold ${driver.energia >= 80 ? 'text-emerald-500' : driver.energia >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
+                  🔋 {driver.energia}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Clima */}
+          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
+              <Activity size={14} className="text-amber-600" />
+              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Clima</h4>
+            </div>
+            <div className="relative p-3 bg-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{weather?.weatherRace === 'Wet' ? '🌧️' : '☀️'}</span>
+                  <span className="text-sm font-black text-slate-800">{weather?.weatherRace === 'Wet' ? 'Chuva' : 'Seca'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-black text-emerald-600">{weather?.tempQ2 || 0}°C</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+                <span>Q1: {weather?.tempQ1 || 0}°C</span>
+                <span>•</span>
+                <span>Q2: {weather?.tempQ2 || 0}°C</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Carro - Resumo */}
+          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
+              <Car size={14} className="text-indigo-600" />
+              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Carro</h4>
+            </div>
+            <div className="relative p-3 bg-white">
+              {car && car.length > 0 && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-black text-slate-800">
+                      {(car.reduce((acc, part) => acc + part.lvl, 0) / car.length).toFixed(1)}
+                    </span>
+                    <span className="text-xs text-slate-500">Nível Médio</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+                    <span>Peças: {car.length}</span>
+                    <span>•</span>
+                    <span className="text-emerald-600 font-black">
+                      {Math.round(100 - car.reduce((acc, part) => acc + part.wear, 0) / car.length)}% saúde
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* STAFF & TECH DIRECTOR - RESUMO */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Tech Director */}
+          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
+              <Briefcase size={14} className="text-cyan-600" />
+              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Diretor Técnico</h4>
+            </div>
+            <div className="relative p-3 bg-white">
+              <p className="text-sm font-black text-slate-800 truncate">{techDirector?.name || 'Nenhum'}</p>
+              <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                <span className="bg-cyan-50 px-2 py-0.5 rounded text-cyan-600 font-black">OA {techDirector?.overall || '0'}</span>
+                <span>•</span>
+                <span>{techDirector?.racesLeft || '0'} corridas</span>
+              </div>
+              <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-500">
+                <span>🔧 {techDirector?.rdMecanico || 0}</span>
+                <span>⚡ {techDirector?.rdEletronico || 0}</span>
+                <span>🌀 {techDirector?.rdAerodinamico || 0}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Staff */}
+          <div className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
+            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
+              <Users size={14} className="text-purple-600" />
+              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Equipe (Staff)</h4>
+            </div>
+            <div className="relative p-3 bg-white">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black text-slate-800">Nível</span>
+                <span className="text-xs font-black text-emerald-600">
+                  {Math.round((staffFacilities?.toleranciaPressao || 0 + staffFacilities?.concentracao || 0) / 2)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-500">
+                <span>🔄 Tolerância: {staffFacilities?.toleranciaPressao || 0}</span>
+                <span>🧠 Concentração: {staffFacilities?.concentracao || 0}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* FOOTER */}
-        <div className="text-center text-[9px] font-mono text-slate-600 space-y-1 pt-4">
-          <p>ÚLTIMA SINCRONIZAÇÃO EM {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : 'N/A'}</p>
-          <p className="tracking-widest">SISTEMA INTEGRADO v2.1.0</p>
+        <div className="text-center text-[9px] font-mono text-slate-400 space-y-1 pt-4 border-t border-slate-200/50">
+          <p>ÚLTIMA SINCRONIZAÇÃO EM {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'N/A'}</p>
+          <p className="tracking-widest font-black">SISTEMA INTEGRADO v2.1.0</p>
         </div>
 
       </div>
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.2); }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn { animation: fadeIn 0.6s ease-out forwards; }
+      `}</style>
     </div>
   );
 }

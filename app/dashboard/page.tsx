@@ -126,13 +126,20 @@ function ManagerCard({ menuData }: { menuData: any }) {
   );
 }
 
-// --- CARD DO PILOTO (DADOS IMUTÁVEIS) ---
+// --- CARD DO PILOTO (DADOS IMUTÁVEIS) - COM AVATAR GPRO OFICIAL ---
 function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
   if (!driverStatic) return null;
 
-  const displayName = driverStatic.name || 'N/A';
+  const displayName = driverStatic.name || driverStatic.driName || 'N/A';
   const displayNationality = driverStatic.nationality || 'N/A';
   const displayNationalityName = driverStatic.nationalityName || '';
+  
+  // ✅ CAMPOS DO GPRO PARA O AVATAR - CORRIGIDO
+  const faceSVG = driverStatic.faceSVG || driverStatic.faceImg || '';
+  const background = driverStatic.background || driverStatic.driBackground || '';
+  const backgroundUrl = background 
+    ? `https://www.gpro.net/images/driverface_backgrounds/${background}`
+    : '';
 
   const formatValue = (value: any, fallback: string = '0') => {
     if (value === null || value === undefined || value === '') return fallback;
@@ -144,6 +151,7 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
     return `$${Number(value).toLocaleString('en-US')}`;
   };
 
+  // Stats principais
   const mainStats = [
     { label: 'Trophies', value: driverStatic.trophies, icon: '🏆', gold: true },
     { label: 'Wins', value: driverStatic.wins, icon: '🥇', gold: true },
@@ -154,53 +162,135 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
   const secondaryStats = [
     { label: 'Poles', value: driverStatic.poles, icon: '🚀' },
     { label: 'Fast Laps', value: driverStatic.fastLaps, icon: '⚡' },
-    { label: 'Races', value: driverStatic.races, icon: '🏁' },
   ];
+
+  // ✅ PEGA A BANDEIRA DO PAÍS USANDO O MESMO SISTEMA DAS PISTAS
+  const getFlagUrl = (nationality: string) => {
+    if (!nationality) return null;
+    const flagMap: Record<string, string> = {
+      'Brazil': 'br',
+      'United Kingdom': 'gb',
+      'England': 'gb',
+      'Great Britain': 'gb',
+      'UK': 'gb',
+      'United States': 'us',
+      'USA': 'us',
+      'Germany': 'de',
+      'France': 'fr',
+      'Italy': 'it',
+      'Spain': 'es',
+      'Portugal': 'pt',
+      'Netherlands': 'nl',
+      'Belgium': 'be',
+      'Switzerland': 'ch',
+      'Austria': 'at',
+      'Finland': 'fi',
+      'Sweden': 'se',
+      'Norway': 'no',
+      'Denmark': 'dk',
+      'Japan': 'jp',
+      'China': 'cn',
+      'Australia': 'au',
+      'New Zealand': 'nz',
+      'Canada': 'ca',
+      'Mexico': 'mx',
+      'Argentina': 'ar',
+      'Colombia': 'co',
+      'Venezuela': 've',
+      'Chile': 'cl',
+      'Peru': 'pe',
+      'India': 'in',
+      'South Africa': 'za',
+      'Russia': 'ru',
+      'Poland': 'pl',
+      'Czech Republic': 'cz',
+      'Hungary': 'hu',
+      'Romania': 'ro',
+      'Bulgaria': 'bg',
+      'Greece': 'gr',
+      'Turkey': 'tr',
+      'Israel': 'il',
+      'United Arab Emirates': 'ae',
+      'Qatar': 'qa',
+      'Bahrain': 'bh',
+      'Malaysia': 'my',
+      'Singapore': 'sg',
+      'South Korea': 'kr',
+      'Thailand': 'th',
+      'Indonesia': 'id',
+      'Philippines': 'ph',
+      'Pakistan': 'pk',
+    };
+    
+    const code = flagMap[nationality] || nationality.toLowerCase().substring(0, 2);
+    return `/flags/${code}.png`;
+  };
 
   return (
     <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200 p-5 h-full flex flex-col justify-between transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_10px_25px_rgba(148,163,184,0.15)] relative overflow-hidden group shadow-sm">
       <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full pointer-events-none transition-all group-hover:bg-emerald-500/10" />
 
       <div>
+        {/* HEADER: Avatar + Nome + Nacionalidade */}
         <div className="flex items-start gap-4 mb-5">
-          <div className="w-14 h-14 rounded-full bg-emerald-600 flex items-center justify-center text-white font-black text-xl shrink-0 shadow-[0_4px_12px_rgba(16,185,129,0.2)]">
-            {displayName.charAt(0).toUpperCase()}
+          {/* ✅ Avatar do Piloto com SVG e Background do GPRO */}
+          <div className="relative shrink-0">
+            <div 
+              className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-200 shadow-[0_4px_12px_rgba(16,185,129,0.25)] bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: backgroundUrl ? `url(${backgroundUrl})` : 'none',
+                backgroundColor: !backgroundUrl ? 'transparent' : 'transparent'
+              }}
+            >
+              {faceSVG ? (
+                <div 
+                  className="w-full h-full flex items-center justify-center"
+                  dangerouslySetInnerHTML={{ __html: faceSVG }}
+                />
+              ) : (
+                // Fallback: iniciais do piloto
+                <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-black text-2xl">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              
+              {/* Bandeira do país sobreposta no canto inferior direito */}
+              {displayNationality && getFlagUrl(displayNationality) && (
+                <div className="absolute -bottom-1 -right-1 w-6 h-4 rounded-full border-2 border-white shadow-sm overflow-hidden">
+                  <img 
+                    src={getFlagUrl(displayNationality)!} 
+                    alt={displayNationality}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           
+          {/* Nome e informações básicas */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-base font-black text-slate-900 truncate">
-                {he.decode(displayName)}
-              </h4>
-              <span className="bg-slate-100 px-2.5 py-0.5 rounded-full text-[10px] font-black text-slate-700 border border-slate-200">
-                #{driverStatic.driverId || 'N/A'}
-              </span>
-            </div>
+            <h4 className="text-base font-black text-slate-900 truncate">
+              {he.decode(displayName)}
+            </h4>
             
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-              <span className="bg-slate-100 px-2.5 py-0.5 rounded flex items-center gap-1.5 text-slate-700 font-bold">
-                {driverStatic.nationality && TRACK_FLAGS[driverStatic.nationality] ? (
-                  <img 
-                    src={`/flags/${TRACK_FLAGS[driverStatic.nationality]}.png`} 
-                    alt={displayNationality} 
-                    className="w-4 h-3 object-cover rounded-sm border border-slate-200" 
-                  />
-                ) : (
-                  <span className="text-[10px]">🌍</span>
-                )}
+              <span className="bg-slate-100 px-2.5 py-0.5 rounded text-slate-700 font-bold">
                 {he.decode(displayNationalityName) || displayNationality}
               </span>
               
               <span className="w-px h-3 bg-slate-200" />
               
-              <span className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
-                <span className="text-[10px]">🎯</span>
-                OA: <span className="text-amber-600 font-black">{driverStatic.overall?.toFixed(1) || '0'}</span>
+              <span className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/50">
+                <span className="text-emerald-600 font-black">{driverStatic.overall?.toFixed(1) || '0'}</span>
               </span>
             </div>
           </div>
         </div>
 
+        {/* Cards de informação - Salário, Contrato, Total Corridas */}
         <div className="grid grid-cols-3 gap-2.5 mb-3">
           <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
             <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
@@ -222,16 +312,17 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
 
           <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
             <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
-              <User size={8} className="text-slate-400" /> ID do Piloto
+              <Trophy size={8} className="text-amber-500" /> Total Corridas
             </span>
             <div className="text-xs font-mono font-black text-slate-800">
-              {formatValue(driverStatic.driverId)}
+              {formatValue(driverStatic.races)}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 mt-1 border-t border-slate-100 pt-3">
+      {/* Grid de Estatísticas - 6 colunas */}
+      <div className="grid grid-cols-6 gap-1.5 mt-1 border-t border-slate-100 pt-3">
         {mainStats.map((stat) => (
           <div 
             key={stat.label} 
@@ -287,7 +378,7 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
     }, [tracksList, search]);
 
     return (
-        <div className="relative z-[9999]" ref={dropdownRef}> {/* ⚠️ Z-INDEX ALTÍSSIMO */}
+        <div className="relative z-[9999]" ref={dropdownRef}>
             <button 
                 onClick={() => setIsOpen(!isOpen)} 
                 className="
@@ -324,7 +415,7 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
                         initial={{ opacity: 0, y: -10 }} 
                         animate={{ opacity: 1, y: 0 }} 
                         exit={{ opacity: 0, y: -10 }} 
-                        className="absolute top-full left-0 mt-2 w-[240px] sm:w-64 bg-white border border-slate-200 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] overflow-hidden z-[99999]" // ⚠️ Z-INDEX MÁXIMO + SHADOW FORTE
+                        className="absolute top-full left-0 mt-2 w-[240px] sm:w-64 bg-white border border-slate-200 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] overflow-hidden z-[99999]"
                     >
                         <div className="p-2 sm:p-3 border-b border-slate-100 bg-slate-50">
                             <div className="relative">
@@ -918,7 +1009,7 @@ export default function DashboardHome() {
         <motion.div 
           initial={{ opacity: 0, y: -15 }} 
           animate={{ opacity: 1, y: 0 }} 
-          className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm sticky top-4 z-50 relative overflow-visible hover:shadow-md transition-shadow duration-300" // ⚠️ overflow-visible
+          className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm sticky top-4 z-50 relative overflow-visible hover:shadow-md transition-shadow duration-300"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
           

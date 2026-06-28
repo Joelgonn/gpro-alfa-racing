@@ -87,6 +87,7 @@ const Icons = {
 };
 
 // --- ESTRUTURA DOS MENUS (FUSÃO: BRANCO GELO + DOURADO) ---
+// ✅ CORRIGIDO: Adicionado hover:text-* em cada grupo para o texto também ficar colorido
 const menuGroups = [
   {
     id: 'race_control',
@@ -95,7 +96,8 @@ const menuGroups = [
     color: 'text-amber-600',
     borderColor: 'border-amber-400/30',
     bgActive: 'bg-gradient-to-r from-amber-50/90 to-amber-100/60 border-amber-400/50 text-amber-700 shadow-lg shadow-amber-500/20',
-    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-amber-300/30 text-slate-700',
+    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-amber-300/30 hover:text-amber-600',
+    hoverTextColor: 'group-hover:text-amber-600',
     items: [
       { name: 'Visão Geral', path: '/dashboard', icon: <Icons.Chart /> },
       { name: 'Setup Calculadora', path: '/dashboard/setup', icon: <Icons.Car /> },
@@ -109,7 +111,8 @@ const menuGroups = [
     color: 'text-emerald-600',
     borderColor: 'border-emerald-400/30',
     bgActive: 'bg-gradient-to-r from-emerald-50/90 to-emerald-100/60 border-emerald-400/50 text-emerald-700 shadow-lg shadow-emerald-500/20',
-    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-emerald-300/30 text-slate-700',
+    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-emerald-300/30 hover:text-emerald-600',
+    hoverTextColor: 'group-hover:text-emerald-600',
     items: [
       { name: 'Setup Manual', path: '/dashboard/manual', icon: <Icons.Wrench /> },
       { name: 'Testes', path: '/dashboard/tests', icon: <Icons.Beaker /> },
@@ -123,7 +126,8 @@ const menuGroups = [
     color: 'text-indigo-600',
     borderColor: 'border-indigo-400/30',
     bgActive: 'bg-gradient-to-r from-indigo-50/90 to-indigo-100/60 border-indigo-400/50 text-indigo-700 shadow-lg shadow-indigo-500/20',
-    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-indigo-300/30 text-slate-700',
+    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-indigo-300/30 hover:text-indigo-600',
+    hoverTextColor: 'group-hover:text-indigo-600',
     items: [
       { name: 'Patrocinadores', path: '/dashboard/sponsors', icon: <Icons.Money /> },
       { name: 'Mercado de Pilotos', path: '/dashboard/market', icon: <Icons.Users /> },
@@ -138,7 +142,8 @@ const menuGroups = [
     color: 'text-cyan-600',
     borderColor: 'border-cyan-400/30',
     bgActive: 'bg-gradient-to-r from-cyan-50/90 to-cyan-100/60 border-cyan-400/50 text-cyan-700 shadow-lg shadow-cyan-500/20',
-    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-cyan-300/30 text-slate-700',
+    hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-cyan-300/30 hover:text-cyan-600',
+    hoverTextColor: 'group-hover:text-cyan-600',
     items: [
       { name: 'GPRO API Database', path: '/dashboard/admin/gpro-kb', icon: <Icons.Database /> }
     ]
@@ -266,7 +271,7 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
               <div className="flex-1 h-px bg-gradient-to-r from-amber-200/40 to-transparent" />
             </div>
 
-            {/* Items */}
+            {/* Items - CORRIGIDO: texto agora fica colorido no hover */}
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const isActive = pathname === item.path;
@@ -310,8 +315,12 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                       )}
                     </div>
 
-                    {/* Label */}
-                    <span className={`flex-1 ${isActive ? 'text-slate-800' : 'text-slate-600 group-hover:text-slate-800'}`}>
+                    {/* ✅ Label - CORRIGIDO: agora herda a cor do hover do grupo */}
+                    <span className={`flex-1 transition-colors duration-300 ${
+                      isActive 
+                        ? 'text-slate-800' 
+                        : `text-slate-600 ${group.hoverTextColor}`
+                    }`}>
                       {item.name}
                     </span>
 
@@ -336,7 +345,6 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
         
         <div className="relative">
-          {/* ✅ Passa localRole ou string vazia como fallback */}
           <AdminInviteButton userRole={localRole || ''} />
           
           <div className="mt-3 flex items-center gap-3 p-3 rounded-xl bg-white/90 backdrop-blur-sm border border-amber-200/40 hover:border-amber-400/60 transition-all duration-300 group shadow-lg shadow-amber-500/5 hover:shadow-amber-500/20">
