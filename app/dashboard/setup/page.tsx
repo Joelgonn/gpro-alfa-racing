@@ -37,8 +37,8 @@ const clampSetupDisplay = (value: unknown): unknown => {
   return Math.max(0, Math.min(999, num));
 };
 
-// --- SELETOR DE PISTA PREMIUM ---
-function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: any[], onSelect: (t: string) => void, placeholder?: string }) {
+// --- SELETOR DE PISTA PREMIUM (GELO) ---
+function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELETO DE PISTA" }: { currentTrack: string, tracksList: any[], onSelect: (t: string) => void, placeholder?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -57,31 +57,31 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
 
     return (
         <div className="relative z-50" ref={dropdownRef}>
-            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2.5 text-[11px] text-white font-black tracking-wider hover:text-indigo-400 transition-all duration-300 outline-none group bg-black/40 px-3.5 py-2 rounded-xl border border-white/10 active:scale-[0.98]">
+            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2.5 text-xs text-slate-800 font-black tracking-wider hover:text-emerald-600 transition-all duration-300 outline-none group bg-white px-3.5 py-2 rounded-xl border border-slate-200 active:scale-[0.98] shadow-sm">
                 {currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : placeholder}
-                <ChevronDown className={`transition-transform duration-300 text-slate-500 group-hover:text-indigo-400 ${isOpen ? 'rotate-180' : ''}`} size={14} />
+                <ChevronDown className={`transition-transform duration-300 text-slate-400 group-hover:text-emerald-600 ${isOpen ? 'rotate-180' : ''}`} size={14} />
             </button>
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-64 bg-[#0c0c0e] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl z-[60]">
-                        <div className="p-3 border-b border-white/5 bg-white/[0.01]">
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-[60]">
+                        <div className="p-3 border-b border-slate-100 bg-slate-50">
                             <div className="relative">
-                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-[10px] text-white placeholder-slate-600 focus:border-indigo-500/50 outline-none font-bold uppercase tracking-wider" />
-                                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-1"><X size={12} /></button>}
+                                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 outline-none font-bold uppercase tracking-wider" />
+                                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"><X size={12} /></button>}
                             </div>
                         </div>
-                        <div className="max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5">
+                        <div className="max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5 bg-white">
                             {filteredTracks.map((track: any) => {
                                 const name = typeof track === 'object' ? track.name : track;
                                 return (
                                     <button
                                         key={name}
                                         onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === name ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-between group transition-all ${currentTrack === name ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                                     >
                                         <div className="flex items-center gap-2.5">
-                                            {TRACK_FLAGS[name] ? <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-4 h-2.5 object-cover rounded-sm shadow-sm" /> : <div className="w-4 h-2.5 bg-white/10 rounded-sm border border-white/5"></div>}
+                                            {TRACK_FLAGS[name] ? <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-4 h-2.5 object-cover rounded-sm shadow-sm" /> : <div className="w-4 h-2.5 bg-slate-100 rounded-sm border border-slate-200"></div>}
                                             {name}
                                         </div>
                                         {currentTrack === name && <ShieldCheck size={12} />}
@@ -96,7 +96,7 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
     );
 }
 
-// --- WEATHER FORECAST COMPONENT ---
+// --- WEATHER FORECAST HUD ---
 interface WeatherForecastProps {
     weatherData: {
         r1_rain_chance?: number;
@@ -116,7 +116,6 @@ function WeatherForecastHUD({ weatherData }: WeatherForecastProps) {
   ];
 
   const maxChance = Math.max(...rainChances);
-  const avgChance = rainChances.reduce((a, b) => a + b, 0) / 4;
 
   const getForecast = (chance: number) => {
       if (chance === 0) {
@@ -124,40 +123,40 @@ function WeatherForecastHUD({ weatherData }: WeatherForecastProps) {
               icon: '☀️',
               title: 'Tempo Seco',
               description: 'Sem previsão de chuva durante a corrida.',
-              color: 'text-emerald-400',
-              bgColor: 'border-emerald-500/10 bg-emerald-500/5',
+              color: 'text-emerald-600',
+              bgColor: 'border-emerald-200 bg-emerald-50/50',
           };
       } else if (chance <= 30) {
           return {
               icon: '🌤️',
               title: 'Baixa Probabilidade',
               description: `Instabilidade de até ${Math.round(chance)}%. Condições secas predominantes.`,
-              color: 'text-amber-400',
-              bgColor: 'border-amber-500/10 bg-amber-500/5',
+              color: 'text-amber-600',
+              bgColor: 'border-amber-200 bg-amber-50/50',
           };
       } else if (chance <= 60) {
           return {
               icon: '⛅',
               title: 'Chance Moderada',
               description: `Probabilidade de ${Math.round(chance)}%. Alerta para mudanças rápidas.`,
-              color: 'text-orange-400',
-              bgColor: 'border-orange-500/10 bg-orange-500/5',
+              color: 'text-orange-600',
+              bgColor: 'border-orange-200 bg-orange-50/50',
           };
       } else if (chance <= 85) {
           return {
               icon: '🌧️',
               title: 'Alta Probabilidade',
               description: `Previsão de chuva de ${Math.round(chance)}%. Esteja pronto para pneus de chuva.`,
-              color: 'text-blue-400',
-              bgColor: 'border-blue-500/10 bg-blue-500/5',
+              color: 'text-blue-600',
+              bgColor: 'border-blue-200 bg-blue-50/50',
           };
       } else {
           return {
               icon: '⛈️',
               title: 'Pista Molhada',
               description: `Chuva de ${Math.round(chance)}%. Configuração para chuva recomendada.`,
-              color: 'text-indigo-400',
-              bgColor: 'border-indigo-500/10 bg-indigo-500/5',
+              color: 'text-indigo-600',
+              bgColor: 'border-indigo-200 bg-indigo-50/50',
           };
       }
   };
@@ -165,26 +164,25 @@ function WeatherForecastHUD({ weatherData }: WeatherForecastProps) {
   const forecast = getForecast(maxChance);
 
   return (
-      <div className={`border rounded-xl p-3 flex flex-col justify-center text-left text-[11px] relative overflow-hidden transition-all duration-300 ${forecast.bgColor}`}>
-          <div className="flex items-start gap-2.5">
-              <span className="text-xl shrink-0 mt-0.5" role="img" aria-label="clima">{forecast.icon}</span>
+      <div className={`border rounded-xl p-3.5 flex flex-col justify-center text-left text-xs relative overflow-hidden transition-all duration-300 shadow-sm ${forecast.bgColor}`}>
+          <div className="flex items-start gap-3">
+              <span className="text-2xl shrink-0 mt-0.5" role="img" aria-label="clima">{forecast.icon}</span>
               <div className="flex-grow min-w-0">
-                  <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className={`text-[10px] font-black uppercase tracking-wider ${forecast.color}`}>{forecast.title}</span>
-                      <span className="text-[8px] text-slate-500 font-mono font-bold">MÁX: {Math.round(maxChance)}%</span>
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <span className={`text-[11px] font-black uppercase tracking-wider ${forecast.color}`}>{forecast.title}</span>
+                      <span className="text-[9px] text-slate-500 font-mono font-black">MÁX: {Math.round(maxChance)}%</span>
                   </div>
-                  <p className="text-[9px] text-slate-400 leading-snug font-medium mb-2">{forecast.description}</p>
+                  <p className="text-[10px] text-slate-600 leading-relaxed font-bold mb-2.5">{forecast.description}</p>
 
-                  {/* Períodos P1-P4 de Corrida */}
-                  <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/5">
+                  <div className="grid grid-cols-4 gap-2 pt-2.5 border-t border-slate-200/50">
                       {rainChances.map((chance, index) => (
                           <div key={index} className="space-y-1">
-                              <div className="flex justify-between text-[7px] font-bold text-slate-500 uppercase leading-none">
+                              <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase leading-none">
                                   <span>P{index + 1}</span>
-                                  <span className={chance > 50 ? 'text-indigo-400 font-bold' : 'text-slate-600'}>{Math.round(chance)}%</span>
+                                  <span className={chance > 50 ? 'text-indigo-600 font-bold' : 'text-slate-500'}>{Math.round(chance)}%</span>
                               </div>
-                              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full ${chance > 50 ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'bg-slate-700'}`} style={{ width: `${chance}%` }} />
+                              <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${chance > 50 ? 'bg-indigo-500' : 'bg-slate-400'}`} style={{ width: `${chance}%` }} />
                               </div>
                           </div>
                       ))}
@@ -196,22 +194,21 @@ function WeatherForecastHUD({ weatherData }: WeatherForecastProps) {
 }
 
 // --- INPUTS COMPACTOS ---
-
 function HUDInput({ value, name, onChange, label }: any) {
     const val = Number(value);
     const getIconColor = () => {
-        if (!value) return "text-slate-600";
-        if (val < 15) return "text-cyan-400";
-        if (val < 30) return "text-emerald-400";
-        return "text-orange-500";
+        if (!value) return "text-slate-400";
+        if (val < 15) return "text-emerald-500";
+        if (val < 30) return "text-amber-500";
+        return "text-rose-500";
     };
 
     const IconComponent = !value ? Thermometer : (val < 15 ? Snowflake : (val > 30 ? Flame : Thermometer));
 
     return (
-        <div className="bg-black/30 border border-white/5 rounded-xl p-2.5 flex flex-col justify-between group hover:border-indigo-500/20 transition-all h-20">
+        <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-2.5 flex flex-col justify-between group hover:border-emerald-500/30 transition-all h-20 shadow-sm">
             <div className="flex items-center justify-between">
-                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{label}</label>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{label}</label>
                 <IconComponent size={14} className={`transition-colors duration-500 ${getIconColor()}`} />
             </div>
             <div className="flex items-baseline gap-0.5">
@@ -221,9 +218,9 @@ function HUDInput({ value, name, onChange, label }: any) {
                     value={value || ''}
                     onChange={onChange}
                     placeholder="-"
-                    className="bg-transparent text-white font-black text-2xl font-mono outline-none w-full placeholder-white/5"
+                    className="bg-transparent text-slate-800 font-black text-2xl font-mono outline-none w-full placeholder-slate-200"
                 />
-                <span className="text-[10px] text-slate-500 font-bold">°C</span>
+                <span className="text-[11px] text-slate-400 font-black">°C</span>
             </div>
         </div>
     )
@@ -232,35 +229,33 @@ function HUDInput({ value, name, onChange, label }: any) {
 function WeatherSwitchEditable({ name, value, onChange }: any) {
     const isDry = value === 'Dry';
     return (
-        <div className="flex bg-black/40 p-0.5 rounded-lg border border-white/5 h-9 w-full overflow-hidden relative">
+        <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 h-9.5 w-full overflow-hidden relative shadow-inner">
             <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onChange({ target: { name, value: 'Dry' } })}
-                className={`flex-1 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1.5 relative z-10 ${
-                    isDry ? 'text-white' : 'text-slate-600 hover:text-slate-400'
+                className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 relative z-10 ${
+                    isDry ? 'text-white' : 'text-slate-500 hover:text-slate-800'
                 }`}
             >
-                {isDry && <motion.div layoutId={`bg-weather-${name}`} className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-600 rounded-md -z-10 shadow-lg" />}
+                {isDry && <motion.div layoutId={`bg-weather-${name}`} className="absolute inset-0 bg-gradient-to-br from-amber-500 to-amber-600 rounded-md -z-10 shadow-sm" />}
                 <Sun size={12} className={isDry ? "animate-[spin_12s_linear_infinite]" : ""} /> Seco
             </motion.button>
 
             <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onChange({ target: { name, value: 'Wet' } })}
-                className={`flex-1 rounded-md text-[9px] font-black uppercase transition-all flex items-center justify-center gap-1.5 relative z-10 ${
-                    !isDry ? 'text-white' : 'text-slate-600 hover:text-slate-400'
+                className={`flex-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 relative z-10 ${
+                    !isDry ? 'text-white' : 'text-slate-500 hover:text-slate-800'
                 }`}
             >
-                {!isDry && <motion.div layoutId={`bg-weather-${name}`} className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-md -z-10 shadow-lg" />}
+                {!isDry && <motion.div layoutId={`bg-weather-${name}`} className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-md -z-10 shadow-sm" />}
                 <CloudRain size={12} /> Chuva
             </motion.button>
         </div>
     )
 }
 
-// ============================================================
-// ✅ SETUP CARD (MANTIDO SIMPLES)
-// ============================================================
+// --- SETUP CARD SUGERIDO HORIZONTAL ---
 function SetupCard({ part, data }: { part: string, data: any }) {
     const safeRender = (val: any) => (val === null || val === undefined || typeof val === 'object') ? '-' : val;
     const clampedQ1 = clampSetupDisplay(data?.q1);
@@ -268,29 +263,29 @@ function SetupCard({ part, data }: { part: string, data: any }) {
     const clampedRace = clampSetupDisplay(data?.race);
 
     return (
-        <div className="bg-black/30 border border-white/5 hover:border-white/10 rounded-lg p-1.5 transition-all flex flex-col justify-between">
-            <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+        <div className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-2 transition-all flex items-center justify-between shadow-sm min-h-[48px] group">
+            <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider truncate w-28">
                 {part.replace(/([A-Z])/g, ' $1').trim()}
             </span>
             
-            <div className="grid grid-cols-3 gap-1">
-                <div className="flex flex-col items-center p-1 rounded bg-rose-500/5 border border-rose-500/10">
-                    <span className="text-[5px] font-black text-rose-500 mb-0.5 uppercase">Q1</span>
-                    <span className="text-xs font-black font-mono leading-none text-white">
+            <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 px-2.5 py-0.5 rounded bg-rose-50 border border-rose-300 min-w-[40px] justify-center shadow-sm">
+                    <span className="text-[7px] font-black text-rose-500 uppercase">Q1</span>
+                    <span className="text-xs font-black font-mono leading-none text-rose-700">
                         {safeRender(clampedQ1)}
                     </span>
                 </div>
                 
-                <div className="flex flex-col items-center p-1 rounded bg-amber-500/5 border border-amber-500/10">
-                    <span className="text-[5px] font-black text-amber-500 mb-0.5 uppercase">Q2</span>
-                    <span className="text-xs font-black font-mono leading-none text-white">
+                <div className="flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-50 border border-amber-300 min-w-[40px] justify-center shadow-sm">
+                    <span className="text-[7px] font-black text-amber-600 uppercase">Q2</span>
+                    <span className="text-xs font-black font-mono leading-none text-amber-700">
                         {safeRender(clampedQ2)}
                     </span>
                 </div>
 
-                <div className="flex flex-col items-center p-1 rounded bg-emerald-500/10 border border-emerald-500/20 relative overflow-hidden shadow-[0_0_6px_rgba(16,185,129,0.1)]">
-                    <span className="text-[5px] font-black text-emerald-400 mb-0.5 uppercase tracking-wider">Corrida</span>
-                    <span className="text-sm font-black leading-none font-mono text-white">
+                <div className="flex items-center gap-1.5 px-3 py-0.5 rounded bg-emerald-50 border border-emerald-300 min-w-[46px] justify-center shadow-sm">
+                    <span className="text-[7px] font-black text-emerald-600 uppercase tracking-wider">R</span>
+                    <span className="text-sm font-black leading-none font-mono text-emerald-700">
                         {safeRender(clampedRace)}
                     </span>
                 </div>
@@ -300,21 +295,19 @@ function SetupCard({ part, data }: { part: string, data: any }) {
 }
 
 // ============================================================
-// 🔄 COMPONENTE PRINCIPAL - ESTILO MANUAL SETUP
+// COMPONENTE PRINCIPAL
 // ============================================================
 export default function SetupPage() {
   const router = useRouter();
 
   const {
       track, updateTrack,
-      driver, updateDriver,
+      driverEditable, updateDriverEditable,
       car, updateCar,
       weather, updateWeather,
       desgasteModifier, updateDesgasteModifier,
-      raceAvgTemp,
       techDirector, updateTechDirector,
-      staffFacilities, updateStaffFacilities,
-      updateIdealSetup
+      staffFacilities, updateStaffFacilities
   } = useGame();
 
   const [loading, setLoading] = useState(false);
@@ -330,6 +323,8 @@ export default function SetupPage() {
   const [testLaps, setTestLaps] = useState<number>(0);
   const [testResults, setTestResults] = useState<any>(null);
 
+  const [raceAvgTemp, setRaceAvgTemp] = useState<number>(20);
+
   const hasTestingLimitWarning = useMemo(() => {
       if (!testResults) return false;
       return Object.values(testResults).some((part: any) => {
@@ -337,7 +332,7 @@ export default function SetupPage() {
       });
   }, [testResults]);
 
-  // 1. Auth Check
+  // Auth Check
   useEffect(() => {
     async function checkSession() {
       try {
@@ -351,7 +346,7 @@ export default function SetupPage() {
     checkSession();
   }, [router]);
 
-  // 2. Hydrate
+  // Hydrate
   useEffect(() => {
     async function hydrate() {
       if (!userId || isAuthLoading) return;
@@ -367,8 +362,28 @@ export default function SetupPage() {
         if (dState.sucesso && dState.data) {
           const d = dState.data;
           if (d.current_track) updateTrack(d.current_track);
-          if (d.weather) updateWeather(d.weather);
-          if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
+          
+          if (d.weather) {
+            updateWeather(d.weather);
+            
+            const r1Min = d.weather.r1_temp_min !== undefined ? d.weather.r1_temp_min : d.weather.r1TempMin;
+            const r1Max = d.weather.r1_temp_max !== undefined ? d.weather.r1_temp_max : d.weather.r1TempMax;
+            const tQ1 = d.weather.tempQ1 !== undefined ? d.weather.tempQ1 : d.weather.temp_q1;
+            const tQ2 = d.weather.tempQ2 !== undefined ? d.weather.tempQ2 : d.weather.temp_q2;
+
+            if (r1Min !== undefined && r1Max !== undefined && Number(r1Min) > 0 && Number(r1Max) > 0) {
+              setRaceAvgTemp((Number(r1Min) + Number(r1Max)) / 2);
+            } else if (tQ1 !== undefined && tQ2 !== undefined && Number(tQ1) > 0 && Number(tQ2) > 0) {
+              setRaceAvgTemp((Number(tQ1) + Number(tQ2)) / 2);
+            }
+          }
+          
+          if (d.driver_editable) {
+            Object.entries(d.driver_editable).forEach(([k, v]) => {
+              updateDriverEditable(k as any, Number(v));
+            });
+          }
+          
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           if (d.tech_director) updateTechDirector(d.tech_director);
           if (d.staff_facilities) updateStaffFacilities(d.staff_facilities);
@@ -378,9 +393,9 @@ export default function SetupPage() {
       finally { setInitialHydrationDone(true); }
     }
     hydrate();
-  }, [userId, isAuthLoading, updateTrack, updateWeather, updateDriver, updateCar, updateTechDirector, updateStaffFacilities, updateDesgasteModifier]);
+  }, [userId, isAuthLoading, updateTrack, updateWeather, updateDriverEditable, updateCar, updateTechDirector, updateStaffFacilities, updateDesgasteModifier]);
 
-  // 3. AUTO-SAVE LOGIC
+  // Auto-Save
   const persistChanges = useCallback(async () => {
       if (!initialHydrationDone || !userId) return;
       setIsSyncing(true);
@@ -392,7 +407,7 @@ export default function SetupPage() {
                   track,
                   weather,
                   desgasteModifier,
-                  driver,
+                  driver_editable: driverEditable,
                   car,
                   tech_director: techDirector,
                   staff_facilities: staffFacilities
@@ -403,7 +418,7 @@ export default function SetupPage() {
       } finally {
           setIsSyncing(false);
       }
-  }, [track, weather, desgasteModifier, driver, car, techDirector, staffFacilities, initialHydrationDone, userId]);
+  }, [track, weather, desgasteModifier, driverEditable, car, techDirector, staffFacilities, initialHydrationDone, userId]);
 
   useEffect(() => {
       if (!initialHydrationDone || !userId) return;
@@ -411,7 +426,7 @@ export default function SetupPage() {
       return () => clearTimeout(timer);
   }, [track, weather, desgasteModifier, techDirector, staffFacilities, persistChanges, initialHydrationDone, userId]);
 
-  // 4. CALCULATION LOGIC
+  // Calculation Setup - CORRIGIDO: driver_editable -> driver
   const handleCalcular = useCallback(async () => {
     if (!userId || !track || track === "Selecionar Pista" || !initialHydrationDone) return;
     setLoading(true);
@@ -419,7 +434,7 @@ export default function SetupPage() {
       const data = await calculateSetupService(
         {
           pista: track,
-          driver,
+          driver: driverEditable, // ✅ CORRIGIDO: driver_editable -> driver
           car,
           tech_director: techDirector,
           staff_facilities: staffFacilities,
@@ -436,11 +451,10 @@ export default function SetupPage() {
 
       if (data.sucesso) {
           setResultado(data.data);
-          updateIdealSetup(data.data);
       }
     } catch (error) { console.error("Calc error:", error); }
     finally { setLoading(false); }
-  }, [userId, track, driver, car, techDirector, staffFacilities, weather, raceAvgTemp, desgasteModifier, initialHydrationDone, updateIdealSetup]);
+  }, [userId, track, driverEditable, car, techDirector, staffFacilities, weather, raceAvgTemp, desgasteModifier, initialHydrationDone]);
 
   useEffect(() => {
     if (initialHydrationDone && userId && track && track !== "Selecionar Pista") {
@@ -449,7 +463,7 @@ export default function SetupPage() {
     }
   }, [weather, track, desgasteModifier, techDirector, staffFacilities, handleCalcular, initialHydrationDone, userId]);
 
-  // 5. LOGICA DE TESTES
+  // Simulador de Testes - CORRIGIDO: driver_editable -> driver
   const handleCalculateTest = useCallback(async () => {
     if (!userId || !testTrack || testTrack === "Selecionar Pista" || !initialHydrationDone) {
         setTestResults(null);
@@ -462,7 +476,7 @@ export default function SetupPage() {
             body: JSON.stringify({
                 test_track: testTrack,
                 test_laps: testLaps,
-                driver,
+                driver: driverEditable, // ✅ CORRIGIDO: driver_editable -> driver
                 car,
                 tech_director: techDirector,
                 staff_facilities: staffFacilities,
@@ -472,7 +486,7 @@ export default function SetupPage() {
         const data = await res.json();
         if (data.sucesso) setTestResults(data.data);
     } catch (error) { console.error("Test Calc Error:", error); }
-  }, [userId, testTrack, testLaps, driver, car, techDirector, staffFacilities, desgasteModifier, initialHydrationDone]);
+  }, [userId, testTrack, testLaps, driverEditable, car, techDirector, staffFacilities, desgasteModifier, initialHydrationDone]);
 
   useEffect(() => {
       if(testTrack !== "Selecionar Pista") {
@@ -483,11 +497,18 @@ export default function SetupPage() {
       }
   }, [testTrack, testLaps, handleCalculateTest]);
 
-  // --- Helpers ---
   const handleWeatherChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const isText = name.includes('weather');
     updateWeather({ [name]: isText ? value : Number(value) });
+    
+    if (name === 'r1_temp_min' || name === 'r1_temp_max') {
+      const min = name === 'r1_temp_min' ? Number(value) : Number(weather.r1_temp_min);
+      const max = name === 'r1_temp_max' ? Number(value) : Number(weather.r1_temp_max);
+      if (!isNaN(min) && !isNaN(max) && min > 0 && max > 0) {
+        setRaceAvgTemp((min + max) / 2);
+      }
+    }
   };
 
   const handleTestLapsChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -501,62 +522,56 @@ export default function SetupPage() {
   const safeNumber = (val: any) => (typeof val === 'number') ? val : (isNaN(parseFloat(val)) ? 0 : parseFloat(val));
 
   const getWearColor = (val: number) => {
-      if(val > 85) return 'text-rose-400 bg-rose-500/10 border-rose-500/20 font-black animate-pulse';
-      if(val > 50) return 'text-amber-400 border-amber-500/20';
-      return 'text-emerald-400 border-emerald-500/20';
+      if(val > 85) return 'text-rose-600 bg-rose-50 border-rose-200 font-bold';
+      if(val > 50) return 'text-amber-600 border-amber-200/50 bg-amber-50/20';
+      return 'text-emerald-600 border-emerald-200 bg-emerald-50/10';
   };
 
   const isTestActive = testTrack !== "Selecionar Pista";
 
   if (isAuthLoading || !initialHydrationDone) return (
-    <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#020204] text-indigo-500 font-mono text-xs gap-4">
-      <div className="w-12 h-12 border-2 border-indigo-500/10 rounded-full flex items-center justify-center relative">
-        <div className="w-12 h-12 border-2 border-t-indigo-500 rounded-full animate-spin absolute" />
-        <Settings size={16} className="animate-pulse text-indigo-400" />
+    <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#eef2f6] text-emerald-600 font-mono text-xs gap-4">
+      <div className="w-12 h-12 border-2 border-emerald-500/10 rounded-full flex items-center justify-center relative">
+        <div className="w-12 h-12 border-2 border-t-emerald-600 rounded-full animate-spin absolute" />
+        <Settings size={16} className="animate-pulse text-emerald-600" />
       </div>
-      <span className="tracking-widest uppercase">CARREGANDO SETUP...</span>
+      <span className="tracking-widest uppercase font-bold text-xs">CARREGANDO SETUP...</span>
     </div>
   );
   if (!userId) return null;
 
   return (
-    <div className="min-h-screen bg-[#020204] text-slate-300 font-mono pb-24 md:pb-12 selection:bg-indigo-500/30 relative overflow-hidden">
+    <div className="min-h-screen bg-[#eef2f6] text-slate-700 font-mono pb-24 md:pb-12 selection:bg-emerald-500/20 relative overflow-hidden">
       
-      {/* ==========================================
-          FUNDO AMBIENTAL COM GRADIENTES
-          ========================================== */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/5 blur-[120px] rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/3 blur-[150px] rounded-full" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02]" />
+        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.01] blur-[150px] rounded-full" />
       </div>
 
-      {/* HEADER COM GRADIENTE E CIRCUITO ATUAL */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 bg-[#020204]/90 p-3 sm:p-4 relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3.5 sm:p-4.5 relative shadow-sm">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
         <div className="max-w-[1600px] mx-auto flex justify-between items-center relative z-10">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-2.5 rounded-xl shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+            <div className="bg-emerald-600 p-2.5 rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)]">
               <Settings size={16} className="text-white" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+              <h1 className="text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
                 Setup & Telemetria
-                <span className="text-[7px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
+                <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
               </h1>
-              <p className="text-[9px] text-slate-500 font-bold uppercase truncate max-w-[120px]">{userEmail}</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[120px]">{userEmail}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            {/* CIRCUITO ATUAL */}
-            <div className="flex items-center gap-2 border-r border-white/5 pr-4">
-              <div className="w-8 h-6 bg-zinc-900 border border-white/10 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-lg">
+            <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
+              <div className="w-8 h-6 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                 {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" /> : <span className="text-xs">🏁</span>}
               </div>
               <div className="flex flex-col">
-                <span className="text-[6px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
+                <span className="text-[7px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
                 <TrackSelector currentTrack={track} tracksList={tracks} onSelect={updateTrack} />
               </div>
             </div>
@@ -564,14 +579,18 @@ export default function SetupPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'}`} />
-                <span className={`text-[9px] font-bold ${isSyncing ? 'text-amber-500' : 'text-emerald-400'}`}>
+                <span className={`text-[10px] font-bold ${isSyncing ? 'text-amber-600' : 'text-emerald-600'}`}>
                   {isSyncing ? 'GRAVANDO' : 'GRAVADO'}
                 </span>
               </div>
               
-              <div className="text-right border-l border-white/5 pl-3">
-                <p className="text-[7px] text-slate-500 uppercase font-black tracking-widest leading-none mb-0.5">Temp. Média</p>
-                <p className="text-lg font-black text-indigo-400 leading-none">{raceAvgTemp.toFixed(1)}°C</p>
+              <div className="text-right border-l border-slate-200 pl-4 shrink-0 flex flex-col justify-center">
+                <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Temp. Média</p>
+                <p className="text-xl font-black text-emerald-600 leading-none">
+                  {raceAvgTemp !== undefined && raceAvgTemp !== null && raceAvgTemp > 0 
+                    ? `${Number(raceAvgTemp).toFixed(1)}°C` 
+                    : '20.0°C'}
+                </p>
               </div>
             </div>
           </div>
@@ -580,52 +599,48 @@ export default function SetupPage() {
 
       <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10">
         
-        {/* ==========================================
-            CARDS PRINCIPAIS COM GRADIENTES
-            ========================================== */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
           
-          {/* PREVISÕES METEOROLÓGICAS */}
+          {/* SESSÕES METEOROLÓGICAS */}
           <div className="xl:col-span-7">
-            <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm group">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="relative bg-gradient-to-r from-indigo-500/10 to-purple-500/10 p-3.5 border-b border-white/5 flex items-center gap-2">
-                <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg">
+            <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-600 rounded-lg">
                   <CloudSun size={14} className="text-white" />
                 </div>
-                <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Previsões Meteorológicas</h3>
+                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Previsões Meteorológicas</h3>
               </div>
               
               <div className="relative p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Q1 e Q2 */}
                 <div className="space-y-3.5">
-                  <div className="bg-black/30 rounded-xl p-3 border border-rose-500/10 hover:border-rose-500/20 transition-all duration-300 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                  {/* QUALIFICAÇÃO Q1 */}
+                  <div className="bg-[#f8fafc] rounded-xl p-3 border border-rose-100 hover:border-rose-300 transition-all duration-300 relative overflow-hidden shadow-sm">
                     <div className="relative">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-1.5">
-                          <div className="w-1 h-3 bg-gradient-to-b from-rose-400 to-rose-600 rounded-full" />
+                        <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-1.5">
+                          <div className="w-1.5 h-3.5 bg-gradient-to-b from-rose-400 to-rose-600 rounded-full" />
                           Qualificação Q1
                         </span>
                       </div>
                       <div className="space-y-2.5">
-                        <WeatherSwitchEditable name="weatherQ1" value={weather.weatherQ1} onChange={handleWeatherChange} />
+                        <WeatherSwitchEditable name="weatherQ1" value={weather.weatherQ1 || 'Dry'} onChange={handleWeatherChange} />
                         <HUDInput value={weather.tempQ1} name="tempQ1" onChange={handleWeatherChange} label="TEMP Q1" />
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-black/30 rounded-xl p-3 border border-amber-500/10 hover:border-amber-500/20 transition-all duration-300 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                  {/* QUALIFICAÇÃO Q2 */}
+                  <div className="bg-[#f8fafc] rounded-xl p-3 border border-amber-100 hover:border-amber-300 transition-all duration-300 relative overflow-hidden shadow-sm">
                     <div className="relative">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
-                          <div className="w-1 h-3 bg-gradient-to-b from-amber-400 to-amber-600 rounded-full" />
+                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1.5">
+                          <div className="w-1.5 h-3.5 bg-gradient-to-b from-amber-400 to-amber-600 rounded-full" />
                           Qualificação Q2
                         </span>
                       </div>
                       <div className="space-y-2.5">
-                        <WeatherSwitchEditable name="weatherQ2" value={weather.weatherQ2} onChange={handleWeatherChange} />
+                        <WeatherSwitchEditable name="weatherQ2" value={weather.weatherQ2 || 'Dry'} onChange={handleWeatherChange} />
                         <HUDInput value={weather.tempQ2} name="tempQ2" onChange={handleWeatherChange} label="TEMP Q2" />
                       </div>
                     </div>
@@ -633,54 +648,58 @@ export default function SetupPage() {
                 </div>
 
                 {/* SESSÃO CORRIDA */}
-                <div className="bg-gradient-to-br from-emerald-950/20 to-transparent rounded-xl border border-emerald-500/15 hover:border-emerald-500/25 transition-all duration-300 flex flex-col justify-between relative overflow-hidden p-3.5 h-full group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                <div className="bg-emerald-50/10 rounded-xl border border-emerald-200 hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between relative overflow-hidden p-3.5 h-full group shadow-sm">
                   <div className="relative">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-1 h-3 bg-gradient-to-b from-emerald-400 to-emerald-600 rounded-full" />
-                        <h3 className="text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1.5">
-                          <Wind size={12} className="text-emerald-400" />
+                        <div className="w-1.5 h-3.5 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full" />
+                        <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                          <Wind size={12} className="text-emerald-600" />
                           Sessão Corrida
                         </h3>
                       </div>
-                      <div className="text-right bg-black/40 px-2 py-0.5 rounded border border-white/5">
-                        <span className="text-[9px] font-black text-white font-mono leading-none">{raceAvgTemp.toFixed(1)}°</span>
+                      <div className="text-right bg-white px-2 py-0.5 rounded border border-slate-200">
+                        <span className="text-[10px] font-black text-emerald-600 font-mono leading-none">
+                          {raceAvgTemp !== undefined && raceAvgTemp !== null && raceAvgTemp > 0 
+                            ? `${Number(raceAvgTemp).toFixed(1)}°` 
+                            : '20.0°'}
+                        </span>
                       </div>
                     </div>
 
-                    <WeatherSwitchEditable
-                      name="weatherRace"
-                      value={weather.weatherRace}
-                      onChange={handleWeatherChange}
-                    />
+                    <div className="mb-3">
+                      <WeatherSwitchEditable
+                        name="weatherRace"
+                        value={weather.weatherRace || 'Dry'}
+                        onChange={handleWeatherChange}
+                      />
+                    </div>
 
-                    {/* Períodos P1-P4 */}
-                    <div className="grid grid-cols-2 gap-2 mt-3">
+                    <div className="grid grid-cols-2 gap-2 mt-3 mb-4">
                       {[1, 2, 3, 4].map(num => (
-                        <div key={num} className="bg-black/30 rounded-xl p-2 border border-white/5 hover:border-emerald-500/20 transition-colors flex flex-col justify-between">
-                          <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-1 rounded w-fit mb-2">P{num}</span>
+                        <div key={num} className="bg-white rounded-xl p-2 border border-slate-200 hover:border-emerald-300 transition-colors flex flex-col justify-between shadow-sm">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-1.5 rounded w-fit mb-2">P{num}</span>
                           <div className="flex items-center justify-between gap-1.5 font-mono">
                             <div className="flex flex-col">
-                              <span className="text-[6px] text-cyan-500 font-bold uppercase leading-none mb-1">Min</span>
+                              <span className="text-[7px] text-emerald-600 font-bold uppercase leading-none mb-1">Min</span>
                               <input
                                 type="number"
                                 name={`r${num}_temp_min`}
                                 value={(weather as any)[`r${num}_temp_min`] || ''}
                                 onChange={handleWeatherChange}
-                                className="w-full bg-transparent text-sm font-black text-cyan-400 outline-none p-0 leading-none placeholder-white/5"
+                                className="w-full bg-transparent text-sm font-black text-slate-800 outline-none p-0 leading-none placeholder-slate-200"
                                 placeholder="-"
                               />
                             </div>
-                            <div className="w-[1px] h-4 bg-white/5" />
+                            <div className="w-[1px] h-4 bg-slate-200" />
                             <div className="flex flex-col items-end">
-                              <span className="text-[6px] text-rose-500 font-bold leading-none mb-1">Max</span>
+                              <span className="text-[7px] text-rose-500 font-bold leading-none mb-1">Max</span>
                               <input
                                 type="number"
                                 name={`r${num}_temp_max`}
                                 value={(weather as any)[`r${num}_temp_max`] || ''}
                                 onChange={handleWeatherChange}
-                                className="w-full bg-transparent text-right text-sm font-black text-rose-400 outline-none p-0 leading-none placeholder-white/5"
+                                className="w-full bg-transparent text-right text-sm font-black text-rose-500 outline-none p-0 leading-none placeholder-slate-200"
                                 placeholder="-"
                               />
                             </div>
@@ -700,19 +719,19 @@ export default function SetupPage() {
           <div className="xl:col-span-5">
             <AnimatePresence mode='wait'>
               {resultado && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm h-full flex flex-col group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                  <div className="relative bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-3.5 border-b border-white/5 flex justify-between items-center">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm h-full flex flex-col group">
+                  <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg">
+                      <div className="p-1.5 bg-emerald-600 rounded-lg">
                         <Settings size={14} className="text-white" />
                       </div>
-                      <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Sugestões de Setup</h3>
+                      <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Sugestões de Setup</h3>
                     </div>
-                    {loading && <Loader2 className="animate-spin text-white" size={12} />}
+                    {loading && <Loader2 className="animate-spin text-emerald-600" size={12} />}
                   </div>
-                  <div className="relative p-4 flex-grow overflow-y-auto custom-scrollbar max-h-[500px]">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-1 gap-1">
+                  
+                  <div className="relative p-4 flex-grow">
+                    <div className="flex flex-col gap-1.5">
                       {['asaDianteira', 'asaTraseira', 'motor', 'freios', 'cambio', 'suspensao'].map((partId) => (
                         <SetupCard key={partId} part={partId} data={resultado[partId]} />
                       ))}
@@ -721,37 +740,35 @@ export default function SetupPage() {
                 </motion.div>
               )}
               {!resultado && (
-                <div className="h-full bg-zinc-950/20 border border-white/5 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-600 border-dashed min-h-[350px]">
-                  <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center animate-pulse mb-3">
-                    <Gauge size={24} className="opacity-40" />
+                <div className="h-full bg-white/90 border border-slate-200 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-400 border-dashed min-h-[350px] shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center animate-pulse mb-3">
+                    <Gauge size={24} className="opacity-40 text-slate-500" />
                   </div>
-                  <p className="text-[10px] uppercase font-black tracking-widest text-slate-500">Aguardando Parâmetros</p>
-                  <p className="text-[9px] text-slate-700 mt-1 max-w-[180px] text-center">Informe as configurações de clima e as especificações de pista acima.</p>
+                  <p className="text-[11px] uppercase font-black tracking-widest text-slate-500">Aguardando Parâmetros</p>
+                  <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] text-center font-bold">Informe as configurações de clima e as especificações de pista acima.</p>
                 </div>
               )}
             </AnimatePresence>
           </div>
         </div>
 
-        {/* ==========================================
-            TABELAS DE PROJEÇÃO DE DESGASTE
-            ========================================== */}
+        {/* TABELAS DE PROJEÇÃO DE DESGASTE */}
         {resultado && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 xl:grid-cols-2 gap-5">
             
-            {/* DESGASTE ESTIMADO */}
-            <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm group">
-              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="relative bg-gradient-to-r from-rose-500/10 to-red-500/10 p-3.5 border-b border-white/5 flex justify-between items-center">
+            {/* DESGASTE ESTIMADO CORRIDA */}
+            <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-gradient-to-br from-rose-500 to-red-500 rounded-lg">
+                  <div className="p-1.5 bg-rose-500 rounded-lg shadow-sm">
                     <ShieldAlert size={14} className="text-white" />
                   </div>
-                  <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-rose-400 to-red-400 bg-clip-text text-transparent">Desgaste Estimado Corrida</h3>
+                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Desgaste Estimado Corrida</h3>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[8px] text-slate-500 font-black uppercase">Risco</span>
-                  <input type="number" value={desgasteModifier} onChange={(e) => updateDesgasteModifier(Number(e.target.value))} className="w-9 h-6 bg-black/40 border border-white/10 rounded text-white text-center text-[10px] font-mono font-black outline-none focus:border-indigo-500" />
+                  <span className="text-[9px] text-slate-500 font-black uppercase">Risco</span>
+                  <input type="number" value={desgasteModifier} onChange={(e) => updateDesgasteModifier(Number(e.target.value))} className="w-9 h-6 bg-white border border-slate-200 rounded text-slate-800 text-center text-[10px] font-mono font-black outline-none focus:border-emerald-500 shadow-sm" />
                 </div>
               </div>
               <div className="relative p-4 space-y-3.5 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar">
@@ -763,13 +780,13 @@ export default function SetupPage() {
                   const isCritical = endVal > 85;
                   return (
                     <div key={part.id} className="space-y-1">
-                      <div className="flex justify-between text-[9px] font-black uppercase tracking-wider">
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
                         <span className="text-slate-500">{part.label}</span>
-                        <span className="text-slate-300 font-mono">{startVal}% → <span className={isCritical ? 'text-rose-500 font-black animate-pulse' : 'text-white'}>{endVal.toFixed(1)}%</span></span>
+                        <span className="text-slate-700 font-mono font-bold">{startVal}% → <span className={isCritical ? 'text-rose-600 font-black animate-pulse' : 'text-slate-800'}>{endVal.toFixed(1)}%</span></span>
                       </div>
-                      <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden flex border border-white/5 p-[1px]">
-                        <div className="h-full bg-slate-700 rounded-l-full" style={{ width: `${Math.min(100, startVal)}%` }} />
-                        <div className={`h-full rounded-r-full ${isCritical ? 'bg-gradient-to-r from-rose-600 to-rose-400 shadow-[0_0_8px_#f43f5e]' : 'bg-indigo-500'}`} style={{ width: `${Math.min(100, Math.max(0, endVal - startVal))}%` }} />
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex border border-slate-200/50 p-[1px]">
+                        <div className="h-full bg-slate-400 rounded-l-full" style={{ width: `${Math.min(100, startVal)}%` }} />
+                        <div className={`h-full rounded-r-full ${isCritical ? 'bg-gradient-to-r from-rose-600 to-rose-500 shadow-[0_0_8px_#f43f5e]' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, Math.max(0, endVal - startVal))}%` }} />
                       </div>
                     </div>
                   )
@@ -778,30 +795,29 @@ export default function SetupPage() {
             </section>
 
             {/* SIMULADOR DE TESTES */}
-            <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm flex flex-col group">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="relative bg-gradient-to-r from-indigo-500/10 to-purple-500/10 p-3.5 border-b border-white/5">
+            <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm flex flex-col group">
+              <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg">
+                    <div className="p-1.5 bg-emerald-600 rounded-lg">
                       <FlaskConical size={14} className="text-white" />
                     </div>
-                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Simulador de Testes</h3>
+                    <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Simulador de Testes</h3>
                   </div>
                   
                   <div className="flex flex-wrap items-center gap-2">
                     <TrackSelector currentTrack={testTrack} tracksList={tracks} onSelect={setTestTrack} placeholder="SIMULAR TESTES NA PISTA" />
                     {isTestActive && (
                       <>
-                        <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 h-9">
-                          <Timer size={12} className="text-slate-500" />
+                        <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 h-9 shadow-sm">
+                          <Timer size={12} className="text-slate-400" />
                           <div className="flex flex-col text-left">
-                            <span className="text-[6px] font-black text-slate-500 uppercase leading-none">Voltas (0-100)</span>
+                            <span className="text-[7px] font-black text-slate-400 uppercase leading-none">Voltas (0-100)</span>
                             <input
                               type="number"
                               value={testLaps}
                               onChange={handleTestLapsChange}
-                              className="bg-transparent text-[10px] font-mono font-black text-white outline-none w-10 mt-0.5 leading-none"
+                              className="bg-transparent text-[11px] font-mono font-black text-slate-800 outline-none w-10 mt-0.5 leading-none"
                               min="0"
                               max="100"
                             />
@@ -809,7 +825,7 @@ export default function SetupPage() {
                         </div>
                         <button
                           onClick={() => { setTestTrack("Selecionar Pista"); setTestLaps(0); setTestResults(null); }}
-                          className="h-9 w-9 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-slate-950 border border-rose-500/20 rounded-xl transition-all"
+                          className="h-9 w-9 flex items-center justify-center bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-100 hover:border-rose-500 rounded-xl transition-all shadow-sm"
                         >
                           <X size={14} />
                         </button>
@@ -824,12 +840,12 @@ export default function SetupPage() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="mt-3 bg-rose-500/10 border border-rose-500/20 rounded-xl p-2.5 flex items-start gap-2 text-left"
+                      className="mt-3 bg-rose-50 border border-rose-200 rounded-xl p-2.5 flex items-start gap-2 text-left"
                     >
                       <ShieldAlert className="text-rose-500 shrink-0 mt-0.5" size={13} />
                       <div className="flex flex-col">
-                        <span className="text-[9px] font-black text-rose-400 uppercase">Limite Técnico de Desgaste Excedido</span>
-                        <p className="text-[8px] text-rose-200/80 leading-tight mt-0.5">
+                        <span className="text-[10px] font-black text-rose-600 uppercase">Limite Técnico de Desgaste Excedido</span>
+                        <p className="text-[9px] text-rose-700/80 leading-tight mt-0.5 font-bold">
                           Algumas peças atingirão mais de 90.4% de desgaste pré-corrida. O GPRO bloqueará a execução desta sessão.
                         </p>
                       </div>
@@ -838,20 +854,20 @@ export default function SetupPage() {
                 </AnimatePresence>
               </div>
 
-              <div className="relative p-4 overflow-x-auto custom-scrollbar flex-grow">
-                <table className="w-full text-[11px] border-separate border-spacing-y-1">
+              <div className="relative p-4 overflow-x-auto custom-scrollbar flex-grow bg-white">
+                <table className="w-full text-xs border-separate border-spacing-y-1">
                   <thead>
-                    <tr className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                      <th className="sticky left-0 bg-[#0c0c0e] z-20 pl-3 pr-2 py-2 text-left border-b border-white/5 w-auto whitespace-nowrap shadow-[2px_0_5px_rgba(0,0,0,0.3)]">Peça</th>
-                      <th className="px-1 py-2 text-center border-b border-white/5 whitespace-nowrap w-min">Nvl</th>
-                      <th className="px-1 py-2 text-center border-b border-white/5 whitespace-nowrap">Início</th>
+                    <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      <th className="sticky left-0 bg-slate-50 z-20 pl-3 pr-2 py-2 text-left border-b border-slate-200 w-auto whitespace-nowrap shadow-sm">Peça</th>
+                      <th className="px-1 py-2 text-center border-b border-slate-200 whitespace-nowrap w-min">Nvl</th>
+                      <th className="px-1 py-2 text-center border-b border-slate-200 whitespace-nowrap">Início</th>
                       {isTestActive && (
                         <>
-                          <th className="px-1 py-2 text-center text-amber-500 border-b border-white/5 whitespace-nowrap">Teste</th>
-                          <th className="px-1 py-2 text-center text-indigo-400 border-b border-white/5 whitespace-nowrap">Pré-Cor</th>
+                          <th className="px-1 py-2 text-center text-amber-600 border-b border-slate-200 whitespace-nowrap">Teste</th>
+                          <th className="px-1 py-2 text-center text-indigo-600 border-b border-slate-200 whitespace-nowrap">Pré-Cor</th>
                         </>
                       )}
-                      <th className="px-1 py-2 text-center text-rose-500 border-b border-white/5 whitespace-nowrap">Fim Corrida</th>
+                      <th className="px-1 py-2 text-center text-rose-500 border-b border-slate-200 whitespace-nowrap">Fim Corrida</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -872,25 +888,25 @@ export default function SetupPage() {
                       }
 
                       return (
-                        <tr key={part.id} className={`group transition-colors ${isLimitBroken ? 'bg-rose-500/5' : 'hover:bg-white/[0.01]'}`}>
-                          <td className="sticky left-0 bg-[#101014] z-10 pl-3 pr-2 py-1.5 border-r border-white/5 font-black text-[9px] text-slate-400 uppercase shadow-[2px_0_5px_rgba(0,0,0,0.3)] whitespace-nowrap">
+                        <tr key={part.id} className={`group transition-colors ${isLimitBroken ? 'bg-rose-50' : 'hover:bg-slate-50/50'}`}>
+                          <td className="sticky left-0 bg-slate-50 z-10 pl-3 pr-2 py-1.5 border-r border-slate-200 font-black text-[10px] text-slate-500 uppercase shadow-sm whitespace-nowrap">
                             {part.label}
                           </td>
-                          <td className="px-1 py-1 text-center bg-black/20 w-min">
-                            <div className="mx-auto w-6 bg-[#0c0c0e] border border-white/5 rounded text-[9px] font-mono font-black text-slate-400 py-0.5">{lvl}</div>
+                          <td className="px-1 py-1 text-center bg-slate-50/40 w-min">
+                            <div className="mx-auto w-6 bg-white border border-slate-200 rounded text-[10px] font-mono font-black text-slate-400 py-0.5">{lvl}</div>
                           </td>
-                          <td className="px-1 py-1 text-center bg-black/20">
-                            <div className={`mx-auto w-10 bg-[#0c0c0e] border border-white/5 rounded text-[9px] font-mono font-black py-0.5 ${getWearColor(startWear).split(' ')[0]}`}>
+                          <td className="px-1 py-1 text-center bg-slate-50/40">
+                            <div className={`mx-auto w-10 bg-white border border-slate-200 rounded text-[10px] font-mono font-black py-0.5 ${getWearColor(startWear).split(' ')[0]}`}>
                               {startWear}%
                             </div>
                           </td>
                           {isTestActive && (
                             <>
-                              <td className="px-1 py-1 text-center bg-black/20 text-[10px] font-mono font-black text-amber-500 whitespace-nowrap">
+                              <td className="px-1 py-1 text-center bg-slate-50/40 text-[11px] font-mono font-black text-amber-600 whitespace-nowrap">
                                 +{typeof testWearVal === 'number' ? testWearVal.toFixed(1) : '0.0'}%
                               </td>
-                              <td className="px-1 py-1 text-center bg-black/20 whitespace-nowrap relative">
-                                <div className={`text-[10px] font-mono font-black transition-all ${isLimitBroken ? 'text-rose-500 scale-105' : 'text-indigo-400'}`}>
+                              <td className="px-1 py-1 text-center bg-slate-50/40 whitespace-nowrap relative">
+                                <div className={`text-[11px] font-mono font-black transition-all ${isLimitBroken ? 'text-rose-500 scale-105' : 'text-indigo-400'}`}>
                                   {typeof preRaceVal === 'number' ? preRaceVal.toFixed(1) : '0.0'}%
                                 </div>
                                 {isLimitBroken && (
@@ -904,8 +920,8 @@ export default function SetupPage() {
                               </td>
                             </>
                           )}
-                          <td className="px-1 py-1 text-center bg-black/20">
-                            <div className={`mx-auto w-10 bg-[#0c0c0e]/50 border border-white/5 rounded text-[9px] font-mono font-black py-0.5 ${getWearColor(calculatedFinalWear)}`}>
+                          <td className="px-1 py-1 text-center bg-slate-50/40">
+                            <div className={`mx-auto w-10 bg-white border border-slate-200 rounded text-[10px] font-mono font-black py-0.5 ${getWearColor(calculatedFinalWear)}`}>
                               {calculatedFinalWear > 0 ? calculatedFinalWear.toFixed(1) + '%' : '-'}
                             </div>
                           </td>
@@ -923,8 +939,8 @@ export default function SetupPage() {
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.2); }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }

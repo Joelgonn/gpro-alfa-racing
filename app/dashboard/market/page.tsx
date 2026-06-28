@@ -3,12 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/app/lib/supabase';
+import he from 'he'; // ✅ ADD
 import { 
   RefreshCw, X, Filter, Trophy, Zap, 
   Activity, Search, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight,
   CheckCircle2, Info, DollarSign, Target, User, ShieldAlert, HeartPulse, 
   AlertCircle, CheckCircle, Clock, Scale, Briefcase, Sparkles, ChevronDown,
-  Eye, Star, Award, Gauge, Table, LayoutGrid
+  Eye, Star, Award, Gauge, Table, LayoutGrid, Crown
 } from 'lucide-react'; 
 import Image from 'next/image'; 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -84,23 +85,30 @@ const formatSalary = (salary: number) => {
     return `$${salary}`;
 };
 
+// ✅ FUNÇÃO PARA DECODIFICAR NOMES
+const decodeName = (name: string): string => {
+    if (!name) return '';
+    return he.decode(name);
+};
+
 // ============================================
-// COMPONENTE CARD PARA MOBILE
+// COMPONENTE CARD PARA MOBILE (LIGHT GELO COM TOQUE DOURADO)
 // ============================================
 const DriverCard = ({ driver }: { driver: MarketDriver }) => {
     const [expanded, setExpanded] = useState(false);
     const flagCode = getFlagCode(driver.nacionalidade);
     const favs = countFavTracks(driver.favorito);
     const hasOffers = driver.ofertas > 0;
+    const decodedName = decodeName(driver.nome);
 
     return (
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-zinc-950/60 border border-white/5 rounded-xl overflow-hidden hover:border-blue-500/20 transition-all"
+            className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-amber-500/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5"
         >
             <div className="p-4 flex items-start gap-3">
-                <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-black/40">
+                <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-slate-50 shadow-sm">
                     <Image src={`/flags/${flagCode}.png`} alt={driver.nacionalidade} fill className="object-cover" />
                 </div>
                 
@@ -111,40 +119,40 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                                 href={`https://www.gpro.net/br/DriverProfile.asp?ID=${driver.id}`} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="text-sm font-black text-white hover:text-blue-400 transition truncate block"
+                                className="text-sm font-black text-slate-800 hover:text-amber-600 transition truncate block"
                             >
-                                {driver.nome}
+                                {decodedName}
                             </a>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[8px] text-slate-500 font-bold uppercase">ID: {driver.id}</span>
-                                <span className="w-px h-3 bg-white/5" />
-                                <span className="text-[8px] text-slate-500 font-bold">{driver.idade} anos</span>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[9px] text-slate-400 font-bold uppercase">ID: {driver.id}</span>
+                                <span className="w-px h-3 bg-slate-200" />
+                                <span className="text-[9px] text-slate-400 font-bold">{driver.idade} anos</span>
                             </div>
                         </div>
-                        <div className="shrink-0 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-lg">
-                            <span className="text-sm font-black text-blue-400">{driver.total}</span>
-                            <span className="text-[7px] text-blue-400/60 ml-1">OA</span>
+                        <div className="shrink-0 bg-gradient-to-r from-emerald-50 to-amber-50 border border-emerald-200/50 px-2.5 py-1 rounded-lg shadow-sm">
+                            <span className="text-sm font-black text-emerald-600">{driver.total}</span>
+                            <span className="text-[8px] text-emerald-600/60 ml-1">OA</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="px-4 pb-2 grid grid-cols-4 gap-1">
-                <div className="text-center p-1.5 bg-black/30 rounded-lg border border-white/5">
-                    <span className="text-[7px] text-slate-600 block uppercase font-black tracking-tighter">Tal</span>
-                    <span className="text-xs font-black text-amber-400">{driver.talento}</span>
+            <div className="px-4 pb-2.5 grid grid-cols-4 gap-1.5 bg-white">
+                <div className="text-center p-1.5 bg-slate-50 rounded-lg border border-slate-200 hover:border-amber-300 transition-colors">
+                    <span className="text-[8px] text-slate-400 block uppercase font-black tracking-tighter">Tal</span>
+                    <span className="text-xs font-black text-amber-600">{driver.talento}</span>
                 </div>
-                <div className="text-center p-1.5 bg-black/30 rounded-lg border border-white/5">
-                    <span className="text-[7px] text-slate-600 block uppercase font-black tracking-tighter">Con</span>
-                    <span className="text-xs font-black text-cyan-400">{driver.concentracao}</span>
+                <div className="text-center p-1.5 bg-slate-50 rounded-lg border border-slate-200 hover:border-amber-300 transition-colors">
+                    <span className="text-[8px] text-slate-400 block uppercase font-black tracking-tighter">Con</span>
+                    <span className="text-xs font-black text-emerald-600">{driver.concentracao}</span>
                 </div>
-                <div className="text-center p-1.5 bg-black/30 rounded-lg border border-white/5">
-                    <span className="text-[7px] text-slate-600 block uppercase font-black tracking-tighter">Exp</span>
-                    <span className="text-xs font-black text-indigo-400">{driver.experiencia}</span>
+                <div className="text-center p-1.5 bg-slate-50 rounded-lg border border-slate-200 hover:border-amber-300 transition-colors">
+                    <span className="text-[8px] text-slate-400 block uppercase font-black tracking-tighter">Exp</span>
+                    <span className="text-xs font-black text-indigo-600">{driver.experiencia}</span>
                 </div>
-                <div className="text-center p-1.5 bg-black/30 rounded-lg border border-white/5">
-                    <span className="text-[7px] text-slate-600 block uppercase font-black tracking-tighter">Ofertas</span>
-                    <span className={`text-xs font-black ${hasOffers ? 'text-rose-400' : 'text-slate-600'}`}>
+                <div className="text-center p-1.5 bg-slate-50 rounded-lg border border-slate-200 hover:border-amber-300 transition-colors">
+                    <span className="text-[8px] text-slate-400 block uppercase font-black tracking-tighter">Ofertas</span>
+                    <span className={`text-xs font-black ${hasOffers ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`}>
                         {hasOffers ? driver.ofertas : '0'}
                     </span>
                 </div>
@@ -152,10 +160,10 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
 
             <button 
                 onClick={() => setExpanded(!expanded)}
-                className="w-full px-4 py-2 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors border-t border-white/5"
+                className="w-full px-4 py-2 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-amber-600 transition-colors border-t border-slate-100 hover:bg-amber-50/30"
             >
                 {expanded ? 'Menos detalhes' : 'Ver mais detalhes'}
-                <ChevronDown size={12} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                <ChevronDown size={12} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
             </button>
 
             <AnimatePresence>
@@ -167,49 +175,51 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
                         transition={{ duration: 0.3 }}
                         className="overflow-hidden"
                     >
-                        <div className="px-4 pb-4 pt-2 border-t border-white/5 space-y-3">
+                        <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-3 bg-gradient-to-b from-[#f8fafc] to-white">
                             <div className="grid grid-cols-4 gap-2">
-                                <div className="bg-black/30 p-2 rounded-lg border border-white/5 text-center">
-                                    <span className="text-[7px] text-slate-600 block uppercase font-black">AGR</span>
-                                    <span className="text-xs font-black text-white">{driver.agressividade}</span>
+                                <div className="bg-white p-2 rounded-lg border border-slate-200 text-center shadow-sm hover:border-amber-300 transition-colors">
+                                    <span className="text-[8px] text-slate-400 block uppercase font-black">AGR</span>
+                                    <span className="text-xs font-black text-slate-800">{driver.agressividade}</span>
                                 </div>
-                                <div className="bg-black/30 p-2 rounded-lg border border-white/5 text-center">
-                                    <span className="text-[7px] text-slate-600 block uppercase font-black">TEC</span>
-                                    <span className="text-xs font-black text-white">{driver.tecnica}</span>
+                                <div className="bg-white p-2 rounded-lg border border-slate-200 text-center shadow-sm hover:border-amber-300 transition-colors">
+                                    <span className="text-[8px] text-slate-400 block uppercase font-black">TEC</span>
+                                    <span className="text-xs font-black text-slate-800">{driver.tecnica}</span>
                                 </div>
-                                <div className="bg-black/30 p-2 rounded-lg border border-white/5 text-center">
-                                    <span className="text-[7px] text-slate-600 block uppercase font-black">RES</span>
-                                    <span className="text-xs font-black text-white">{driver.resistencia}</span>
+                                <div className="bg-white p-2 rounded-lg border border-slate-200 text-center shadow-sm hover:border-amber-300 transition-colors">
+                                    <span className="text-[8px] text-slate-400 block uppercase font-black">RES</span>
+                                    <span className="text-xs font-black text-slate-800">{driver.resistencia}</span>
                                 </div>
-                                <div className="bg-black/30 p-2 rounded-lg border border-white/5 text-center">
-                                    <span className="text-[7px] text-slate-600 block uppercase font-black">REP</span>
-                                    <span className="text-xs font-black text-white">{driver.reputacao}</span>
+                                <div className="bg-white p-2 rounded-lg border border-slate-200 text-center shadow-sm hover:border-amber-300 transition-colors">
+                                    <span className="text-[8px] text-slate-400 block uppercase font-black">REP</span>
+                                    <span className="text-xs font-black text-slate-800">{driver.reputacao}</span>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
-                                    <span className="text-[7px] text-slate-600 block uppercase font-black">Peso</span>
-                                    <span className="text-xs font-black text-white">{driver.peso} kg</span>
+                                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm text-center hover:border-amber-300 transition-colors">
+                                    <span className="text-[8px] text-slate-400 block uppercase font-black">Peso</span>
+                                    <span className="text-xs font-black text-slate-800">{driver.peso} kg</span>
                                 </div>
-                                <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
-                                    <span className="text-[7px] text-slate-600 block uppercase font-black">Pistas Favoritas</span>
-                                    <span className={`text-xs font-black ${favs > 0 ? 'text-purple-400' : 'text-slate-600'}`}>
+                                <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm text-center hover:border-amber-300 transition-colors">
+                                    <span className="text-[8px] text-slate-400 block uppercase font-black">Pistas Favoritas</span>
+                                    <span className={`text-xs font-black ${favs > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
                                         {favs > 0 ? favs : 'Nenhuma'}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="bg-emerald-500/5 border border-emerald-500/20 p-3 rounded-lg flex items-center justify-between">
-                                <span className="text-[8px] font-black uppercase text-slate-400">Salário</span>
-                                <span className="text-sm font-black text-emerald-400">{formatSalary(driver.salario)}</span>
+                            <div className="bg-gradient-to-r from-emerald-50 to-amber-50 border border-emerald-200/50 p-3 rounded-lg flex items-center justify-between shadow-sm">
+                                <span className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1.5">
+                                    <DollarSign size={12} className="text-emerald-600" /> Salário
+                                </span>
+                                <span className="text-sm font-black text-emerald-600">{formatSalary(driver.salario)}</span>
                             </div>
 
                             <a 
                                 href={`https://www.gpro.net/br/DriverProfile.asp?ID=${driver.id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 w-full bg-white/5 hover:bg-white/10 p-2 rounded-lg text-[8px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-wider"
+                                className="flex items-center justify-center gap-2 w-full bg-slate-100 hover:bg-amber-50 hover:border-amber-300 p-2.5 rounded-lg text-[9px] font-black text-slate-500 hover:text-amber-600 border border-slate-200 transition-all uppercase tracking-wider shadow-sm"
                             >
                                 <Eye size={12} />
                                 Ver no GPRO
@@ -221,20 +231,6 @@ const DriverCard = ({ driver }: { driver: MarketDriver }) => {
         </motion.div>
     );
 };
-
-// ============================================
-// COMPONENTE FILTROS (versão mobile otimizada)
-// ============================================
-const RangeFilterMobile = ({ label, filter, onChange, highlight }: { label: string, filter: any, onChange: any, highlight?: boolean }) => (
-    <div className="flex flex-col gap-1">
-        <span className={`text-[7px] font-black uppercase tracking-widest transition-colors ${highlight ? 'text-blue-400' : 'text-slate-600'}`}>{label}</span>
-        <div className="flex items-center gap-2 h-9 bg-black/40 rounded-lg border border-white/5 px-2 focus-within:border-blue-500/30 transition-all">
-            <input type="number" value={filter.min} onChange={(e)=>onChange('min',Number(e.target.value))} className="w-full bg-transparent text-center text-[10px] font-black text-white outline-none" placeholder="Min" />
-            <div className="h-3 w-px bg-white/5" />
-            <input type="number" value={filter.max} onChange={(e)=>onChange('max',Number(e.target.value))} className="w-full bg-transparent text-center text-[10px] font-black text-white outline-none" placeholder="Max" />
-        </div>
-    </div>
-);
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -289,7 +285,7 @@ export default function MarketPage() {
                     isOpen: true, 
                     type: 'success', 
                     title: 'Mercado Renovado', 
-                    message: `A base antiga foi limpa e ${data.count} novos pilotos foram importados com sucesso. Pilotos contratados foram removidos.` 
+                    message: `A base antiga foi limpa e ${data.count} novos pilotos foram importados com sucesso. Pilotos contratados foram removidos do painel.` 
                 });
                 await loadData();
             } else {
@@ -345,7 +341,6 @@ export default function MarketPage() {
         setCurrentPage(1);
     };
 
-    // Detectar mobile
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -354,46 +349,59 @@ export default function MarketPage() {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
+    // Fechar modal
+    const closeModal = () => setModal({ ...modal, isOpen: false });
+
     if (!userId) return null;
 
     return (
-        <div className="min-h-screen bg-[#050507] text-slate-300 font-mono flex flex-col overflow-hidden">
+        <div className="min-h-screen bg-[#eef2f6] text-slate-700 font-mono flex flex-col overflow-hidden pb-12 relative">
             
-            {/* Header Sticky */}
-            <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 bg-[#050507]/80">
+            {/* GLOWS AMBIENTAIS COM TOQUE DOURADO */}
+            <div className="fixed inset-0 pointer-events-none z-0">
+              <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+              <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/[0.02] blur-[120px] rounded-full" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-amber-500/[0.01] blur-[150px] rounded-full" />
+            </div>
+
+            {/* Header Sticky (Light Gelo com toque dourado) */}
+            <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 shadow-sm hover:shadow-md transition-shadow duration-300 relative z-10">
                 <div className="max-w-[1600px] mx-auto p-3 md:p-4 flex flex-wrap items-center gap-2 md:gap-4">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <div className="bg-blue-600/20 p-1.5 md:p-2 rounded-lg border border-blue-500/30">
-                            <Trophy size={isMobile ? 14 : 18} className="text-blue-400" />
+                        <div className="bg-gradient-to-br from-emerald-50 to-amber-50 border border-amber-200/50 text-amber-600 p-1.5 md:p-2 rounded-lg shadow-sm">
+                            <Trophy size={isMobile ? 14 : 18} />
                         </div>
                         <div className="hidden xs:block">
-                            <h1 className="text-[10px] md:text-xs font-black text-white uppercase tracking-widest leading-none mb-0.5">Mercado de Pilotos</h1>
-                            <p className="text-[7px] md:text-[9px] text-slate-500 font-bold uppercase">{userEmail}</p>
+                            <h1 className="text-[11px] md:text-xs font-black text-slate-900 uppercase tracking-widest leading-none mb-1 flex items-center gap-1.5">
+                                Mercado de Pilotos
+                                <Sparkles size={12} className="text-amber-400" />
+                            </h1>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase">{userEmail}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-1 md:gap-4 ml-auto">
-                        {/* Status Tag - escondido em mobile */}
-                        <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
-                            dbInfo.status === 'updated' ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/5 border-amber-500/20 text-amber-400 animate-pulse'
+                        {/* Status Tag */}
+                        <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all shadow-sm ${
+                            dbInfo.status === 'updated' ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-amber-50 border border-amber-200 text-amber-600 animate-pulse'
                         }`}>
                             {dbInfo.status === 'updated' ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
                             <div className="flex flex-col">
-                                <span className="text-[8px] font-black uppercase leading-none">{dbInfo.label}</span>
-                                <span className="text-[7px] font-bold opacity-60">Sinc: {dbInfo.lastSyncDate || '--/--'}</span>
+                                <span className="text-[9px] font-black uppercase leading-none">{dbInfo.label}</span>
+                                <span className="text-[8px] font-bold opacity-60">Sinc: {dbInfo.lastSyncDate || '--/--'}</span>
                             </div>
                         </div>
 
                         {/* Contadores */}
-                        <div className="flex items-center gap-1 md:gap-3 bg-white/5 px-2 md:px-4 py-1.5 md:py-2 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-1.5 md:gap-3 bg-white px-2 md:px-4 py-1.5 md:py-2 rounded-lg border border-slate-200 shadow-sm hover:border-amber-300/30 transition-colors">
                             <div className="flex flex-col items-center">
-                                <span className="text-[6px] md:text-[8px] text-slate-600 font-black uppercase tracking-tighter">Base</span>
-                                <span className="text-[10px] md:text-xs text-white font-black">{drivers.length}</span>
+                                <span className="text-[7px] md:text-[9px] text-slate-400 font-black uppercase tracking-tighter">Base</span>
+                                <span className="text-[11px] md:text-xs text-slate-800 font-black">{drivers.length}</span>
                             </div>
-                            <div className="w-px h-3 md:h-4 bg-white/10" />
+                            <div className="w-px h-3 md:h-4 bg-slate-200" />
                             <div className="flex flex-col items-center">
-                                <span className="text-[6px] md:text-[8px] text-blue-500 font-black uppercase tracking-tighter">Filtro</span>
-                                <span className="text-[10px] md:text-xs text-blue-400 font-black">{filteredDrivers.length}</span>
+                                <span className="text-[7px] md:text-[9px] text-emerald-600 font-black uppercase tracking-tighter">Filtro</span>
+                                <span className="text-[11px] md:text-xs text-emerald-600 font-black">{filteredDrivers.length}</span>
                             </div>
                         </div>
 
@@ -401,91 +409,92 @@ export default function MarketPage() {
                         {isMobile && (
                             <button 
                                 onClick={() => setViewMode(viewMode === 'table' ? 'cards' : 'table')}
-                                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-all flex items-center gap-1.5"
+                                className="p-2 bg-white hover:bg-amber-50 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5 hover:border-amber-300 transition-all"
                             >
                                 {viewMode === 'table' ? (
                                     <>
-                                        <LayoutGrid size={14} className="text-blue-400" />
-                                        <span className="text-[7px] font-black text-blue-400 uppercase">Cards</span>
+                                        <LayoutGrid size={14} className="text-amber-600" />
+                                        <span className="text-[8px] font-black text-amber-600 uppercase">Cards</span>
                                     </>
                                 ) : (
                                     <>
                                         <Table size={14} className="text-slate-400" />
-                                        <span className="text-[7px] font-black text-slate-400 uppercase">Tabela</span>
+                                        <span className="text-[8px] font-black text-slate-400 uppercase">Tabela</span>
                                     </>
                                 )}
                             </button>
                         )}
 
-                        <button onClick={() => setIsFilterOpen(true)} className="p-2 md:p-3 bg-white/5 hover:bg-white/10 rounded-lg md:rounded-xl border border-white/10 transition-all relative">
-                            <Filter size={isMobile ? 14 : 16} className="text-blue-400" />
-                            {filteredDrivers.length !== drivers.length && <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full border-2 border-[#050507]" />}
+                        <button onClick={() => setIsFilterOpen(true)} className="p-2 md:p-3 bg-white hover:bg-amber-50 rounded-lg md:rounded-xl border border-slate-200 hover:border-amber-300 hover:text-amber-600 transition-all relative shadow-sm">
+                            <Filter size={isMobile ? 14 : 16} className="text-amber-600" />
+                            {filteredDrivers.length !== drivers.length && <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full border-2 border-[#eef2f6]" />}
                         </button>
 
-                        <button onClick={handleUpdateDatabase} disabled={syncing} className="p-2 md:p-3 md:px-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg md:rounded-xl shadow-lg transition-all flex items-center gap-1 md:gap-2 border border-blue-400/20 disabled:opacity-50">
+                        <button onClick={handleUpdateDatabase} disabled={syncing} className="p-2 md:p-3 md:px-5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-lg md:rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-1 md:gap-2 border border-emerald-400/20 disabled:opacity-50 active:scale-95">
                             <RefreshCw size={isMobile ? 12 : 16} className={syncing ? 'animate-spin' : ''} />
-                            <span className="hidden sm:inline text-[8px] md:text-[10px] font-black uppercase tracking-widest">{syncing ? 'Sincronizando...' : 'Sincronizar'}</span>
+                            <span className="hidden sm:inline text-[9px] md:text-[11px] font-black uppercase tracking-widest">{syncing ? 'Sincronizando...' : 'Sincronizar'}</span>
                         </button>
                     </div>
                 </div>
             </header>
 
-            <main className="flex-1 overflow-hidden flex flex-col relative">
+            <main className="flex-1 overflow-hidden flex flex-col relative z-10">
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     
                     {/* MODO TABELA - Desktop sempre visível, mobile quando selecionado */}
-                    <div className={`${!isMobile || viewMode === 'table' ? 'block' : 'hidden'} w-full overflow-x-auto`}>
+                    <div className={`${!isMobile || viewMode === 'table' ? 'block' : 'hidden'} w-full overflow-x-auto bg-white`}>
                         <table className="w-full text-left border-collapse">
-                            <thead className="sticky top-0 z-30 bg-[#0b0b0e] shadow-xl">
+                            <thead className="sticky top-0 z-30 bg-gradient-to-r from-slate-100 to-slate-50 shadow-md">
                                 <tr>
-                                    <th onClick={()=>handleSort('nome')} className="p-4 pl-6 text-left border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group sticky left-0 z-40 bg-[#0b0b0e] border-r border-white/5 text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">
+                                    <th onClick={()=>handleSort('nome')} className="p-4 pl-6 text-left border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group sticky left-0 z-40 bg-gradient-to-r from-slate-100 to-slate-50 border-r border-slate-200 text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500 shadow-sm">
                                         <div className="flex items-center gap-1.5">Piloto {sortConfig?.key === 'nome' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</div>
                                     </th>
-                                    <th onClick={()=>handleSort('idade')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">Age {sortConfig?.key === 'idade' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('total')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">OA {sortConfig?.key === 'total' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('talento')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">TAL {sortConfig?.key === 'talento' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('concentracao')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">CON {sortConfig?.key === 'concentracao' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('agressividade')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">AGR {sortConfig?.key === 'agressividade' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('experiencia')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">EXP {sortConfig?.key === 'experiencia' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('tecnica')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">TEC {sortConfig?.key === 'tecnica' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('resistencia')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">RES {sortConfig?.key === 'resistencia' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('reputacao')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">REP {sortConfig?.key === 'reputacao' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('peso')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">WEI {sortConfig?.key === 'peso' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('ofertas')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">OFF {sortConfig?.key === 'ofertas' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('favorito')} className="p-4 text-center border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">FAV {sortConfig?.key === 'favorito' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                                    <th onClick={()=>handleSort('salario')} className="p-4 text-right pr-8 border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors group text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">SALÁRIO {sortConfig?.key === 'salario' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('idade')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">Age {sortConfig?.key === 'idade' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('total')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">OA {sortConfig?.key === 'total' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('talento')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">TAL {sortConfig?.key === 'talento' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('concentracao')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">CON {sortConfig?.key === 'concentracao' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('agressividade')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">AGR {sortConfig?.key === 'agressividade' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('experiencia')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">EXP {sortConfig?.key === 'experiencia' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('tecnica')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">TEC {sortConfig?.key === 'tecnica' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('resistencia')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">RES {sortConfig?.key === 'resistencia' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('reputacao')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">REP {sortConfig?.key === 'reputacao' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('peso')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">WEI {sortConfig?.key === 'peso' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('ofertas')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">OFF {sortConfig?.key === 'ofertas' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('favorito')} className="p-4 text-center border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">FAV {sortConfig?.key === 'favorito' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                                    <th onClick={()=>handleSort('salario')} className="p-4 text-right pr-8 border-b border-slate-200 cursor-pointer hover:bg-amber-50/50 transition-colors group text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap text-slate-500">SALÁRIO {sortConfig?.key === 'salario' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/[0.02]">
+                            <tbody className="divide-y divide-slate-150">
                                 {loading ? (
-                                    Array(10).fill(0).map((_, i) => (<tr key={i} className="animate-pulse"><td colSpan={14} className="p-8 bg-white/[0.01]" /></tr>))
+                                    Array(10).fill(0).map((_, i) => (<tr key={i} className="animate-pulse"><td colSpan={14} className="p-8 bg-slate-50/50" /></tr>))
                                 ) : paginatedDrivers.map((driver) => {
                                     const flagCode = getFlagCode(driver.nacionalidade);
                                     const favs = countFavTracks(driver.favorito);
+                                    const decodedName = decodeName(driver.nome);
                                     return (
-                                        <tr key={driver.id} className="group hover:bg-blue-500/[0.03] transition-colors">
-                                            <td className="p-4 pl-6 sticky left-0 bg-[#050507] group-hover:bg-[#0b0b11] border-r border-white/5 z-20 transition-colors shadow-2xl">
+                                        <tr key={driver.id} className="group hover:bg-amber-50/30 transition-colors bg-white">
+                                            <td className="p-4 pl-6 sticky left-0 bg-white group-hover:bg-amber-50/30 border-r border-slate-200 z-20 transition-colors shadow-sm">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="relative w-5 h-3 shrink-0 rounded-[1px] overflow-hidden border border-white/10"><Image src={`/flags/${flagCode}.png`} alt={driver.nacionalidade} fill className="object-cover" /></div>
+                                                    <div className="relative w-5 h-3.5 shrink-0 rounded-sm overflow-hidden border border-slate-200 shadow-sm"><Image src={`/flags/${flagCode}.png`} alt={driver.nacionalidade} fill className="object-cover" /></div>
                                                     <div className="flex flex-col">
-                                                        <a href={`https://www.gpro.net/br/DriverProfile.asp?ID=${driver.id}`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-black text-white hover:text-blue-400 transition truncate uppercase tracking-tight">{driver.nome}</a>
-                                                        <span className="text-[7px] text-slate-600 font-bold uppercase tracking-widest">GPRO ID: {driver.id}</span>
+                                                        <a href={`https://www.gpro.net/br/DriverProfile.asp?ID=${driver.id}`} target="_blank" rel="noopener noreferrer" className="text-[12px] font-black text-slate-800 hover:text-amber-600 transition truncate uppercase tracking-tight">{decodedName}</a>
+                                                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">GPRO ID: {driver.id}</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-center text-[10px] font-bold text-slate-400">{driver.idade}</td>
-                                            <td className="p-4 text-center"><span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-[10px] font-black border border-blue-500/20">{driver.total}</span></td>
-                                            <td className="p-4 text-center"><span className="bg-amber-500/10 text-amber-400 px-2 py-1 rounded text-[10px] font-black border border-blue-500/20">{driver.talento}</span></td>
-                                            <td className="p-4 text-center text-slate-500 text-[10px]">{driver.concentracao}</td>
-                                            <td className="p-4 text-center text-slate-500 text-[10px]">{driver.agressividade}</td>
-                                            <td className="p-4 text-center text-slate-500 text-[10px] font-bold">{driver.experiencia}</td>
-                                            <td className="p-4 text-center text-slate-500 text-[10px]">{driver.tecnica}</td>
-                                            <td className="p-4 text-center text-slate-500 text-[10px]">{driver.resistencia}</td>
-                                            <td className="p-4 text-center text-slate-500 text-[10px]">{driver.reputacao}</td>
-                                            <td className="p-4 text-center text-slate-500 text-[10px]">{driver.peso}kg</td>
-                                            <td className="p-4 text-center">{driver.ofertas > 0 ? <span className="bg-rose-500 text-black px-1.5 py-0.5 rounded text-[9px] font-black shadow-[0_0_10px_rgba(244,63,94,0.3)]">{driver.ofertas}</span> : <span className="text-slate-800">-</span>}</td>
-                                            <td className="p-4 text-center">{favs > 0 ? <span className="bg-purple-500/20 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded text-[9px] font-black">{favs}</span> : <span className="text-slate-800">-</span>}</td>
-                                            <td className="p-4 text-right pr-8"><span className="text-emerald-400 font-black text-[11px]">{formatSalary(driver.salario)}</span></td>
+                                            <td className="p-4 text-center text-[11px] font-bold text-slate-600">{driver.idade}</td>
+                                            <td className="p-4 text-center"><span className="bg-gradient-to-r from-emerald-50 to-amber-50 text-emerald-600 px-2 py-1 rounded text-[11px] font-black border border-emerald-250/50 shadow-sm">{driver.total}</span></td>
+                                            <td className="p-4 text-center"><span className="bg-amber-50 text-amber-600 px-2 py-1 rounded text-[11px] font-black border border-amber-250 shadow-sm">{driver.talento}</span></td>
+                                            <td className="p-4 text-center text-slate-500 text-[11px]">{driver.concentracao}</td>
+                                            <td className="p-4 text-center text-slate-500 text-[11px]">{driver.agressividade}</td>
+                                            <td className="p-4 text-center text-slate-600 text-[11px] font-bold">{driver.experiencia}</td>
+                                            <td className="p-4 text-center text-slate-500 text-[11px]">{driver.tecnica}</td>
+                                            <td className="p-4 text-center text-slate-500 text-[11px]">{driver.resistencia}</td>
+                                            <td className="p-4 text-center text-slate-500 text-[11px]">{driver.reputacao}</td>
+                                            <td className="p-4 text-center text-slate-500 text-[11px]">{driver.peso}kg</td>
+                                            <td className="p-4 text-center">{driver.ofertas > 0 ? <span className="bg-rose-50 border border-rose-250 text-rose-600 px-1.5 py-0.5 rounded text-[10px] font-black shadow-sm animate-pulse-subtle">{driver.ofertas}</span> : <span className="text-slate-300">-</span>}</td>
+                                            <td className="p-4 text-center">{favs > 0 ? <span className="bg-amber-50 border border-amber-200 text-amber-600 px-2 py-0.5 rounded text-[10px] font-black shadow-sm">{favs}</span> : <span className="text-slate-300">-</span>}</td>
+                                            <td className="p-4 text-right pr-8"><span className="text-emerald-600 font-black text-[12px]">{formatSalary(driver.salario)}</span></td>
                                         </tr>
                                     )
                                 })}
@@ -498,12 +507,12 @@ export default function MarketPage() {
                         <div className="p-3 space-y-3 max-w-lg mx-auto">
                             {loading ? (
                                 Array(5).fill(0).map((_, i) => (
-                                    <div key={i} className="bg-zinc-950/60 border border-white/5 rounded-xl p-4 animate-pulse">
+                                    <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 animate-pulse">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-white/5 rounded-lg" />
+                                            <div className="w-10 h-10 bg-slate-50 rounded-lg" />
                                             <div className="flex-1">
-                                                <div className="h-4 bg-white/5 rounded w-3/4" />
-                                                <div className="h-3 bg-white/5 rounded w-1/2 mt-1" />
+                                                <div className="h-4 bg-slate-100 rounded w-3/4" />
+                                                <div className="h-3 bg-slate-100 rounded w-1/2 mt-1" />
                                             </div>
                                         </div>
                                     </div>
@@ -515,69 +524,58 @@ export default function MarketPage() {
                     )}
                 </div>
 
-                {/* Paginação */}
-                <div className="p-3 md:p-4 border-t border-white/5 bg-[#0b0b0e] flex items-center justify-center gap-2 md:gap-3">
-                    <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1.5 md:p-2 hover:text-blue-400 disabled:opacity-20 transition-all"><ChevronsLeft size={isMobile ? 14 : 18} /></button>
-                    <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-1.5 md:p-2 hover:text-blue-400 disabled:opacity-20 transition-all"><ChevronLeft size={isMobile ? 14 : 18} /></button>
-                    <div className="flex items-center gap-2 bg-white/5 px-3 md:px-4 py-1 md:py-1.5 rounded-lg border border-white/5 mx-1 md:mx-2 shadow-inner">
-                        <span className="text-[10px] md:text-[11px] text-blue-400 font-black">{currentPage} / {totalPages || 1}</span>
+                {/* Paginação com toque dourado */}
+                <div className="p-3 md:p-4 border-t border-slate-200 bg-gradient-to-r from-slate-100 to-slate-50 flex items-center justify-center gap-2 md:gap-3 relative z-20">
+                    <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1.5 md:p-2 hover:text-amber-600 disabled:opacity-20 transition-all"><ChevronsLeft size={isMobile ? 14 : 18} /></button>
+                    <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="p-1.5 md:p-2 hover:text-amber-600 disabled:opacity-20 transition-all"><ChevronLeft size={isMobile ? 14 : 18} /></button>
+                    <div className="flex items-center gap-2 bg-white px-3 md:px-4 py-1 md:py-1.5 rounded-lg border border-slate-200 mx-1 md:mx-2 shadow-sm hover:border-amber-300/30 transition-colors">
+                        <span className="text-[11px] md:text-[12px] text-amber-600 font-black">{currentPage} / {totalPages || 1}</span>
                     </div>
-                    <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="p-1.5 md:p-2 hover:text-blue-400 disabled:opacity-20 transition-all"><ChevronRight size={isMobile ? 14 : 18} /></button>
-                    <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-1.5 md:p-2 hover:text-blue-400 disabled:opacity-20 transition-all"><ChevronsRight size={isMobile ? 14 : 18} /></button>
+                    <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="p-1.5 md:p-2 hover:text-amber-600 disabled:opacity-20 transition-all"><ChevronRight size={isMobile ? 14 : 18} /></button>
+                    <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-1.5 md:p-2 hover:text-amber-600 disabled:opacity-20 transition-all"><ChevronsRight size={isMobile ? 14 : 18} /></button>
                 </div>
             </main>
 
-            {/* Bottom Sheet Filtros Avançados */}
+            {/* Bottom Sheet Filtros Avançados com toque dourado */}
             <AnimatePresence>
                 {isFilterOpen && (
                     <div className="fixed inset-0 z-[100] flex items-end justify-center">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsFilterOpen(false)} />
-                        <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="bg-[#0f0f12] border-t border-white/10 w-full max-w-4xl rounded-t-[2.5rem] shadow-2xl relative z-10 overflow-hidden">
-                            <div className="h-1.5 w-full bg-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.4)]" />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsFilterOpen(false)} />
+                        <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="bg-white border-t border-slate-200 w-full max-w-4xl rounded-t-[2.5rem] shadow-2xl relative z-10 overflow-hidden bg-white">
+                            <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-amber-500 to-emerald-500 shadow-md" />
                             <div className="p-4 md:p-10">
                                 <div className="flex justify-between items-center mb-6 md:mb-8">
                                     <div className="flex items-center gap-3 md:gap-4">
-                                        <div className="bg-blue-600/20 p-1.5 md:p-2 rounded-lg"><Filter className="text-blue-500" size={isMobile ? 16 : 20} /></div>
-                                        <h3 className="text-base md:text-xl font-black text-white uppercase">Filtros Avançados</h3>
+                                        <div className="bg-gradient-to-br from-emerald-50 to-amber-50 border border-amber-200/50 p-1.5 md:p-2 rounded-lg"><Filter className="text-amber-600" size={isMobile ? 16 : 20} /></div>
+                                        <h3 className="text-base md:text-xl font-black text-slate-800 uppercase flex items-center gap-1.5">
+                                            Filtros Avançados
+                                            <Sparkles size={14} className="text-amber-400" />
+                                        </h3>
                                     </div>
                                     <div className="flex items-center gap-3 md:gap-6">
-                                        <button onClick={() => setFilters(INITIAL_FILTERS)} className="text-[8px] md:text-[10px] font-black text-slate-500 uppercase hover:text-blue-400">Resetar</button>
-                                        <button onClick={() => setIsFilterOpen(false)} className="bg-white/5 p-1.5 md:p-2 rounded-full text-slate-500 hover:text-white transition-colors"><X size={isMobile ? 16 : 20} /></button>
+                                        <button onClick={() => setFilters(INITIAL_FILTERS)} className="text-[9px] md:text-[11px] font-black text-slate-400 uppercase hover:text-amber-600 transition">Resetar</button>
+                                        <button onClick={() => setIsFilterOpen(false)} className="bg-slate-100 p-1.5 md:p-2 rounded-full text-slate-500 hover:text-slate-800 transition-colors"><X size={16} /></button>
                                     </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[60vh] overflow-y-auto pr-1">
+                                    <RangeFilterMobile label="OA" filter={filters.total} onChange={(t: any, v: any) => updateFilter('total', t, v)} highlight />
+                                    <RangeFilterMobile label="Talento" filter={filters.talento} onChange={(t: any, v: any) => updateFilter('talento', t, v)} />
+                                    <RangeFilterMobile label="Concentração" filter={filters.concentracao} onChange={(t: any, v: any) => updateFilter('concentracao', t, v)} />
+                                    <RangeFilterMobile label="Agressividade" filter={filters.agressividade} onChange={(t: any, v: any) => updateFilter('agressividade', t, v)} />
+                                    <RangeFilterMobile label="Experiência" filter={filters.experiencia} onChange={(t: any, v: any) => updateFilter('experiencia', t, v)} />
+                                    <RangeFilterMobile label="Técnica" filter={filters.tecnica} onChange={(t: any, v: any) => updateFilter('tecnica', t, v)} />
+                                    <RangeFilterMobile label="Resistência" filter={filters.resistencia} onChange={(t: any, v: any) => updateFilter('resistencia', t, v)} />
+                                    <RangeFilterMobile label="Reputação" filter={filters.reputacao} onChange={(t: any, v: any) => updateFilter('reputacao', t, v)} />
+                                    <RangeFilterMobile label="Peso" filter={filters.peso} onChange={(t: any, v: any) => updateFilter('peso', t, v)} />
+                                    <RangeFilterMobile label="Idade" filter={filters.idade} onChange={(t: any, v: any) => updateFilter('idade', t, v)} />
+                                    <RangeFilterMobile label="Salário" filter={filters.salario} onChange={(t: any, v: any) => updateFilter('salario', t, v)} />
+                                    <RangeFilterMobile label="Ofertas" filter={filters.ofertas} onChange={(t: any, v: any) => updateFilter('ofertas', t, v)} />
                                 </div>
 
-                                <div className="space-y-6 md:space-y-10 max-h-[65vh] overflow-y-auto pr-2 md:pr-4 custom-scrollbar pb-10">
-                                    <div className="space-y-3 md:space-y-4">
-                                        <h4 className="text-[9px] md:text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-2"><Trophy size={isMobile ? 12 : 14} /> Performance Principal</h4>
-                                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-4">
-                                            <RangeFilterMobile label="OA Total" filter={filters.total} onChange={(t:any, v:any) => updateFilter('total', t, v)} highlight />
-                                            <RangeFilterMobile label="Talento" filter={filters.talento} onChange={(t:any, v:any) => updateFilter('talento', t, v)} highlight />
-                                            <RangeFilterMobile label="Agressividade" filter={filters.agressividade} onChange={(t:any, v:any) => updateFilter('agressividade', t, v)} />
-                                            <RangeFilterMobile label="Concentração" filter={filters.concentracao} onChange={(t:any, v:any) => updateFilter('concentracao', t, v)} />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3 md:space-y-4">
-                                        <h4 className="text-[9px] md:text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] flex items-center gap-2"><Zap size={isMobile ? 12 : 14} /> Habilidades Técnicas</h4>
-                                        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-4">
-                                            <RangeFilterMobile label="Experiência" filter={filters.experiencia} onChange={(t:any, v:any) => updateFilter('experiencia', t, v)} />
-                                            <RangeFilterMobile label="Técnica" filter={filters.tecnica} onChange={(t:any, v:any) => updateFilter('tecnica', t, v)} />
-                                            <RangeFilterMobile label="Resistência" filter={filters.resistencia} onChange={(t:any, v:any) => updateFilter('resistencia', t, v)} />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3 md:space-y-4">
-                                        <h4 className="text-[9px] md:text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2"><DollarSign size={isMobile ? 12 : 14} /> Perfil & Contrato</h4>
-                                        <div className="grid grid-cols-2 gap-2 md:grid-cols-5 md:gap-4">
-                                            <RangeFilterMobile label="Idade" filter={filters.idade} onChange={(t:any, v:any) => updateFilter('idade', t, v)} />
-                                            <RangeFilterMobile label="Peso (kg)" filter={filters.peso} onChange={(t:any, v:any) => updateFilter('peso', t, v)} />
-                                            <RangeFilterMobile label="Reputação" filter={filters.reputacao} onChange={(t:any, v:any) => updateFilter('reputacao', t, v)} />
-                                            <RangeFilterMobile label="Ofertas" filter={filters.ofertas} onChange={(t:any, v:any) => updateFilter('ofertas', t, v)} highlight />
-                                            <div className="col-span-2 md:col-span-1"><RangeFilterMobile label="Salário" filter={filters.salario} onChange={(t:any, v:any) => updateFilter('salario', t, v)} /></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="pt-4 md:pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4">
-                                    <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase">Encontrados: <span className="text-blue-400">{filteredDrivers.length} pilotos</span></p>
-                                    <button onClick={() => setIsFilterOpen(false)} className="w-full md:w-64 h-12 md:h-14 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[10px] md:text-xs rounded-xl md:rounded-2xl transition-all">Aplicar Filtros</button>
+                                <div className="mt-8 flex gap-3">
+                                    <button onClick={() => setIsFilterOpen(false)} className="flex-1 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-[10px] uppercase transition-all shadow-sm hover:shadow-md">Fechar</button>
+                                    <button onClick={() => setIsFilterOpen(false)} className="flex-1 h-11 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md hover:shadow-lg active:scale-95">Aplicar Filtros</button>
                                 </div>
                             </div>
                         </motion.div>
@@ -585,19 +583,24 @@ export default function MarketPage() {
                 )}
             </AnimatePresence>
 
-            {/* Modals de Feedback */}
+            {/* MODAL SYSTEM com toque dourado */}
             <AnimatePresence>
                 {modal.isOpen && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setModal({ ...modal, isOpen: false })} />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#0f0f12] border border-white/10 w-full max-w-sm rounded-2xl shadow-2xl relative z-10 p-6 overflow-hidden">
-                            <div className={`absolute top-0 left-0 h-1 w-full ${modal.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                            <div className="flex items-center gap-3 mb-4 mt-2">
-                                {modal.type === 'success' ? <CheckCircle2 className="text-emerald-500" size={24} /> : <ShieldAlert className="text-rose-500" size={24} />}
-                                <h3 className="text-base font-black text-white uppercase">{modal.title}</h3>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={closeModal} />
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-white border border-slate-200 w-full max-w-xs rounded-2xl shadow-2xl relative z-10 overflow-hidden">
+                            <div className={`h-1 w-full ${modal.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-amber-500' : 'bg-rose-500'}`} />
+                            <div className="p-5 text-left bg-white">
+                                <div className="flex items-center gap-3 mb-4 mt-2">
+                                    {modal.type === 'success' ? <CheckCircle2 className="text-emerald-500" size={24} /> : <ShieldAlert className="text-rose-500" size={24} />}
+                                    <h3 className="text-base font-black text-slate-800 uppercase flex items-center gap-1.5">
+                                        {modal.type === 'success' && <Crown size={16} className="text-amber-500" />}
+                                        {modal.title}
+                                    </h3>
+                                </div>
+                                <p className="text-slate-500 text-xs font-bold leading-relaxed mb-8">{modal.message}</p>
+                                <button onClick={closeModal} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-md">Fechar</button>
                             </div>
-                            <p className="text-slate-400 text-xs font-bold leading-relaxed mb-8">{modal.message}</p>
-                            <button onClick={() => setModal({ ...modal, isOpen: false })} className="w-full bg-white/5 hover:bg-white/10 text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Fechar</button>
                         </motion.div>
                     </div>
                 )}
@@ -606,7 +609,7 @@ export default function MarketPage() {
             <style jsx global>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 3px; height: 3px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
                 
                 @media (max-width: 480px) {
                     .xs\\:block { display: block; }
@@ -615,6 +618,21 @@ export default function MarketPage() {
                     .xs\\:block { display: none; }
                 }
             `}</style>
+        </div>
+    );
+}
+
+// --- SUB-COMPONENTES OTIMIZADOS ---
+
+function RangeFilterMobile({ label, filter, onChange, highlight }: { label: string, filter: any, onChange: any, highlight?: boolean }) {
+    return (
+        <div className="flex flex-col gap-1">
+            <span className={`text-[8px] font-black uppercase tracking-widest transition-colors ${highlight ? 'text-amber-600 font-bold' : 'text-slate-400'}`}>{label}</span>
+            <div className="flex items-center gap-2 h-9 bg-white rounded-lg border border-slate-200 px-2 focus-within:border-amber-500 shadow-sm hover:border-slate-300 transition-all">
+                <input type="number" value={filter.min} onChange={(e)=>onChange('min',Number(e.target.value))} className="w-full bg-transparent text-center text-xs font-black text-slate-800 outline-none" placeholder="Min" />
+                <div className="h-3 w-px bg-slate-200" />
+                <input type="number" value={filter.max} onChange={(e)=>onChange('max',Number(e.target.value))} className="w-full bg-transparent text-center text-xs font-black text-slate-800 outline-none" placeholder="Max" />
+            </div>
         </div>
     );
 }

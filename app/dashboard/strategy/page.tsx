@@ -39,23 +39,11 @@ const TYRE_NAMES: Record<string, string> = {
     "Rain": "Chuva"
 };
 
-/**
- * Helper para limitar valores de setup aos limites operacionais do GPRO
- * 
- * LIMITES:
- * - Mínimo: 0
- * - Máximo: 999
- * 
- * APLICAÇÃO APENAS NA RENDERIZAÇÃO
- * Não altera os dados originais do cálculo
- */
 const clampSetupDisplay = (value: unknown): unknown => {
   const num = Number(value);
-  
   if (Number.isNaN(num)) {
     return value;
   }
-  
   return Math.max(0, Math.min(999, num));
 };
 
@@ -66,6 +54,11 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
     const [search, setSearch] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
     
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) { if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false); }
+        document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     const filteredTracks = useMemo(() => {
         return tracksList.filter((track: any) => {
             const name = typeof track === 'object' ? (track.name || "") : (track || "");
@@ -75,34 +68,34 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
 
     return (
         <div className="relative z-50 w-full md:w-auto" ref={dropdownRef}>
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full md:w-auto flex items-center justify-between gap-3 text-white font-black hover:text-indigo-400 outline-none group bg-black/40 px-3 py-2 rounded-lg border border-white/10">
+            <button onClick={() => setIsOpen(!isOpen)} className="w-full md:w-auto flex items-center justify-between gap-3 text-slate-800 font-black hover:text-emerald-600 outline-none group bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm transition-all text-xs">
                 <span className="truncate">{currentTrack && currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : placeholder}</span>
-                <ChevronDown size={16} />
+                <ChevronDown size={14} className="text-slate-400 group-hover:text-emerald-600" />
             </button>
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div className="absolute top-full left-0 mt-2 w-full md:w-[300px] bg-[#0F0F13] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[60]">
-                        <div className="p-3 border-b border-white/5 bg-white/[0.02]">
-                            <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white" />
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-full md:w-[300px] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden z-[60]">
+                        <div className="p-3 border-b border-slate-100 bg-slate-50">
+                            <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:border-emerald-500" />
                         </div>
-                        <div className="max-h-[300px] overflow-y-auto p-1">
+                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1.5 bg-white space-y-0.5">
                             {filteredTracks.map((track: any) => {
                                 const name = typeof track === 'object' ? track.name : track;
                                 return (
                                     <button 
                                         key={name} 
                                         onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }} 
-                                        className="w-full flex items-center justify-between p-3 text-xs text-left hover:bg-white/[0.02] text-white transition-colors"
+                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-left hover:bg-slate-50 transition-colors ${currentTrack === name ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
                                     >
                                         <div className="flex items-center gap-3">
                                             {TRACK_FLAGS[name] ? (
                                                 <img 
                                                     src={`/flags/${TRACK_FLAGS[name]}.png`} 
                                                     alt={name} 
-                                                    className="w-5 h-3 object-cover rounded-sm shadow-sm" 
+                                                    className="w-5 h-3.5 object-cover rounded-sm border border-slate-200 shadow-sm" 
                                                 />
                                             ) : (
-                                                <div className="w-5 h-3 bg-white/10 rounded-sm"></div>
+                                                <div className="w-5 h-3 bg-slate-100 rounded-sm border border-slate-200"></div>
                                             )}
                                             {name}
                                         </div>
@@ -132,8 +125,8 @@ function ConfigInput({ label, value, onChange, max }: { label: string, value: nu
     };
 
     return (
-        <div className="bg-black/40 p-3 rounded-lg border border-white/5">
-            <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">{label}</label>
+        <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-500/20 transition-all">
+            <label className="text-[9px] font-black text-slate-500 uppercase block mb-1.5 tracking-wider">{label}</label>
             <div className="flex items-center">
                 <input 
                     type="number" 
@@ -141,7 +134,7 @@ function ConfigInput({ label, value, onChange, max }: { label: string, value: nu
                     value={value || ''} 
                     onChange={handleChange}
                     onFocus={(e) => e.target.select()}
-                    className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0"
+                    className="bg-transparent font-black text-sm text-slate-800 outline-none w-full min-w-0"
                     placeholder="0"
                 />
             </div>
@@ -154,58 +147,62 @@ function SupplierCarousel({ options, value, onChange }: { options: string[], val
 
     useEffect(() => { setImgError(false); }, [value]);
 
-    if (!options || options.length === 0) return <div className="bg-black/40 p-3 rounded-lg border border-white/5 text-[9px] text-slate-500">Sem Opções</div>;
+    if (!options || options.length === 0) return <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-[10px] text-slate-400 font-bold">Sem Opções</div>;
     
     const currentIndex = options.findIndex(o => o === value);
     const handleNext = () => onChange(options[(currentIndex + 1) % options.length] || options[0]);
     const handlePrev = () => onChange(options[(currentIndex - 1 + options.length) % options.length] || options[0]);
 
     return (
-        <div className="flex items-center justify-between bg-black/40 p-2 rounded-lg border border-white/5 select-none h-[60px]">
-            <button onClick={handlePrev} className="text-slate-500 hover:text-white transition-colors p-2"><ChevronLeft size={16}/></button>
-            <div className="flex items-center justify-center flex-1 h-full">
-                {value && !imgError ? (
-                    <img 
-                        src={`/tyres/${value.toString().toLowerCase().trim()}.gif`} 
-                        alt={value} 
-                        className="h-10 w-auto object-contain drop-shadow-md transition-all"
-                        onError={() => setImgError(true)} 
-                    />
+        <div className="flex items-center justify-between bg-[#f8fafc] p-2 rounded-xl border border-slate-200 h-10 w-full overflow-hidden shadow-sm hover:border-emerald-500/10 transition-all">
+            <button onClick={handlePrev} className="text-slate-400 hover:text-slate-800 p-1.5 transition-colors"><ChevronLeft size={16} /></button>
+            <div className="flex-1 flex justify-center items-center h-full">
+                {imgError || !value ? (
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">{value || 'Nenhum'}</span>
                 ) : (
-                    <span className="font-black text-[10px] text-indigo-400 uppercase tracking-widest truncate max-w-[120px] text-center">
-                        {value || "Selecione"}
-                    </span>
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">{value}</span>
                 )}
             </div>
-            <button onClick={handleNext} className="text-slate-500 hover:text-white transition-colors p-2"><ChevronRight size={16}/></button>
+            <button onClick={handleNext} className="text-slate-400 hover:text-slate-800 p-1.5 transition-colors"><ChevronRight size={16} /></button>
         </div>
     )
 }
 
-function BoostSection({ inputs, handleInput, outputs, className }: { inputs: InputsState, handleInput: any, outputs: any, className?: string }) {
+// --- BOOST PANEL COMPONENT ---
+function BoostSection({ className, inputs, handleInput, outputs }: any) {
     return (
-        <section className={`bg-white/[0.02] rounded-2xl border border-white/5 overflow-hidden ${className}`}>
-            <div className="bg-white/5 p-4 border-b border-white/5"><h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-white"><Zap size={14} className="text-amber-400"/> Boost - Ajuste Manual</h3></div>
-            <div className="p-4 md:p-6 space-y-4">
+        <section className={`bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200 overflow-hidden shadow-sm ${className}`}>
+            <div className="bg-zinc-50 p-3.5 border-b border-slate-200">
+                <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-800">
+                    <Zap size={14} className="text-amber-500"/> Boost - Ajuste Manual
+                </h3>
+            </div>
+            <div className="p-4 space-y-3.5">
                 {[1, 2, 3].map(i => {
                     const bKey = `boost${i}` as keyof BoostLapsInput;
                     return (
-                        <div key={i} className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-white/5 group hover:border-amber-500/30 transition-all">
-                            <span className="text-[9px] font-black text-slate-500 uppercase group-hover:text-amber-500">B{i}</span>
-                            <input type="number" placeholder="Volta" value={inputs.boost_laps[bKey]?.volta ?? ''} onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} className="w-16 bg-black/60 border border-white/10 rounded p-2 text-center font-black text-xs text-white focus:border-amber-500 outline-none" />
+                        <div key={i} className="flex items-center justify-between bg-[#f8fafc] p-3 rounded-xl border border-slate-150 group hover:border-amber-500/30 transition-all shadow-sm">
+                            <span className="text-[10px] font-black text-slate-400 uppercase group-hover:text-amber-600">B{i}</span>
+                            <input 
+                              type="number" 
+                              placeholder="Volta" 
+                              value={inputs.boost_laps[bKey]?.volta ?? ''} 
+                              onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} 
+                              className="w-16 bg-white border border-slate-200 rounded p-2 text-center font-black text-xs text-slate-800 focus:border-amber-500 outline-none" 
+                            />
                             <div className="flex flex-col items-end leading-tight">
-                                <span className="text-[7px] text-slate-600 font-black uppercase">Seq / Stints</span>
-                                <span className="text-[10px] text-amber-500 font-black tracking-tighter">{outputs?.boost_laps_outputs?.[bKey]?.stint || '-'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '-'}</span>
+                                <span className="text-[8px] text-slate-400 font-black uppercase">Seq / Stints</span>
+                                <span className="text-[11px] text-amber-600 font-black tracking-tighter">{outputs?.boost_laps_outputs?.[bKey]?.stint || '-'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '-'}</span>
                             </div>
                         </div>
                     )
                 })}
-                <div className="grid grid-cols-4 gap-2 pt-4 border-t border-white/5">
+                <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-200">
                   {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="bg-black/40 p-2 rounded border border-white/5 text-center">
-                      <span className="text-[7px] text-slate-600 font-black block uppercase mb-1">S{i}</span>
-                      <div className="text-white font-black text-[9px] leading-none mb-1">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val1 || '--'}</div>
-                      <div className="text-amber-500 font-black text-[7px]">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val2 || '-'} B</div>
+                    <div key={i} className="bg-slate-50 p-2 rounded-lg border border-slate-150 text-center">
+                      <span className="text-[8px] text-slate-400 font-black block uppercase mb-1">S{i}</span>
+                      <div className="text-slate-800 font-black text-[10px] leading-none mb-1">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val1 || '--'}</div>
+                      <div className="text-amber-600 font-black text-[8px]">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val2 || '-'} B</div>
                     </div>
                   ))}
                 </div>
@@ -225,7 +222,7 @@ function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Functi
             l: "Ganho CTR", 
             v: outputs?.race_calculated_data?.ganho_ctr_total, 
             unit: "s", 
-            i: <Sparkles size={12} className="text-emerald-400"/>,
+            i: <Sparkles size={12} className="text-emerald-500 animate-pulse"/>,
             isCtr: true 
         },
     ];
@@ -233,11 +230,11 @@ function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Functi
     return (
         <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3 ${className}`}>
             {items.map((item, idx) => (
-                <div key={idx} className={`bg-white/[0.02] border ${item.isCtr ? 'border-emerald-500/20' : 'border-white/5'} p-2 rounded-2xl flex flex-col items-center justify-center shadow-sm h-[70px] md:h-[80px]`}>
-                    <span className={`text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5 ${item.isCtr ? 'text-emerald-500' : 'text-slate-600'}`}>
+                <div key={idx} className={`bg-white border ${item.isCtr ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'} p-2.5 rounded-2xl flex flex-col items-center justify-center shadow-sm h-[74px] md:h-[84px] transition-all`}>
+                    <span className={`text-[9px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5 ${item.isCtr ? 'text-emerald-600' : 'text-slate-500'}`}>
                         {item.i} {item.l}
                     </span>
-                    <span className={`text-base md:text-lg font-black ${item.isCtr ? 'text-emerald-400' : 'text-white'}`}>
+                    <span className={`text-base md:text-lg font-black ${item.isCtr ? 'text-emerald-600' : 'text-slate-800'}`}>
                         {item.isCtr && item.v > 0 ? '-' : ''}{fmt(item.v, 3, item.unit)}
                     </span>
                 </div>
@@ -263,16 +260,16 @@ function SkyViewRainOverlay() {
     };
     handleResize();
 
-    const dropCount = 350;
-    const rainColor = '79, 195, 247'; 
-    const speed = 0.03; 
+    const dropCount = 180;
+    const rainColor = '14, 165, 233';
+    const speed = 0.02; 
 
     const drops: any[] = [];
     const resetDrop = (d: any) => {
       d.x = (Math.random() - 0.5) * 2;
       d.y = (Math.random() - 0.5) * 2;
       d.z = 1; 
-      d.size = Math.random() * 4 + 1;
+      d.size = Math.random() * 3 + 1;
     };
 
     for (let i = 0; i < dropCount; i++) {
@@ -300,11 +297,11 @@ function SkyViewRainOverlay() {
         const xPrev = cx + d.x * w * pPrev;
         const yPrev = cy + d.y * h * pPrev;
 
-        const alpha = (5 - d.z) / 4 * 0.3;
+        const alpha = (5 - d.z) / 4 * 0.15;
 
         if (alpha > 0) {
           ctx.strokeStyle = `rgba(${rainColor}, ${alpha})`;
-          ctx.lineWidth = d.size * perspective * 1.5;
+          ctx.lineWidth = d.size * perspective * 1.2;
           ctx.beginPath();
           ctx.moveTo(xPrev, yPrev);
           ctx.lineTo(x, y);
@@ -324,21 +321,25 @@ function SkyViewRainOverlay() {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
-      <canvas ref={canvasRef} className="block w-full h-full" />
+      <canvas ref={canvasRef} className="block w-full h-full opacity-60" />
     </div>
   );
 }
 
-// --- PÁGINA PRINCIPAL ---
+// ============================================================
+// COMPONENTE PRINCIPAL
+// ============================================================
 export default function StrategyPage() {
   const router = useRouter(); 
   
+  // ✅ CORRIGIDO: Removido updateDriver, agora usa updateDriverEditable
   const {
     track, updateTrack, tracksList, tyreSuppliers,
-    weather, updateWeather, driver, updateDriver, car, updateCar,
+    weather, updateWeather, driver, car, updateCar,
     techDirector, updateTechDirector,      
     staffFacilities, updateStaffFacilities, 
-    idealSetup, updateIdealSetup 
+    idealSetup, updateIdealSetup,
+    updateDriverEditable // ✅ ADICIONADO
   } = useGame();
 
   const [inputs, setInputs] = useState<InputsState>({
@@ -356,7 +357,6 @@ export default function StrategyPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('Gerente'); 
 
-  // Memoização por string para quebrar dependências de referências instáveis do contexto
   const driverStr = useMemo(() => JSON.stringify(driver), [driver]);
   const carStr = useMemo(() => JSON.stringify(car), [car]);
   const techDirectorStr = useMemo(() => JSON.stringify(techDirector), [techDirector]);
@@ -366,7 +366,7 @@ export default function StrategyPage() {
   const boostLapsStr = useMemo(() => JSON.stringify(inputs.boost_laps), [inputs.boost_laps]);
   const personalStintVoltasStr = useMemo(() => JSON.stringify(inputs.personal_stint_voltas), [inputs.personal_stint_voltas]);
 
-  // Derivação SOMENTE LEITURA da Melhor Estratégia
+  // Derivação da Melhor Estratégia
   const bestStrategy = useMemo(() => {
     const compounds = outputs?.compound_details_outputs;
     if (!compounds) return { compound: null, pits: null };
@@ -434,7 +434,6 @@ export default function StrategyPage() {
     };
   }, [outputs?.compound_details_outputs, inputs.race_options.condicao]);
 
-  // DEBUG: Temporário para verificar dados em chuva
   useEffect(() => {
     if (inputs.race_options.condicao === "Wet" && outputs?.compound_details_outputs) {
       console.log('=== DEBUG CHUVA ===');
@@ -468,7 +467,8 @@ export default function StrategyPage() {
           const d = json.data;
           
           if (d.current_track) updateTrack(d.current_track);
-          if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriver(k as any, Number(v)));
+          // ✅ CORRIGIDO: updateDriver -> updateDriverEditable
+          if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriverEditable(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           
           if (d.tech_director) updateTechDirector(d.tech_director);
@@ -507,7 +507,6 @@ export default function StrategyPage() {
       finally { setIsSyncing(false); }
     }
     loadState();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]); 
 
   // Weather Sync
@@ -543,7 +542,7 @@ export default function StrategyPage() {
     });
   }, [weather.weatherQ2, track, userId, isSyncing]);
 
-  // Função de Cálculo Memoizada - Depende de variáveis primitivas estáveis
+  // Função de Cálculo
   const fetchStrategy = useCallback(async (currInputs: InputsState, currentTrack: string) => {
     if (!userId || !currentTrack || currentTrack === "Selecionar Pista" || isSyncing) return;
     
@@ -574,7 +573,7 @@ export default function StrategyPage() {
     finally { setLoading(false); }
   }, [userId, isSyncing, driverStr, carStr, techDirectorStr, staffFacilitiesStr]);
 
-  // Trigger Calculation - Executa quando as inputs sofrem modificações reais de valor
+  // Trigger Calculation
   useEffect(() => {
     if (!isSyncing && userId && track && track !== "Selecionar Pista") {
       const timer = setTimeout(() => {
@@ -582,10 +581,9 @@ export default function StrategyPage() {
       }, 700);
       return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceOptionsStr, boostLapsStr, personalStintVoltasStr, track, fetchStrategy, isSyncing, userId]);
 
-  // Recalcular o setup ideal automaticamente quando o clima da corrida ou a temperatura da estratégia mudarem
+  // Setup Recarga Automática
   useEffect(() => {
     async function recarregarSetupIdeal() {
       if (!userId || !track || track === "Selecionar Pista" || isSyncing) return;
@@ -618,17 +616,16 @@ export default function StrategyPage() {
           updateIdealSetup(data.data);
         }
       } catch (error) {
-        console.error("Erro ao recalcular setup na estratégia:", error);
+        console.error("Erro setup:", error);
       }
     }
 
     if (track && track !== "Selecionar Pista" && !isSyncing) {
       recarregarSetupIdeal();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weather.weatherRace, inputs.race_options.avg_temp, track, userId, isSyncing, driverStr, carStr, techDirectorStr, staffFacilitiesStr]);
 
-  // Persistência em Banco de Dados
+  // Persistência
   const persistStrategyState = useCallback(async () => {
       if (!userId || isSyncing) return;
       try {
@@ -702,34 +699,30 @@ export default function StrategyPage() {
   }, [activeTab, outputs, inputs.personal_stint_voltas]);
 
   if (isSyncing || !userId) return (
-    <div className="flex flex-col h-screen items-center justify-center bg-[#050507] text-indigo-400 gap-4">
-      <div className="relative w-20 h-20"><div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full"></div><div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
-      <span className="font-black text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando Estratégia</span>
+    <div className="flex flex-col h-screen items-center justify-center bg-[#eef2f6] text-emerald-600 gap-4 font-mono">
+      <div className="relative w-20 h-20"><div className="absolute inset-0 border-4 border-emerald-500/10 rounded-full"></div><div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
+      <span className="font-black text-xs tracking-[0.4em] uppercase animate-pulse">Sincronizando Estratégia</span>
     </div>
   );
 
   const currentStintData = activeTab === 'manual' ? outputs?.stints_personal : outputs?.stints_predefined;
 
-  // Helper para exibir valor do setup com clamp (0-999)
   const displaySetupValue = (value: any): string => {
     const clamped = clampSetupDisplay(value);
     return clamped === '-' || clamped === null || clamped === undefined ? '-' : String(clamped);
   };
 
   return (
-    <div className="min-h-screen bg-[#020204] text-slate-300 font-mono pb-24 md:pb-12 selection:bg-indigo-500/30 relative overflow-hidden">
+    <div className="min-h-screen bg-[#eef2f6] text-slate-700 font-mono pb-24 md:pb-12 selection:bg-emerald-500/20 relative overflow-hidden">
       
-      {/* ==========================================
-          FUNDO AMBIENTAL COM GRADIENTES
-          ========================================== */}
+      {/* GLOWS AMBIENTAIS */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/5 blur-[120px] rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/3 blur-[150px] rounded-full" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02]" />
+        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.01] blur-[150px] rounded-full" />
       </div>
       
-      {/* Efeito de chuva */}
+      {/* Chuva Light */}
       <AnimatePresence>
       {inputs.race_options.condicao === "Wet" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }}>
@@ -738,31 +731,31 @@ export default function StrategyPage() {
       )}
       </AnimatePresence>
    
-      {/* HEADER COM GRADIENTE E CIRCUITO ATUAL */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/5 bg-[#020204]/90 p-3 sm:p-4 relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+      {/* HEADER BAR (LIGHT GELO) */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3.5 sm:p-4.5 relative shadow-sm">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
         <div className="max-w-[1600px] mx-auto flex justify-between items-center relative z-10">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-500 p-2.5 rounded-xl shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+            <div className="bg-emerald-600 p-2.5 rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)]">
               <Settings size={16} className="text-white" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-[10px] font-black text-white uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+              <h1 className="text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
                 Estratégia de Corrida
-                <span className="text-[7px] bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
+                <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
               </h1>
-              <p className="text-[9px] text-slate-500 font-bold uppercase truncate max-w-[120px]">{userEmail}</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[120px]">{userEmail}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            {/* CIRCUITO ATUAL */}
-            <div className="flex items-center gap-2 border-r border-white/5 pr-4">
-              <div className="w-8 h-6 bg-zinc-900 border border-white/10 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-lg">
+            {/* CIRCUITO SELECIONADO */}
+            <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
+              <div className="w-8 h-6 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                 {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" /> : <span className="text-xs">🏁</span>}
               </div>
               <div className="flex flex-col">
-                <span className="text-[6px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
+                <span className="text-[7px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
                 <TrackSelector currentTrack={track} tracksList={tracksList} onSelect={updateTrack} />
               </div>
             </div>
@@ -770,14 +763,14 @@ export default function StrategyPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'}`} />
-                <span className={`text-[9px] font-bold ${loading ? 'text-amber-500' : 'text-emerald-400'}`}>
+                <span className={`text-[10px] font-bold ${loading ? 'text-amber-600' : 'text-emerald-600'}`}>
                   {loading ? 'CALCULANDO' : 'SINCRONIZADO'}
                 </span>
               </div>
               
-              <div className="text-right border-l border-white/5 pl-3">
-                <p className="text-[7px] text-slate-500 uppercase font-black tracking-widest leading-none mb-0.5">Temp. Média</p>
-                <p className="text-lg font-black text-indigo-400 leading-none">{inputs.race_options.avg_temp || '--'}°C</p>
+              <div className="text-right border-l border-slate-200 pl-4 shrink-0 flex flex-col justify-center">
+                <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Temp. Média</p>
+                <p className="text-xl font-black text-emerald-600 leading-none">{inputs.race_options.avg_temp || '--'}°C</p>
               </div>
             </div>
           </div>
@@ -786,30 +779,29 @@ export default function StrategyPage() {
 
       <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10">
         
-        {/* ==========================================
-            CARDS PRINCIPAIS COM GRADIENTES
-            ========================================== */}
+        {/* CARDS PRINCIPAIS */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-8">
           
           {/* COLUNA ESQUERDA: DADOS DA CORRIDA */}
           <div className="xl:col-span-4 space-y-4 md:space-y-8">
             <StatsGrid outputs={outputs} fmt={fmt} className="xl:hidden" />
             
-            {/* DADOS DA CORRIDA - COM GRADIENTE */}
-            <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm group">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <div className="relative bg-gradient-to-r from-indigo-500/10 to-purple-500/10 p-3.5 border-b border-white/5 flex items-center justify-between">
+            {/* CONFIGURAÇÃO DA ESTRATÉGIA */}
+            <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg">
+                  <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
                     <Settings size={14} className="text-white" />
                   </div>
-                  <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Dados da Corrida</h3>
+                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Dados da Corrida</h3>
                 </div>
-                {loading && <Loader2 className="animate-spin text-indigo-500" size={14} />}
+                {loading && <Loader2 className="animate-spin text-emerald-600" size={14} />}
               </div>
               
               <div className="relative p-4 md:p-6 space-y-6">
-                  <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-lg">
+                  {/* Chave de Clima Seco/Chuva */}
+                  <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-lg shadow-inner">
                     {["Dry", "Wet"].map(c => (
                       <button 
                         key={c} 
@@ -817,15 +809,17 @@ export default function StrategyPage() {
                           handleInput('race_options', 'condicao', c);
                           updateWeather({ weatherRace: c });
                         }} 
-                        className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
+                        className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
                       >
                         {c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}
                       </button>
                     ))}
                   </div>
+
                   <div className="grid grid-cols-3 gap-3 md:gap-4">
-                      <div className="bg-black/40 p-3 rounded-lg border border-white/5">
-                          <label className="text-[8px] font-bold text-slate-500 uppercase block mb-2">Temp.</label>
+                      {/* Temperatura */}
+                      <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200 shadow-sm">
+                          <label className="text-[9px] font-black text-slate-500 uppercase block mb-1.5 tracking-wider">Temp.</label>
                           <div className="flex items-center justify-between">
                               <input 
                                   type="number" 
@@ -844,12 +838,13 @@ export default function StrategyPage() {
                                       if (val > 60) val = 60;
                                       handleInput('race_options', 'avg_temp', val);
                                   }} 
-                                  className="bg-transparent font-black text-sm text-white outline-none w-full min-w-0" 
+                                  className="bg-transparent font-black text-sm text-slate-800 outline-none w-full min-w-0" 
                               />
-                              <span className="text-[10px] text-indigo-500 font-bold ml-1">°C</span>
+                              <span className="text-[10px] text-emerald-600 font-bold ml-1">°C</span>
                           </div>
                       </div>
 
+                      {/* Risco */}
                       <div className="relative group">
                           <ConfigInput label="Risco" value={inputs.race_options.ct_valor} max={100} onChange={(v:any) => handleInput('race_options', 'ct_valor', v)} />
                           
@@ -861,10 +856,10 @@ export default function StrategyPage() {
                                       exit={{ opacity: 0 }}
                                       className="absolute -bottom-5 left-0 w-full"
                                   >
-                                      <span className="text-[9px] font-black text-emerald-500 flex items-center gap-1 px-1">
+                                      <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 px-1">
                                           <Sparkles size={8} className="animate-pulse" /> 
                                           -{fmt(outputs.race_calculated_data.ganho_ctr_volta, 3)}s 
-                                          <span className="text-[7px] opacity-60 uppercase tracking-tighter">/ volta</span>
+                                          <span className="text-[8px] opacity-60 uppercase tracking-tighter">/ volta</span>
                                       </span>
                                   </motion.div>
                               )}
@@ -873,21 +868,27 @@ export default function StrategyPage() {
 
                       <ConfigInput label="Pits" value={inputs.race_options.pitstops_num} max={8} onChange={(v:any) => handleInput('race_options', 'pitstops_num', v)} />
                   </div>
-                  <div><label className="text-[9px] font-black text-slate-500 uppercase mb-3 block tracking-widest">Fornecedor de Pneus</label><SupplierCarousel options={tyreSuppliers} value={inputs.race_options.pneus_fornecedor} onChange={(val: string) => handleInput('race_options', 'pneus_fornecedor', val)} /></div>
-                  
+
+                  {/* Fornecedor de Pneus */}
                   <div>
-                      <label className="text-[9px] font-black text-slate-500 uppercase mb-4 block text-center tracking-widest">Seleção de Composto</label>
-                      <div className="grid grid-cols-5 gap-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Fornecedor de Pneus</label>
+                      <SupplierCarousel options={tyreSuppliers} value={inputs.race_options.pneus_fornecedor} onChange={(val: string) => handleInput('race_options', 'pneus_fornecedor', val)} />
+                  </div>
+                  
+                  {/* Seleção de Composto */}
+                  <div>
+                      <label className="text-[10px] font-black text-slate-500 uppercase mb-3 block text-center tracking-widest">Seleção de Composto</label>
+                      <div className="grid grid-cols-5 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-inner">
                           {["Extra Soft", "Soft", "Medium", "Hard", "Rain"].map(p => { 
                               const isSelected = inputs.race_options.tipo_pneu === p; 
                               const img = p === 'Extra Soft' ? 'super macio' : p === 'Soft' ? 'macio' : p === 'Medium' ? 'medio' : p === 'Hard' ? 'duro' : 'chuva'; 
                               return ( 
                                   <button key={p} onClick={() => handleInput('race_options', 'tipo_pneu', p)} className={`relative group flex flex-col items-center justify-center gap-2 transition-all duration-500 ${isSelected ? 'scale-105 opacity-100' : 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0'}`}>
                                       <div className="relative">
-                                          {isSelected && <motion.div layoutId="pneu-select" className="absolute -inset-2 bg-indigo-500/20 rounded-full blur-md" />}
-                                          <img src={`/compound/${img}.png`} alt={p} className={`w-9 h-9 md:w-10 md:h-10 object-contain rounded-full relative z-10 border-2 ${isSelected ? 'border-indigo-500' : 'border-transparent'}`} />
+                                          {isSelected && <motion.div layoutId="pneu-select" className="absolute -inset-2 bg-emerald-500/10 rounded-full blur-md" />}
+                                          <img src={`/compound/${img}.png`} alt={p} className={`w-9 h-9 md:w-10 md:h-10 object-contain rounded-full relative z-10 border-2 ${isSelected ? 'border-emerald-600 shadow-sm' : 'border-transparent'}`} />
                                       </div>
-                                      <span className={`text-[8px] font-black uppercase tracking-wide leading-none ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`}>
+                                      <span className={`text-[9px] font-black uppercase tracking-wide leading-none ${isSelected ? 'text-emerald-600 font-black' : 'text-slate-400'}`}>
                                           {TYRE_NAMES[p] || p}
                                       </span>
                                   </button> 
@@ -896,7 +897,14 @@ export default function StrategyPage() {
                       </div>
                   </div>
 
-                  <div className="bg-black/40 p-4 rounded-xl border border-white/5"><div className="flex justify-between mb-3"><label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Margem: (Desgaste)</label><span className="text-xs font-black text-indigo-400">{inputs.race_options.desgaste_pneu_percent}%</span></div><input type="range" min="0" max="100" value={inputs.race_options.desgaste_pneu_percent} onChange={e => handleInput('race_options', 'desgaste_pneu_percent', Number(e.target.value))} className="w-full h-2 md:h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-indigo-500" /></div>
+                  {/* Range Slider de Margem */}
+                  <div className="bg-[#f8fafc] p-4 rounded-xl border border-slate-200 shadow-sm">
+                      <div className="flex justify-between mb-2">
+                          <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Margem: (Desgaste)</label>
+                          <span className="text-xs font-black text-emerald-600">{inputs.race_options.desgaste_pneu_percent}%</span>
+                      </div>
+                      <input type="range" min="0" max="100" value={inputs.race_options.desgaste_pneu_percent} onChange={e => handleInput('race_options', 'desgaste_pneu_percent', Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                  </div>
               </div>
             </section>
             
@@ -907,47 +915,44 @@ export default function StrategyPage() {
           <div className="xl:col-span-8 space-y-4 md:space-y-8">
               <StatsGrid outputs={outputs} fmt={fmt} className="hidden xl:grid" />
               
-              {/* SETUP RECOMENDADO - COM GRADIENTE */}
-              <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              {/* SETUP RECOMENDADO - LIGHT GLASS */}
+              <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 
                 {!idealSetup ? (
-                    <div className="relative p-3 md:p-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-amber-500/5">
-                        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-transparent to-transparent" />
-                        <div className="flex items-center gap-4 text-center md:text-left relative z-10">
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20 mx-auto md:mx-0">
-                                <ShieldAlert size={16} className="text-amber-500" />
-                            </div>
-                            <div>
-                                <h4 className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-1">Atenção: Setup Ideal Ausente</h4>
-                                <p className="text-slate-400 text-[9px] md:text-[10px] max-w-md leading-relaxed">
-                                    O setup mecânico ideal para esta pista ainda não foi calculado. Vá até a Setup Calculadora para definir os ajustes.
-                                </p>
-                            </div>
+                    <div className="relative p-3.5 md:p-4.5 flex flex-col md:flex-row items-center justify-between gap-4 bg-amber-50 border-b border-amber-200">
+                      <div className="flex items-start gap-3 text-left">
+                        <ShieldAlert className="text-amber-500 shrink-0 mt-0.5" size={16} />
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-amber-600 uppercase">Aguardando Parâmetros de Pista</span>
+                          <p className="text-[9px] text-amber-700 font-bold leading-relaxed mt-0.5">
+                            O setup mecânico ideal para esta pista ainda não foi calculado. Vá até a Setup Calculadora para definir os ajustes.
+                          </p>
                         </div>
-                        <button 
-                            onClick={() => router.push('/dashboard/setup')} 
-                            className="shrink-0 w-full md:w-auto px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500 hover:text-white border border-amber-500/20 rounded-xl text-amber-500 font-black text-[9px] uppercase transition-all shadow-lg hover:shadow-amber-500/25 relative z-10"
-                        >
-                            Ir para Setup Calculadora
-                        </button>
+                      </div>
+                      <button 
+                          onClick={() => router.push('/dashboard/setup')} 
+                          className="shrink-0 w-full md:w-auto px-4 py-2.5 bg-amber-100 hover:bg-amber-500 hover:text-white border border-amber-300 rounded-xl text-amber-600 font-black text-[9px] uppercase transition-all shadow-sm"
+                      >
+                          Ir para Setup Calculadora
+                      </button>
                     </div>
                 ) : (
                     <>
-                      <div className="relative bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-3.5 border-b border-white/5 flex items-center justify-between">
+                      <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg">
+                          <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
                             <Settings size={14} className="text-white" />
                           </div>
-                          <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Setup Recomendado</h3>
+                          <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Setup Recomendado</h3>
                         </div>
-                        <span className="text-[7px] md:text-[8px] font-bold text-slate-500 uppercase tracking-widest bg-white/5 px-2 py-1 rounded-md">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md">
                           Sincronizado
                         </span>
                       </div>
                       
-                      <div className="relative p-4 md:p-5">
-                        <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 md:gap-3">
+                      <div className="relative p-4 md:p-5 bg-white">
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
                           {[
                               { id: 'asaDianteira', label: 'Asa Diant.' },
                               { id: 'asaTraseira', label: 'Asa Tras.' },
@@ -956,12 +961,12 @@ export default function StrategyPage() {
                               { id: 'cambio', label: 'Câmbio' },
                               { id: 'suspensao', label: 'Suspensão' }
                           ].map(part => (
-                              <div key={part.id} className="bg-black/40 p-2 rounded-xl border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col items-center text-center group">
-                                  <span className="text-[8px] md:text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1 group-hover:text-slate-300 transition-colors">{part.label}</span>
-                                  <span className="text-xs md:text-sm font-black text-emerald-400 leading-none mb-2">{displaySetupValue(idealSetup[part.id]?.race)}</span>
-                                  <div className="flex items-center gap-2 md:gap-4 text-[11px] md:text-[9px] font-black w-full justify-center pt-1.5 border-t border-white/5">
-                                      <span className="text-rose-500" title="Qualificação 1">Q1: {displaySetupValue(idealSetup[part.id]?.q1)}</span>
-                                      <span className="text-amber-400" title="Qualificação 2">Q2: {displaySetupValue(idealSetup[part.id]?.q2)}</span>
+                              <div key={part.id} className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200 hover:border-emerald-500/30 transition-all flex flex-col items-center text-center group shadow-sm">
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1 group-hover:text-slate-800 transition-colors">{part.label}</span>
+                                  <span className="text-sm font-black text-emerald-600 leading-none mb-2">{displaySetupValue(idealSetup[part.id]?.race)}</span>
+                                  <div className="flex items-center gap-2 text-[10px] font-black w-full justify-center pt-2 border-t border-slate-150">
+                                      <span className="text-rose-600" title="Qualificação 1">Q1: {displaySetupValue(idealSetup[part.id]?.q1)}</span>
+                                      <span className="text-amber-600" title="Qualificação 2">Q2: {displaySetupValue(idealSetup[part.id]?.q2)}</span>
                                   </div>
                               </div>
                           ))}
@@ -971,28 +976,28 @@ export default function StrategyPage() {
                 )}
               </section>
               
-              {/* ANÁLISE DA PERFORMANCE - COM GRADIENTE */}
-              <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm group">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              {/* ANÁLISE DA PERFORMANCE */}
+              <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 
-                <div className="relative bg-gradient-to-r from-blue-500/10 to-cyan-500/10 p-3.5 border-b border-white/5">
+                <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
+                      <div className="p-1.5 bg-emerald-600 rounded-lg">
                         <Gauge size={14} className="text-white" />
                       </div>
-                      <h3 className="text-[10px] font-black text-white uppercase tracking-widest bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Análise da Performance</h3>
+                      <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Análise da Performance</h3>
                     </div>
                     
                     {bestStrategy.compound && (
                       <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
                           {inputs.race_options.condicao === "Wet" ? (
-                            <span className="text-[9px] font-black text-blue-400 uppercase tracking-wider">🌧 Melhor Estratégia de Chuva</span>
+                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">🌧 Melhor Estratégia de Chuva</span>
                           ) : (
-                            <span className="text-[9px] font-black text-amber-400 uppercase tracking-wider">🏆 Melhor Estratégia</span>
+                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-wider">🏆 Melhor Estratégia</span>
                           )}
-                          <span className="text-[10px] font-black text-white">
+                          <span className="text-xs font-black text-slate-800">
                             {bestStrategy.compound} • {bestStrategy.pits !== null ? `${bestStrategy.pits} ${bestStrategy.pits === 1 ? 'pit' : 'pits'}` : '-- pits'}
                           </span>
                         </div>
@@ -1003,7 +1008,7 @@ export default function StrategyPage() {
                               handleInput('race_options', 'pitstops_num', bestStrategy.pits);
                             }
                           }}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-black text-[9px] uppercase transition-all flex items-center gap-1.5 shadow-lg shadow-indigo-500/20"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-1.5 shadow-md"
                         >
                           <Sparkles size={10} /> Aplicar Estratégia
                         </button>
@@ -1012,10 +1017,10 @@ export default function StrategyPage() {
                   </div>
                 </div>
                 
-                <div className="relative overflow-x-auto custom-scrollbar">
+                <div className="relative overflow-x-auto custom-scrollbar bg-white">
                     <table className="w-full text-xs min-w-[350px]">
                         <thead>
-                            <tr className="bg-black/20 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-white/5">
+                            <tr className="bg-slate-50 text-slate-500 uppercase font-black text-[9px] tracking-[0.2em] border-b border-slate-200">
                                 <th className="p-4 text-left">Pneu</th>
                                 <th className="p-4 text-center">Paradas</th>
                                 <th className="p-4 text-center">Comb.</th>
@@ -1030,10 +1035,10 @@ export default function StrategyPage() {
                                 const d = outputs?.compound_details_outputs?.[c];
                                 const isBest = d?.total?.toString().toLowerCase() === "best" || d?.total === 0;
                                 return ( 
-                                    <tr key={c} className={`transition-colors hover:bg-white/[0.02] ${isBest ? 'bg-emerald-500/[0.03]' : ''}`}>
-                                        <td className="p-4 font-black text-white flex items-center gap-3"><div className={`w-2 h-2 rounded-full shadow-[0_0_8px] shrink-0 ${c==='Extra Soft'?'bg-rose-500 shadow-rose-500':c==='Soft'?'bg-amber-400 shadow-amber-400':c==='Medium'?'bg-white shadow-white':c==='Hard'?'bg-sky-400 shadow-sky-400':'bg-blue-500 shadow-blue-500'}`}></div>{c.replace("Extra Soft", "Ex. Soft")}</td>
-                                        <td className="p-4 text-center font-black text-slate-400">{fmt(d?.req_stops, 0)}</td>
-                                        <td className="p-4 text-center text-indigo-400 font-bold">{fmt(d?.fuel_load, 0, ' s')}</td>
+                                    <tr key={c} className={`transition-colors hover:bg-slate-50/50 ${isBest ? 'bg-emerald-500/[0.03]' : ''}`}>
+                                        <td className="p-4 font-black text-slate-800 flex items-center gap-3"><div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_8px] shrink-0 ${c==='Extra Soft'?'bg-rose-500 shadow-rose-500':c==='Soft'?'bg-amber-400 shadow-amber-400':c==='Medium'?'bg-slate-400 shadow-slate-300':c==='Hard'?'bg-sky-400 shadow-sky-400':'bg-blue-500 shadow-blue-500'}`}></div>{c.replace("Extra Soft", "Ex. Soft")}</td>
+                                        <td className="p-4 text-center font-black text-slate-600">{fmt(d?.req_stops, 0)}</td>
+                                        <td className="p-4 text-center text-indigo-600 font-bold">{fmt(d?.fuel_load, 0, ' s')}</td>
                                         <td className="p-4 text-center text-slate-500 font-bold">{fmt(d?.tyre_wear, 1, '%')}</td>
                                         <td className="p-4 text-center font-black">
                                             {isBest ? (
@@ -1042,7 +1047,7 @@ export default function StrategyPage() {
                                                         handleInput('race_options', 'tipo_pneu', c);
                                                         handleInput('race_options', 'pitstops_num', Number(d?.req_stops ?? 0));
                                                     }}
-                                                    className="text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg border border-emerald-500/20 text-[9px] font-black transition-all flex items-center gap-1.5 mx-auto"
+                                                    className="text-emerald-700 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg border border-emerald-500/20 text-[10px] font-black transition-all flex items-center gap-1.5 mx-auto shadow-sm"
                                                     title="Clique para carregar esta configuração ideal no formulário"
                                                 >
                                                     <Sparkles size={10} /> Ideal (Aplicar)
@@ -1059,39 +1064,39 @@ export default function StrategyPage() {
                 </div>
               </section>
               
-              {/* STINTS - COM GRADIENTE */}
-              <section className="relative bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm group">
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              {/* STINTS DE CORRIDA */}
+              <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 
-                <div className="relative bg-gradient-to-r from-amber-500/10 to-orange-500/10 p-3 flex flex-col md:flex-row items-stretch md:items-center gap-2 border-b border-white/5 px-4">
+                <div className="relative bg-zinc-50 p-3 flex flex-col md:flex-row items-stretch md:items-center gap-2 border-b border-slate-200 px-4">
                   <button 
                     onClick={() => setActiveTab('auto')} 
-                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}
+                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200'}`}
                   >
                     <Sparkles size={14}/> Automático
                   </button>
                   <button 
                     onClick={() => setActiveTab('manual')} 
-                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}
+                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200'}`}
                   >
                     <HardHat size={14}/> Manual
                   </button>
                 </div>
                 
-                <div className="relative overflow-x-auto p-4 custom-scrollbar">
-                    <table className="w-full text-[10px] border-separate border-spacing-y-1">
+                <div className="relative overflow-x-auto p-4 custom-scrollbar bg-white">
+                    <table className="w-full text-xs border-separate border-spacing-y-1">
                         <thead>
-                            <tr className="text-slate-600 uppercase font-black text-[8px] tracking-widest">
-                                <th className="text-left p-3 w-24 sticky left-0 bg-[#0F0F13] z-10">Stints</th>
+                            <tr className="text-slate-400 uppercase font-black text-[9px] tracking-widest">
+                                <th className="text-left p-3 w-24 sticky left-0 bg-slate-50 z-10 border-r border-slate-200 shadow-sm">Stints</th>
                                 {Array.from({length: visibleStints}).map((_, i) => (
                                     <th key={i} className="p-2 text-center min-w-[50px] animate-fadeIn">S{i+1}</th>
                                 ))}
-                                <th className="p-3 text-right bg-white/5 rounded-t-lg min-w-[60px]">Total</th>
+                                <th className="p-3 text-right bg-slate-100 rounded-t-lg min-w-[60px] border-l border-slate-200">Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr className="bg-white/5">
-                                <td className="p-4 font-black text-indigo-400 uppercase sticky left-0 bg-[#16161a] z-10 border-r border-white/5">Voltas</td>
+                            <tr className="bg-slate-50/50">
+                                <td className="p-4 font-black text-emerald-600 uppercase sticky left-0 bg-slate-50 z-10 border-r border-slate-200 shadow-sm">Voltas</td>
                                 {Array.from({length: visibleStints}).map((_, i) => { 
                                     const st = `stint${i+1}`; 
                                     return ( 
@@ -1101,15 +1106,15 @@ export default function StrategyPage() {
                                                     type="number" 
                                                     value={inputs.personal_stint_voltas[st] ?? ''} 
                                                     onChange={e => handleInput('personal_stint_voltas', st, e.target.value)}                                                                                                                                                             
-                                                    className="w-12 bg-black/40 border border-white/10 rounded p-2 text-center font-black text-white focus:border-amber-500 outline-none transition-all focus:scale-110" 
+                                                    className="w-12 bg-white border border-slate-200 rounded p-2 text-center font-black text-slate-800 focus:border-emerald-500 outline-none transition-all focus:scale-110 shadow-sm" 
                                                 /> 
                                             ) : ( 
-                                                <span className="font-black text-white block animate-fadeIn">{fmt(currentStintData?.voltas?.[st], 0)}</span> 
+                                                <span className="font-black text-slate-800 block animate-fadeIn">{fmt(currentStintData?.voltas?.[st], 0)}</span> 
                                             )}
                                         </td>
                                     );
                                 })}
-                                <td className="p-4 text-right font-black text-white bg-indigo-500/20 rounded-b-lg">
+                                <td className="p-4 text-right font-black text-emerald-700 bg-emerald-50 border-l border-slate-200 rounded-b-lg">
                                     {activeTab === 'manual' 
                                         ? Object.values(inputs.personal_stint_voltas).reduce((a:any, b:any) => Number(a||0) + Number(b||0), 0)
                                         : fmt(currentStintData?.voltas?.total, 0)
@@ -1117,17 +1122,17 @@ export default function StrategyPage() {
                                 </td>
                             </tr>
                             {[ 
-                                {k: 'desg_final_pneu', l: 'Desgaste Final', u: '%', c: 'text-slate-400'}, 
-                                {k: 'comb_necessario', l: 'Combustível', u: 'L', c: 'text-indigo-400'}, 
-                                {k: 'est_tempo_pit', l: 'Tempo Pit', u: 's', c: 'text-slate-500'}, 
-                                {k: 'voltas_em_bad', l: 'Voltas Ruins', u: '', c: 'text-rose-500'} 
+                                {k: 'desg_final_pneu', l: 'Desgaste Final', u: '%', c: 'text-slate-500'}, 
+                                {k: 'comb_necessario', l: 'Combustível', u: 'L', c: 'text-indigo-600'}, 
+                                {k: 'est_tempo_pit', l: 'Tempo Pit', u: 's', c: 'text-slate-600'}, 
+                                {k: 'voltas_em_bad', l: 'Voltas Ruins', u: '', c: 'text-rose-600'} 
                             ].map(row => ( 
-                                <tr key={row.k} className="hover:bg-white/[0.01] transition-colors">
-                                    <td className="p-4 font-bold text-slate-500 uppercase sticky left-0 bg-[#0F0F13] z-10 border-r border-white/5 shadow-lg whitespace-nowrap">{row.l}</td>
+                                <tr key={row.k} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="p-4 font-bold text-slate-500 uppercase sticky left-0 bg-slate-50 z-10 border-r border-slate-200 shadow-sm whitespace-nowrap">{row.l}</td>
                                     {Array.from({length: visibleStints}).map((_, i) => ( 
                                         <td key={i} className={`p-2 text-center font-bold ${row.c}`}>{fmt(currentStintData?.[row.k]?.[`stint${i+1}`], 1, row.u)}</td>
                                     ))}
-                                    <td className={`p-4 text-right font-black bg-white/5 ${row.k === 'voltas_em_bad' ? 'text-rose-500' : 'text-white'}`}>{fmt(currentStintData?.[row.k]?.total, 1, row.u)}</td>
+                                    <td className={`p-4 text-right font-black bg-slate-50 border-l border-slate-200 ${row.k === 'voltas_em_bad' ? 'text-rose-600' : 'text-slate-800'}`}>{fmt(currentStintData?.[row.k]?.total, 1, row.u)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -1147,10 +1152,10 @@ export default function StrategyPage() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }} 
             animate={{ opacity: 1, scale: 1, y: 0 }} 
             exit={{ opacity: 0, scale: 0.9, y: 20 }} 
-            className="fixed bottom-4 md:bottom-8 right-4 md:right-8 left-4 md:left-auto bg-indigo-600 text-white px-6 py-4 rounded-2xl flex items-center justify-center gap-4 font-black shadow-[0_10px_40px_rgba(79,70,229,0.5)] z-50 border border-indigo-400"
+            className="fixed bottom-4 md:bottom-8 right-4 md:right-8 left-4 md:left-auto bg-emerald-600 text-white px-6 py-4 rounded-2xl flex items-center justify-center gap-4 font-black shadow-lg z-50 border border-emerald-500"
           >
             <Loader2 className="animate-spin" size={20} />
-            <span className="text-[11px] tracking-widest uppercase">Calculando...</span>
+            <span className="text-xs tracking-widest uppercase">Calculando...</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1158,8 +1163,8 @@ export default function StrategyPage() {
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.2); }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }

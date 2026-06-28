@@ -43,106 +43,222 @@ function ManagerCard({ menuData }: { menuData: any }) {
   if (!menuData) return null;
 
   const displayName = menuData.fullName || menuData.fName || 'N/A';
+  const displayGroup = menuData.group || 'Rookie';
+  const displayStatus = menuData.status || menuData.accStatus || 'N/A';
+
+  const formatCurrency = (value: any) => {
+    if (value === null || value === undefined || value === '') return '$0';
+    return `$${Number(value).toLocaleString('en-US')}`;
+  };
 
   return (
-    <div className="bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 rounded-xl border border-white/5 p-4 h-full">
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-black text-xl shrink-0">
-          {displayName.charAt(0).toUpperCase()}
+    <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200 p-5 h-full flex flex-col justify-between transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_10px_25px_rgba(148,163,184,0.15)] relative overflow-hidden group shadow-sm">
+      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full pointer-events-none transition-all group-hover:bg-emerald-500/10" />
+      
+      <div>
+        <div className="flex items-start gap-4 mb-5">
+          <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center text-white font-black text-xl shrink-0 shadow-[0_4px_12px_rgba(148,163,184,0.2)]">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-base font-black text-slate-900 truncate">
+                {he.decode(displayName)}
+              </h4>
+              <span className="bg-emerald-50 px-2.5 py-0.5 rounded-full text-[10px] font-black text-emerald-600 border border-emerald-200">
+                GERENTE
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+              <span className="bg-slate-100 px-2.5 py-0.5 rounded flex items-center gap-1 text-slate-700 font-bold">
+                <span className="text-amber-500">🏆</span>
+                {he.decode(displayGroup)}
+              </span>
+              <span className="w-px h-3 bg-slate-200" />
+              <span className="text-[10px] font-mono text-slate-500 font-bold">ID: {menuData.id || menuData.IDM || 'N/A'}</span>
+            </div>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-base font-black text-white truncate">{he.decode(displayName)}</h4>
-          <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-            <span className="bg-white/5 px-2 py-0.5 rounded">{he.decode(menuData.group || 'Rookie')}</span>
-            <span>ID: {menuData.id || menuData.IDM || 'N/A'}</span>
-          </div>
-          <div className="flex items-center gap-4 mt-1.5">
-            <div>
-              <span className="text-[8px] font-black text-slate-500 uppercase">Cash</span>
-              <div className="text-sm font-mono font-black text-emerald-400">${(menuData.cash || 0).toLocaleString()}</div>
-            </div>
-            <div>
-              <span className="text-[8px] font-black text-slate-500 uppercase">Credits</span>
-              <div className="text-sm font-mono font-black text-indigo-400">{menuData.credits || 0}</div>
-            </div>
-            <div>
-              <span className="text-[8px] font-black text-slate-500 uppercase">Status</span>
-              <div className="text-xs font-black text-amber-400">{he.decode(menuData.status || menuData.accStatus || 'N/A')}</div>
+
+        <div className="grid grid-cols-3 gap-2.5 mb-3">
+          <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
+            <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <DollarSign size={8} className="text-emerald-500" /> Saldo em Caixa
+            </span>
+            <div className="text-xs font-mono font-black text-emerald-600 truncate">
+              {formatCurrency(menuData.cash)}
             </div>
           </div>
+
+          <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
+            <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <Zap size={8} className="text-slate-500" /> Créditos GPRO
+            </span>
+            <div className="text-xs font-mono font-black text-slate-800">
+              {menuData.credits !== undefined ? menuData.credits : '0'}
+            </div>
+          </div>
+
+          <div className="bg-amber-50/70 rounded-xl px-3 py-2 border border-amber-200 flex flex-col justify-center">
+            <span className="text-[7px] font-black text-amber-600 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <Award size={8} className="text-amber-500" /> Status da Conta
+            </span>
+            <div className="text-xs font-black text-amber-600 truncate">
+              {he.decode(displayStatus).toUpperCase()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5 mt-1 border-t border-slate-100 pt-3">
+        <div className="bg-[#f8fafc] rounded-xl p-2.5 border border-slate-150 flex items-center justify-between">
+          <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Grupo Atual</span>
+          <span className="text-xs font-black text-slate-800">{he.decode(displayGroup)}</span>
+        </div>
+        <div className="bg-[#f8fafc] rounded-xl p-2.5 border border-slate-150 flex items-center justify-between">
+          <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Registro ID</span>
+          <span className="text-xs font-mono font-black text-slate-800">{menuData.id || menuData.IDM || 'N/A'}</span>
         </div>
       </div>
     </div>
   );
 }
 
-// --- CARD DO PILOTO ---
-function DriverCard({ driver }: { driver: any }) {
-  if (!driver) return null;
+// --- CARD DO PILOTO (DADOS IMUTÁVEIS) ---
+function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
+  if (!driverStatic) return null;
 
-  const displayName = driver.name || driver.driName || 'N/A';
-  const displayNationality = driver.nationality || driver.natCode || 'N/A';
-  const displayNationalityName = driver.nationalityName || driver.natName || '';
+  const displayName = driverStatic.name || 'N/A';
+  const displayNationality = driverStatic.nationality || 'N/A';
+  const displayNationalityName = driverStatic.nationalityName || '';
 
-  return (
-    <div className="bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 rounded-xl border border-white/5 p-4 h-full">
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-black text-xl shrink-0">
-          {displayName.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-base font-black text-white truncate">{he.decode(displayName)}</h4>
-          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-            <span className="bg-white/5 px-2 py-0.5 rounded">{he.decode(displayNationalityName) || displayNationality}</span>
-            <span>OA: <span className="text-yellow-400 font-black">{driver.overall?.toFixed(1) || '0'}</span></span>
-          </div>
-          <div className="flex items-center gap-4 mt-1.5">
-            <div>
-              <span className="text-[8px] font-black text-slate-500 uppercase">Salary</span>
-              <div className="text-sm font-mono font-black text-white">${driver.salary || '0'}</div>
-            </div>
-            <div>
-              <span className="text-[8px] font-black text-slate-500 uppercase">Races Left</span>
-              <div className="text-sm font-mono font-black text-white">{driver.racesLeft || '0'}</div>
-            </div>
-            <div>
-              <span className="text-[8px] font-black text-slate-500 uppercase">Driver ID</span>
-              <div className="text-sm font-mono font-black text-white">{driver.driverId || 'N/A'}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+  const formatValue = (value: any, fallback: string = '0') => {
+    if (value === null || value === undefined || value === '') return fallback;
+    return value;
+  };
 
-// --- CARD DE ESTATÍSTICAS DO PILOTO ---
-function StatsCard({ driver }: { driver: any }) {
-  if (!driver) return null;
+  const formatCurrency = (value: any) => {
+    if (value === null || value === undefined || value === '') return '$0';
+    return `$${Number(value).toLocaleString('en-US')}`;
+  };
 
-  const stats = [
-    { label: 'Vitórias', value: driver.wins || 0, icon: Trophy, color: 'text-amber-400' },
-    { label: 'Pódios', value: driver.podiums || 0, icon: Medal, color: 'text-slate-400' },
-    { label: 'Pontos', value: driver.points || 0, icon: Target, color: 'text-indigo-400' },
-    { label: 'Poles', value: driver.poles || 0, icon: Zap, color: 'text-purple-400' },
-    { label: 'Fast Laps', value: driver.fastLaps || 0, icon: Flame, color: 'text-rose-400' },
-    { label: 'Corridas', value: driver.races || 0, icon: Activity, color: 'text-cyan-400' },
+  const mainStats = [
+    { label: 'Trophies', value: driverStatic.trophies, icon: '🏆', gold: true },
+    { label: 'Wins', value: driverStatic.wins, icon: '🥇', gold: true },
+    { label: 'Podiums', value: driverStatic.podiums, icon: '🥉', gold: true },
+    { label: 'Points', value: driverStatic.points, icon: '⭐', gold: false },
+  ];
+
+  const secondaryStats = [
+    { label: 'Poles', value: driverStatic.poles, icon: '🚀' },
+    { label: 'Fast Laps', value: driverStatic.fastLaps, icon: '⚡' },
+    { label: 'Races', value: driverStatic.races, icon: '🏁' },
   ];
 
   return (
-    <div className="bg-gradient-to-br from-slate-500/5 via-transparent to-slate-500/5 rounded-xl border border-white/5 p-4 h-full">
-      <div className="flex items-center gap-2 mb-2">
-        <Star size={14} className="text-yellow-400" />
-        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estatísticas de Carreira</h4>
-      </div>
-      <div className="grid grid-cols-3 gap-1.5">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-black/30 rounded-lg p-2 text-center border border-white/5">
-            <div className="flex items-center justify-center gap-1">
-              <stat.icon size={10} className={stat.color} />
-              <span className="text-[7px] font-black text-slate-500 uppercase">{stat.label}</span>
+    <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200 p-5 h-full flex flex-col justify-between transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_10px_25px_rgba(148,163,184,0.15)] relative overflow-hidden group shadow-sm">
+      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-2xl rounded-full pointer-events-none transition-all group-hover:bg-emerald-500/10" />
+
+      <div>
+        <div className="flex items-start gap-4 mb-5">
+          <div className="w-14 h-14 rounded-full bg-emerald-600 flex items-center justify-center text-white font-black text-xl shrink-0 shadow-[0_4px_12px_rgba(16,185,129,0.2)]">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-base font-black text-slate-900 truncate">
+                {he.decode(displayName)}
+              </h4>
+              <span className="bg-slate-100 px-2.5 py-0.5 rounded-full text-[10px] font-black text-slate-700 border border-slate-200">
+                #{driverStatic.driverId || 'N/A'}
+              </span>
             </div>
-            <span className="text-sm font-mono font-black text-white">{stat.value}</span>
+            
+            <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+              <span className="bg-slate-100 px-2.5 py-0.5 rounded flex items-center gap-1.5 text-slate-700 font-bold">
+                {driverStatic.nationality && TRACK_FLAGS[driverStatic.nationality] ? (
+                  <img 
+                    src={`/flags/${TRACK_FLAGS[driverStatic.nationality]}.png`} 
+                    alt={displayNationality} 
+                    className="w-4 h-3 object-cover rounded-sm border border-slate-200" 
+                  />
+                ) : (
+                  <span className="text-[10px]">🌍</span>
+                )}
+                {he.decode(displayNationalityName) || displayNationality}
+              </span>
+              
+              <span className="w-px h-3 bg-slate-200" />
+              
+              <span className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/50">
+                <span className="text-[10px]">🎯</span>
+                OA: <span className="text-amber-600 font-black">{driverStatic.overall?.toFixed(1) || '0'}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2.5 mb-3">
+          <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
+            <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <DollarSign size={8} className="text-slate-400" /> Salário Corrida
+            </span>
+            <div className="text-xs font-mono font-black text-slate-800 truncate">
+              {formatCurrency(driverStatic.salary)}
+            </div>
+          </div>
+
+          <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
+            <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <Calendar size={8} className="text-slate-400" /> Contrato Restante
+            </span>
+            <div className="text-xs font-mono font-black text-slate-800">
+              {formatValue(driverStatic.racesLeft)} R
+            </div>
+          </div>
+
+          <div className="bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-100 flex flex-col justify-center">
+            <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <User size={8} className="text-slate-400" /> ID do Piloto
+            </span>
+            <div className="text-xs font-mono font-black text-slate-800">
+              {formatValue(driverStatic.driverId)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1.5 mt-1 border-t border-slate-100 pt-3">
+        {mainStats.map((stat) => (
+          <div 
+            key={stat.label} 
+            className={`rounded-lg p-1.5 text-center border flex flex-col justify-between min-h-[48px] ${
+              stat.gold 
+                ? 'bg-amber-500/5 border-amber-500/10 text-amber-700' 
+                : 'bg-[#f8fafc] border-slate-100 text-slate-700'
+            }`}
+          >
+            <div className="text-[10px]">{stat.icon}</div>
+            <div className={`text-[10px] font-mono font-black mt-0.5 ${stat.gold ? 'text-amber-600' : 'text-slate-800'}`}>
+              {formatValue(stat.value)}
+            </div>
+            <div className="text-[5px] font-black text-slate-400 uppercase tracking-wider truncate">
+              {stat.label}
+            </div>
+          </div>
+        ))}
+        {secondaryStats.map((stat) => (
+          <div key={stat.label} className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 flex flex-col justify-between min-h-[48px]">
+            <div className="text-[10px]">{stat.icon}</div>
+            <div className="text-[10px] font-mono font-black text-slate-700 mt-0.5">
+              {formatValue(stat.value)}
+            </div>
+            <div className="text-[5px] font-black text-slate-400 uppercase tracking-wider truncate">
+              {stat.label}
+            </div>
           </div>
         ))}
       </div>
@@ -177,41 +293,41 @@ function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: s
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between gap-3 text-sm md:text-base text-white font-black tracking-wider hover:text-indigo-400 transition-all duration-300 outline-none group bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl active:scale-[0.98] shadow-[0_0_15px_rgba(99,102,241,0.05)] hover:shadow-[0_0_25px_rgba(99,102,241,0.1)] min-w-[180px]"
+        className="flex items-center justify-between gap-3 text-sm md:text-base text-slate-800 font-black tracking-wider hover:text-emerald-600 transition-all duration-300 outline-none group bg-white border border-slate-200 px-4 py-2.5 rounded-xl active:scale-[0.98] shadow-sm hover:shadow-md min-w-[180px]"
       >
         <span className="truncate">
           {currentTrack !== "Selecionar Pista" ? he.decode(currentTrack).toUpperCase() : "SELECIONAR CIRCUITO"}
         </span>
-        <ChevronDown className={`transition-transform duration-300 text-slate-500 group-hover:text-indigo-400 ${isOpen ? 'rotate-180' : ''}`} size={16} />
+        <ChevronDown className={`transition-transform duration-300 text-slate-400 group-hover:text-emerald-600 ${isOpen ? 'rotate-180' : ''}`} size={16} />
       </button>
       <AnimatePresence>
         {isOpen && (
-          <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full left-0 mt-2 w-[320px] bg-[#0c0c0e] border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden backdrop-blur-xl z-[9999]">
-            <div className="p-3 border-b border-white/5 bg-gradient-to-r from-indigo-500/5 to-purple-500/5">
+          <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full left-0 mt-2 w-[320px] bg-white border border-slate-200 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] overflow-hidden z-[9999]">
+            <div className="p-3 border-b border-slate-100 bg-slate-50">
               <div className="relative">
-                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input autoFocus type="text" placeholder="BUSCAR CIRCUITO..." className="w-full bg-black/60 border border-white/5 rounded-lg pl-9 pr-3 h-9 text-xs text-white placeholder-slate-600 focus:border-indigo-500/40 outline-none font-bold uppercase tracking-wider focus:shadow-[0_0_20px_rgba(99,102,241,0.1)]" value={search} onChange={(e) => setSearch(e.target.value)} />
-                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-1.5"><X size={12} /></button>}
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input autoFocus type="text" placeholder="BUSCAR CIRCUITO..." className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 h-9 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-none font-bold uppercase tracking-wider" value={search} onChange={(e) => setSearch(e.target.value)} />
+                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1.5"><X size={12} /></button>}
               </div>
             </div>
-            <div className="max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5">
+            <div className="max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5 bg-white">
               {filteredTracks.map((track: any) => {
                 const name = typeof track === 'object' ? track.name : track;
                 return (
                   <button
                     key={name}
                     onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[10px] font-black uppercase text-slate-400 hover:bg-gradient-to-r hover:from-indigo-500/20 hover:to-purple-500/20 hover:text-white transition-all group text-left"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[10px] font-black uppercase text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all group text-left"
                   >
                     <div className="flex items-center gap-2.5">
                       {TRACK_FLAGS[name] ? (
-                        <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-4 h-2.5 object-cover rounded-sm border border-white/5" />
+                        <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-4 h-2.5 object-cover rounded-sm border border-slate-200" />
                       ) : (
-                        <div className="w-4 h-2.5 bg-white/5 rounded-sm border border-white/5"></div>
+                        <div className="w-4 h-2.5 bg-slate-100 rounded-sm border border-slate-200"></div>
                       )}
                       <span className="truncate max-w-[170px]">{he.decode(name)}</span>
                     </div>
-                    {currentTrack === name && <ShieldCheck size={12} className="text-indigo-400 shrink-0" />}
+                    {currentTrack === name && <ShieldCheck size={12} className="text-emerald-600 shrink-0" />}
                   </button>
                 );
               })}
@@ -231,29 +347,29 @@ function TelemetryInput({ label, value, max, onChange, disabled, isEnergy }: any
   const safeValue = value ?? 0;
   const pct = Math.min(100, (safeValue / max) * 100);
   return (
-    <div className={`flex items-center justify-between h-8 rounded-lg px-2 group transition-all duration-200 ${disabled ? 'opacity-50' : 'hover:bg-white/[0.01]'}`}>
-      <label className={`text-[9px] font-black uppercase tracking-wider truncate w-24 flex items-center gap-1.5 ${disabled ? 'text-slate-600' : 'text-slate-400 group-hover:text-amber-400 transition-colors'}`}>
-        {isEnergy && <Zap size={10} className={pct > 50 ? "text-indigo-400" : "text-amber-500 animate-pulse"} />}
+    <div className={`flex items-center justify-between h-8 rounded-lg px-2 group transition-all duration-200 ${disabled ? 'opacity-50' : 'hover:bg-slate-50'}`}>
+      <label className={`text-[9px] font-black uppercase tracking-wider truncate w-24 flex items-center gap-1.5 ${disabled ? 'text-slate-400' : 'text-slate-600 group-hover:text-emerald-600 transition-colors'}`}>
+        {isEnergy && <Zap size={10} className={pct > 50 ? "text-emerald-500" : "text-amber-500 animate-pulse"} />}
         {label}
       </label>
-      <div className={`flex-1 mx-3 h-1 rounded-full overflow-hidden flex relative ${disabled ? 'bg-white/5' : 'bg-gradient-to-r from-white/5 to-white/10'}`}>
-        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full rounded-full ${disabled ? 'bg-slate-700' : (isEnergy ? 'bg-gradient-to-r from-indigo-500 to-cyan-400 shadow-[0_0_10px_rgba(99,102,241,0.3)]' : 'bg-gradient-to-r from-indigo-500 to-purple-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]')}`} />
+      <div className={`flex-1 mx-3 h-1 rounded-full overflow-hidden flex relative ${disabled ? 'bg-slate-100' : 'bg-slate-100'}`}>
+        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className={`h-full rounded-full ${disabled ? 'bg-slate-300' : 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_10px_rgba(16,185,129,0.15)]'}`} />
       </div>
-      <input disabled={disabled} type="number" value={safeValue} onChange={onChange} className="w-10 h-6 bg-black/60 text-center text-[11px] font-mono font-black rounded border border-white/5 text-white outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.1)] disabled:border-transparent transition-all" />
+      <input disabled={disabled} type="number" value={safeValue} onChange={onChange} className="w-10 h-6 bg-[#f8fafc] text-center text-[11px] font-mono font-black rounded border border-slate-200 text-slate-800 outline-none focus:border-emerald-500 focus:bg-white disabled:border-transparent transition-all" />
     </div>
   )
 }
 
 function CarRow({ part, finalWear, onLvl, onWear, disabled }: any) {
-  const wearColor = part.wear > 80 ? "text-rose-400" : part.wear > 50 ? "text-amber-400" : "text-emerald-400";
-  const finalWearColor = (finalWear || 0) > 90 ? "text-rose-400 bg-rose-500/10 border-rose-500/20 shadow-[0_0_15px_rgba(225,29,72,0.1)]" : "text-slate-200 bg-indigo-500/5 border-indigo-500/20";
+  const wearColor = part.wear > 80 ? "text-rose-500" : part.wear > 50 ? "text-amber-500" : "text-emerald-600";
+  const finalWearColor = (finalWear || 0) > 90 ? "text-rose-600 bg-rose-50 border-rose-200 shadow-[0_0_15px_rgba(225,29,72,0.05)]" : "text-slate-800 bg-emerald-50/50 border-emerald-200/60";
 
   return (
-    <div className={`flex items-center justify-between h-8 rounded-lg px-2 group transition-all duration-200 ${disabled ? 'opacity-60' : 'hover:bg-white/[0.01]'}`}>
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider w-24 truncate group-hover:text-slate-200 transition-colors">{part.name}</span>
+    <div className={`flex items-center justify-between h-8 rounded-lg px-2 group transition-all duration-200 ${disabled ? 'opacity-60' : 'hover:bg-slate-50'}`}>
+      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider w-24 truncate group-hover:text-slate-800 transition-colors">{part.name}</span>
       <div className="flex items-center gap-2">
-        <input disabled={disabled} type="number" value={part.lvl} onChange={(e) => onLvl(Number(e.target.value))} className="w-9 h-6 bg-black/60 border border-white/5 rounded text-center text-[10px] font-mono font-black text-white focus:border-indigo-500 focus:shadow-[0_0_10px_rgba(99,102,241,0.1)]" />
-        <input disabled={disabled} type="number" value={part.wear} onChange={(e) => onWear(Number(e.target.value))} className={`w-9 h-6 bg-black/60 border border-white/5 rounded text-center text-[10px] font-mono font-black ${wearColor} focus:border-indigo-500 focus:shadow-[0_0_10px_rgba(99,102,241,0.1)]`} />
+        <input disabled={disabled} type="number" value={part.lvl} onChange={(e) => onLvl(Number(e.target.value))} className="w-9 h-6 bg-[#f8fafc] border border-slate-200 rounded text-center text-[10px] font-mono font-black text-slate-800 focus:border-emerald-500 focus:bg-white" />
+        <input disabled={disabled} type="number" value={part.wear} onChange={(e) => onWear(Number(e.target.value))} className={`w-9 h-6 bg-[#f8fafc] border border-slate-200 rounded text-center text-[10px] font-mono font-black ${wearColor} focus:border-emerald-500 focus:bg-white`} />
         <div className={`w-9 h-6 rounded flex items-center justify-center border font-black font-mono text-[9px] ${finalWearColor}`}>
           {finalWear !== undefined ? finalWear : '--'}
         </div>
@@ -270,9 +386,9 @@ function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
   const pctTeste = Math.min(100 - pctPeça, (test / 200) * 100);
 
   const gradientColors = {
-    power: "from-rose-500/20 to-red-500/10",
-    handling: "from-indigo-500/20 to-purple-500/10",
-    accel: "from-emerald-500/20 to-teal-500/10"
+    power: "from-emerald-50 to-slate-50/20",
+    handling: "from-slate-100/50 to-slate-50/20",
+    accel: "from-emerald-50 to-slate-50/20"
   };
 
   const iconMap = {
@@ -282,38 +398,38 @@ function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
   };
   const Icon = iconMap[label as keyof typeof iconMap] || Activity;
   const colorMap = {
-    power: "text-rose-400",
-    handling: "text-indigo-400",
-    accel: "text-emerald-400"
+    power: "text-emerald-500",
+    handling: "text-slate-500",
+    accel: "text-emerald-500"
   };
   const iconColor = colorMap[label as keyof typeof colorMap] || "text-slate-400";
 
   return (
-    <div className={`space-y-2 bg-gradient-to-br ${gradientColors[label as keyof typeof gradientColors] || 'from-slate-500/10 to-transparent'} p-3 rounded-xl border border-white/[0.02] ${disabled ? 'opacity-60' : 'hover:border-white/5 transition-all duration-300'}`}>
+    <div className={`space-y-2 bg-gradient-to-br ${gradientColors[label as keyof typeof gradientColors] || 'from-slate-50 to-transparent'} p-3 rounded-xl border border-slate-200 ${disabled ? 'opacity-60' : 'hover:border-emerald-200 transition-all duration-300'}`}>
       <div className="flex justify-between items-center text-[10px] font-black uppercase">
-        <span className="text-slate-400 flex items-center gap-1.5">
+        <span className="text-slate-700 flex items-center gap-1.5">
           <Icon size={10} className={iconColor} />
           {label}
-          <span className={isOk ? 'text-emerald-400 ml-2 font-black' : 'text-rose-400 ml-2 font-black'}>{diff > 0 ? `+${diff}` : diff}</span>
+          <span className={isOk ? 'text-emerald-600 ml-2 font-black' : 'text-rose-500 ml-2 font-black'}>{diff > 0 ? `+${diff}` : diff}</span>
         </span>
         <div className="flex items-center gap-1.5">
           <div className="text-center flex flex-col items-center">
-            <span className="text-[6px] text-slate-500 mb-0.5">ESTIMADO</span>
-            <input disabled={disabled} type="number" value={test} onChange={(e) => onTest(Number(e.target.value))} className="w-12 h-6 bg-black/60 border border-white/10 rounded text-center text-[10px] font-mono font-black text-indigo-400 focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.1)] outline-none" />
+            <span className="text-[6px] text-slate-400 mb-0.5 font-bold">ESTIMADO</span>
+            <input disabled={disabled} type="number" value={test} onChange={(e) => onTest(Number(e.target.value))} className="w-12 h-6 bg-[#f8fafc] border border-slate-200 rounded text-center text-[10px] font-mono font-black text-emerald-600 focus:border-emerald-500 focus:bg-white outline-none" />
           </div>
-          <div className="text-center bg-gradient-to-r from-indigo-500/10 to-purple-500/10 px-2 py-0.5 rounded min-w-[32px] ml-1 border border-indigo-500/10">
-            <p className="text-[6px] text-slate-500 mb-0.5">ALVO</p>
-            <p className="text-[10px] text-white font-mono font-black">{data?.pista || 0}</p>
+          <div className="text-center bg-slate-100 px-2 py-0.5 rounded min-w-[32px] ml-1 border border-slate-200">
+            <p className="text-[6px] text-slate-500 mb-0.5 font-bold">ALVO</p>
+            <p className="text-[10px] text-slate-800 font-mono font-black">{data?.pista || 0}</p>
           </div>
         </div>
       </div>
 
-      <div className="h-1.5 w-full bg-slate-950 rounded-full relative overflow-visible border border-white/5 p-[1px]">
-        <div className="h-full bg-gradient-to-r from-slate-700 to-slate-600 rounded-l-full" style={{ width: `${pctPeça}%` }} />
-        <div className="h-full absolute top-0 bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_0_15px_rgba(99,102,241,0.4)]" style={{ left: `${pctPeça}%`, width: `${pctTeste}%` }} />
+      <div className="h-1.5 w-full bg-[#f8fafc] rounded-full relative overflow-visible border border-slate-200/50 p-[1px]">
+        <div className="h-full bg-slate-300 rounded-l-full" style={{ width: `${pctPeça}%` }} />
+        <div className="h-full absolute top-0 bg-gradient-to-r from-emerald-500 to-teal-400" style={{ left: `${pctPeça}%`, width: `${pctTeste}%` }} />
 
         <div
-          className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3.5 bg-white shadow-[0_0_12px_rgba(255,255,255,0.5)] z-10 rounded-sm transition-all duration-500"
+          className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3.5 bg-slate-800 shadow-sm z-10 rounded-sm transition-all duration-500"
           style={{ left: `${pctPista}%` }}
         />
       </div>
@@ -328,7 +444,9 @@ export default function DashboardHome() {
   const router = useRouter();
 
   const {
-    driver, updateDriver,
+    driverStatic,
+    driverEditable,
+    updateDriverEditable,
     car, updateCar,
     track, updateTrack,
     weather, updateWeather,
@@ -340,6 +458,7 @@ export default function DashboardHome() {
     isGlobalLoading,
     menuData,
     officeData,
+    reloadUserState,
   } = useGame();
 
   const [performanceData, setPerformanceData] = useState({
@@ -369,7 +488,7 @@ export default function DashboardHome() {
   }, [router]);
 
   // ============================================
-  // PERSISTÊNCIA
+  // PERSISTÊNCIA - SOMENTE DADOS EDITÁVEIS
   // ============================================
 
   const persistState = useCallback(async () => {
@@ -379,19 +498,19 @@ export default function DashboardHome() {
     try {
       const body = {
         track,
-        driver: {
-          concentracao: driver.concentracao,
-          talento: driver.talento,
-          agressividade: driver.agressividade,
-          experiencia: driver.experiencia,
-          tecnica: driver.tecnica,
-          resistencia: driver.resistencia,
-          carisma: driver.carisma,
-          motivacao: driver.motivacao,
-          reputacao: driver.reputacao,
-          peso: driver.peso,
-          idade: driver.idade,
-          energia: driver.energia,
+        driver_editable: {
+          concentracao: driverEditable.concentracao,
+          talento: driverEditable.talento,
+          agressividade: driverEditable.agressividade,
+          experiencia: driverEditable.experiencia,
+          tecnica: driverEditable.tecnica,
+          resistencia: driverEditable.resistencia,
+          carisma: driverEditable.carisma,
+          motivacao: driverEditable.motivacao,
+          reputacao: driverEditable.reputacao,
+          peso: driverEditable.peso,
+          idade: driverEditable.idade,
+          energia: driverEditable.energia,
         },
         car,
         test_points: testPoints,
@@ -407,17 +526,19 @@ export default function DashboardHome() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (data.sucesso && data.oa !== undefined) updateDriver('total', Number(data.oa));
+      if (data.sucesso && data.oa !== undefined) {
+        updateDriverEditable('total', Number(data.oa));
+      }
     } catch (e) { console.error("Persist error:", e); }
     finally { setIsSyncing(false); }
-  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, isGlobalLoading, userId, updateDriver]);
+  }, [driverEditable, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, isGlobalLoading, userId, updateDriverEditable]);
 
   useEffect(() => {
     if (isGlobalLoading || !userId) return;
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     persistTimerRef.current = setTimeout(() => persistState(), 2000);
     return () => { if (persistTimerRef.current) clearTimeout(persistTimerRef.current); };
-  }, [driver, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, persistState, isGlobalLoading, userId]);
+  }, [driverEditable, car, testPoints, techDirector, staffFacilities, track, weather, desgasteModifier, persistState, isGlobalLoading, userId]);
 
   // ============================================
   // CÁLCULOS
@@ -427,6 +548,11 @@ export default function DashboardHome() {
     if (!track || track === "Selecionar Pista" || !userId || isGlobalLoading) return;
     setIsPerformanceLoading(true);
     try {
+      const driver = {
+        ...driverStatic,
+        ...driverEditable,
+      };
+      
       const resPerf = await fetch('/api/python?action=performance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'user-id': userId },
@@ -473,7 +599,7 @@ export default function DashboardHome() {
       }
     } catch (e) { console.error("Calc error:", e); }
     finally { setIsPerformanceLoading(false); }
-  }, [track, driver, car, testPoints, desgasteModifier, techDirector, staffFacilities, userId, isGlobalLoading]);
+  }, [track, driverStatic, driverEditable, car, testPoints, desgasteModifier, techDirector, staffFacilities, userId, isGlobalLoading]);
 
   useEffect(() => {
     if (track && track !== "Selecionar Pista" && !isGlobalLoading && userId) {
@@ -481,14 +607,15 @@ export default function DashboardHome() {
       calcTimerRef.current = setTimeout(() => fetchCalculations(), 600);
     }
     return () => { if (calcTimerRef.current) clearTimeout(calcTimerRef.current); };
-  }, [track, driver, car, testPoints, desgasteModifier, fetchCalculations, isGlobalLoading, userId]);
+  }, [track, driverStatic, driverEditable, car, testPoints, desgasteModifier, fetchCalculations, isGlobalLoading, userId]);
 
   // ============================================
   // IMPORTAÇÃO GPRO
   // ============================================
 
   const applyGproPayload = useCallback((payload: {
-    driver?: any;
+    driver_static?: any;
+    driver_editable?: any;
     car?: any[];
     techDirector?: any;
     staff?: any;
@@ -496,28 +623,14 @@ export default function DashboardHome() {
     track?: string;
     test_points?: any;
   }) => {
-    if (payload.driver) {
-      Object.entries(payload.driver).forEach(([key, value]) => {
-        if (key === 'total') return;
-        if (value === undefined || value === null) return;
-        
-        if (typeof value !== 'string' && typeof value !== 'number') return;
-        
-        const driverKey = key as keyof typeof driver;
-        
-        if (typeof value === 'number') {
-          updateDriver(driverKey, value);
-          return;
-        }
-        
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-            updateDriver(driverKey, Number(trimmed));
-          } else {
-            updateDriver(driverKey, trimmed);
-          }
-          return;
+    if (payload.driver_static) {
+      console.log('📊 Dados imutáveis recebidos:', payload.driver_static.name);
+    }
+    
+    if (payload.driver_editable) {
+      Object.entries(payload.driver_editable).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          updateDriverEditable(key as any, value as any);
         }
       });
     }
@@ -552,33 +665,7 @@ export default function DashboardHome() {
     if (payload.test_points) {
       updateTestPoints(payload.test_points);
     }
-  }, [updateDriver, updateCar, updateTechDirector, updateStaffFacilities, updateWeather, updateTrack, track, updateTestPoints]);
-
-  const normalizeWeatherFromAPI = useCallback((weatherData: any) => {
-    if (!weatherData) return weatherData;
-
-    const normalizeValue = (value: string): string => {
-      if (!value) return 'Dry';
-      if (value === 'Dry' || value === 'Wet') return value;
-
-      const normalized = value.toLowerCase();
-      if (normalized.includes('rain') ||
-        normalized.includes('chuva') ||
-        normalized.includes('molhado') ||
-        normalized.includes('wet')) {
-        return 'Wet';
-      }
-
-      return 'Dry';
-    };
-
-    return {
-      ...weatherData,
-      weatherQ1: normalizeValue(weatherData.weatherQ1),
-      weatherQ2: normalizeValue(weatherData.weatherQ2),
-      weatherRace: normalizeValue(weatherData.weatherRace),
-    };
-  }, []);
+  }, [updateDriverEditable, updateCar, updateTechDirector, updateStaffFacilities, updateWeather, updateTrack, track, updateTestPoints]);
 
   const handleImportGPRO = async () => {
     setIsImporting(true);
@@ -587,7 +674,6 @@ export default function DashboardHome() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        console.error('Erro ao obter usuário:', userError);
         throw new Error('Usuário não autenticado. Faça login novamente.');
       }
 
@@ -598,7 +684,6 @@ export default function DashboardHome() {
         .maybeSingle();
 
       if (fetchError) {
-        console.error('Erro ao buscar user_state:', fetchError);
         throw new Error('Erro ao buscar token GPRO: ' + fetchError.message);
       }
 
@@ -640,7 +725,8 @@ export default function DashboardHome() {
       };
 
       const importSnapshot = {
-        driver: data.driver || null,
+        driver_static: data.driver_static || null,
+        driver_editable: data.driver_editable || null,
         car: data.car || null,
         tech_director: data.techDirector || null,
         staff_facilities: data.staff || null,
@@ -657,19 +743,25 @@ export default function DashboardHome() {
       });
 
       applyGproPayload({
-        ...data,
+        driver_static: data.driver_static,
+        driver_editable: data.driver_editable,
+        car: data.car,
+        techDirector: data.tech_director,
+        staff: data.staff,
+        weather: data.weather,
+        track: data.track,
         test_points: testPointsFromAPI
       });
 
+      await reloadUserState();
+
       setTimeout(() => {
         fetchCalculations();
-      }, 500);
+      }, 100);
 
-      setTimeout(() => persistState(), 500);
       alert('Dados importados com sucesso do GPRO!');
 
     } catch (error) {
-      console.error('Erro detalhado na importação GPRO:', error);
       alert(error instanceof Error ? error.message : 'Erro ao importar dados do GPRO');
     } finally {
       setIsImporting(false);
@@ -695,24 +787,24 @@ export default function DashboardHome() {
       const snapshot = userState.last_import_snapshot;
       const importDate = userState.last_import_at;
 
-      const normalizedPayload = {
-        driver: snapshot.driver,
+      applyGproPayload({
+        driver_static: snapshot.driver_static,
+        driver_editable: snapshot.driver_editable,
         car: snapshot.car,
         techDirector: snapshot.tech_director,
         staff: snapshot.staff_facilities,
         weather: snapshot.weather,
         track: snapshot.track,
         test_points: snapshot.test_points
-      };
+      });
 
-      applyGproPayload(normalizedPayload);
+      await reloadUserState();
 
       setTimeout(() => persistState(), 500);
 
       alert(`Dados restaurados com sucesso do snapshot de ${importDate ? new Date(importDate).toLocaleString() : 'data desconhecida'}`);
 
     } catch (error) {
-      console.error('Erro detalhado na restauração do snapshot:', error);
       alert(error instanceof Error ? error.message : 'Erro ao restaurar dados do snapshot');
     } finally {
       setIsRestoring(false);
@@ -724,55 +816,54 @@ export default function DashboardHome() {
   // ============================================
 
   if (isGlobalLoading) return (
-    <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#020204] text-indigo-500 font-mono text-xs gap-4">
+    <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#eef2f6] text-emerald-600 font-mono text-xs gap-4">
       <div className="relative">
-        <div className="w-16 h-16 border-2 border-indigo-500/10 rounded-full absolute"></div>
-        <Loader2 className="animate-spin w-8 h-8 text-indigo-400" />
+        <div className="w-16 h-16 border-2 border-emerald-500/10 rounded-full absolute"></div>
+        <Loader2 className="animate-spin w-8 h-8 text-emerald-600" />
       </div>
-      <span className="animate-pulse tracking-widest bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SINCRONIZANDO TELEMETRIA...</span>
+      <span className="animate-pulse tracking-widest text-emerald-700 font-bold">SINCRONIZANDO TELEMETRIA...</span>
     </div>
   );
 
   return (
-    <div className="min-h-screen pb-32 md:pb-12 bg-[#020204] text-slate-300 font-mono selection:bg-indigo-500/30 relative overflow-hidden">
+    <div className="min-h-screen pb-32 md:pb-12 bg-[#eef2f6] text-slate-700 font-mono selection:bg-emerald-500/20 relative overflow-hidden">
 
-      {/* FUNDO AMBIENTAL */}
+      {/* GLOWS AMBIENTAIS DE FUNDO MUITO SUAVES */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/5 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-500/5 blur-[120px] rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/3 blur-[150px] rounded-full" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02]" />
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.02] blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.01] blur-[150px] rounded-full" />
       </div>
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 relative z-10">
 
-        {/* HEADER BAR */}
-        <motion.div initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} className="bg-zinc-950/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-2xl sticky top-4 z-50 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-transparent to-purple-500/5 pointer-events-none" />
+        {/* HEADER BAR (ICE MODE) */}
+        <motion.div initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl p-4 shadow-sm sticky top-4 z-50 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
           <div className="flex flex-col xl:flex-row items-center justify-between gap-5 relative">
             <div className="flex items-center gap-6 self-stretch xl:self-auto justify-between sm:justify-start">
               {/* Flag */}
-              <div className="w-16 h-10 bg-gradient-to-br from-zinc-900 to-black border border-white/10 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-[0_0_20px_rgba(0,0,0,0.3)]">
+              <div className="w-16 h-10 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
                 {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" /> : <span className="text-lg">🏁</span>}
               </div>
 
               {/* Track + Temporada */}
               <div className="text-left">
-                <h2 className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                  <MapPin size={10} className="text-indigo-400" /> CIRCUITO SELECIONADO
+                <h2 className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <MapPin size={10} className="text-emerald-500" /> CIRCUITO SELECIONADO
                 </h2>
                 <div className="flex items-center gap-4">
                   <TrackSelector currentTrack={track} tracksList={tracksList} onSelect={updateTrack} />
                   {officeData && (officeData.season || officeData.seasonNb) && (
-                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                      <Calendar size={14} className="text-amber-400" />
-                      <span className="text-sm font-black text-white">
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                      <Calendar size={14} className="text-amber-500" />
+                      <span className="text-sm font-black text-slate-800">
                         S{officeData.season || officeData.seasonNb || '0'} R{officeData.race || officeData.raceNb || '0'}
                       </span>
                       {officeData.trackName && (
                         <>
-                          <span className="w-px h-4 bg-white/10" />
-                          <span className="text-xs text-slate-400">{he.decode(officeData.trackName)}</span>
+                          <span className="w-px h-4 bg-slate-300" />
+                          <span className="text-xs text-slate-500 font-bold">{he.decode(officeData.trackName)}</span>
                         </>
                       )}
                     </div>
@@ -782,29 +873,29 @@ export default function DashboardHome() {
             </div>
 
             {/* BOTÕES DE CONTROLE */}
-            <div className="flex items-center justify-between sm:justify-end gap-4 w-full xl:w-auto self-stretch xl:self-auto border-t xl:border-t-0 border-white/5 pt-3 xl:pt-0">
+            <div className="flex items-center justify-between sm:justify-end gap-4 w-full xl:w-auto self-stretch xl:self-auto border-t xl:border-t-0 border-slate-200 pt-3 xl:pt-0">
               <div className="flex items-center gap-4">
                 <button onClick={handleRestoreImportSnapshot} disabled={isRestoring} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform" title="Restaurar Snapshot GPRO">
-                  <div className={`p-2 rounded-lg border bg-white/5 border-white/5 transition-all duration-200 ${isRestoring ? 'animate-spin border-amber-500 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'text-slate-400 hover:text-amber-400 hover:border-amber-500/20'}`}><History size={16} /></div>
-                  <span className="text-[7px] font-black tracking-widest text-slate-500 uppercase">RESTAURAR</span>
+                  <div className={`p-2 rounded-lg border bg-white border-slate-200 shadow-sm transition-all duration-200 ${isRestoring ? 'animate-spin border-amber-500 text-amber-500 bg-amber-50 shadow-sm' : 'text-slate-505 hover:text-amber-500 hover:border-amber-400 hover:bg-amber-50/50'}`}><History size={16} /></div>
+                  <span className="text-[7px] font-black tracking-widest text-slate-400 uppercase">RESTAURAR</span>
                 </button>
 
                 <button onClick={handleImportGPRO} disabled={isImporting} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform" title="Sincronizar dados direto da GPRO">
-                  <div className={`p-2 rounded-lg border bg-white/5 border-white/5 transition-all duration-200 ${isImporting ? 'animate-spin border-green-500 text-green-500 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : 'text-slate-400 hover:text-green-400 hover:border-green-500/20'}`}><Zap size={16} /></div>
-                  <span className="text-[7px] font-black tracking-widest text-slate-500 uppercase">GPRO SYNC</span>
+                  <div className={`p-2 rounded-lg border bg-white border-slate-200 shadow-sm transition-all duration-200 ${isImporting ? 'animate-spin border-emerald-500 text-emerald-500 bg-emerald-50' : 'text-slate-500 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/50'}`}><Zap size={16} /></div>
+                  <span className="text-[7px] font-black tracking-widest text-slate-400 uppercase">GPRO SYNC</span>
                 </button>
 
                 <button onClick={persistState} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform" title="Salvar modificações atuais">
-                  <div className={`p-2 rounded-lg border bg-white/5 border-white/5 transition-all duration-200 ${isSyncing ? 'animate-spin border-cyan-500 text-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'text-slate-400 hover:text-indigo-400 hover:border-indigo-500/20'}`}><RefreshCw size={16} /></div>
-                  <span className="text-[7px] font-black tracking-widest text-slate-500 uppercase">GRAVAR</span>
+                  <div className={`p-2 rounded-lg border bg-white border-slate-200 shadow-sm transition-all duration-200 ${isSyncing ? 'animate-spin border-emerald-500 text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/50'}`}><RefreshCw size={16} /></div>
+                  <span className="text-[7px] font-black tracking-widest text-slate-400 uppercase">GRAVAR</span>
                 </button>
               </div>
 
               <div className="flex items-center gap-2">
-                <button onClick={() => setIsEditMode(!isEditMode)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300 ${isEditMode ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.1)]' : 'bg-white/5 border-white/5 text-slate-400'}`}>
-                  {isEditMode ? <Unlock size={12} className="animate-pulse text-amber-400" /> : <Lock size={12} />}
+                <button onClick={() => setIsEditMode(!isEditMode)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300 shadow-sm ${isEditMode ? 'bg-amber-50 border-amber-300 text-amber-600 font-bold' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  {isEditMode ? <Unlock size={12} className="animate-pulse text-amber-500" /> : <Lock size={12} />}
                   <div className="flex flex-col text-left">
-                    <span className="text-[7px] font-bold text-slate-500 leading-none">MODO</span>
+                    <span className="text-[7px] font-bold text-slate-400 leading-none">MODO</span>
                     <span className="text-[9px] font-black tracking-wider leading-none mt-0.5">{isEditMode ? 'EDIÇÃO' : 'BLOQUEADO'}</span>
                   </div>
                 </button>
@@ -816,18 +907,14 @@ export default function DashboardHome() {
         {/* ==========================================
             ROW 0: CARDS DE INFORMAÇÃO
             ========================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-8 gap-4 items-stretch">
           {/* Gerente - 4 colunas */}
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-4 flex flex-col h-full">
             <ManagerCard menuData={menuData} />
           </div>
-          {/* Piloto - 4 colunas */}
-          <div className="lg:col-span-4">
-            <DriverCard driver={driver} />
-          </div>
-          {/* Estatísticas - 4 colunas */}
-          <div className="lg:col-span-4">
-            <StatsCard driver={driver} />
+          {/* Piloto - DADOS IMUTÁVEIS - 4 colunas */}
+          <div className="lg:col-span-4 flex flex-col h-full">
+            <DriverStaticCard driverStatic={driverStatic} />
           </div>
         </div>
 
@@ -836,48 +923,48 @@ export default function DashboardHome() {
             ========================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 relative z-0">
 
-          {/* COLUNA 1: PILOTO TELEMETRIA */}
-          <div className={`lg:col-span-4 border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-zinc-950/60 border-amber-500/20 shadow-lg shadow-amber-500/5' : 'bg-zinc-950/40 border-white/5'}`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            {!isEditMode && <div className="absolute top-2 right-2 text-slate-700 opacity-20 pointer-events-none" title="Controle travado. Ative o modo edição."><Lock size={64} /></div>}
+          {/* COLUNA 1: PILOTO TELEMETRIA (EDITÁVEL) */}
+          <div className={`lg:col-span-4 border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm'}`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            {!isEditMode && <div className="absolute top-2 right-2 text-slate-200 opacity-40 pointer-events-none" title="Controle travado. Ative o modo edição."><Lock size={64} /></div>}
 
-            <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
+            <div className="flex justify-between items-center relative z-10 border-b border-slate-100 pb-2 mb-3">
               <div className="flex items-center gap-2">
-                {isEditMode ? <Edit3 size={14} className="text-amber-500 animate-pulse" /> : <Cpu size={14} className="text-slate-500" />}
-                <h3 className="text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Telemetria Piloto</h3>
+                {isEditMode ? <Edit3 size={14} className="text-amber-500 animate-pulse" /> : <Cpu size={14} className="text-slate-400" />}
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800">Telemetria Piloto</h3>
               </div>
-              <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 px-2.5 py-1 rounded-lg border border-indigo-500/20 text-xs font-mono font-black text-white shadow-[0_0_15px_rgba(99,102,241,0.05)]" title="Overall Geral Calculado">
-                {Number(driver.total).toFixed(1)} OA
+              <div className="bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs font-mono font-black text-emerald-700 shadow-sm" title="Overall Geral Calculado">
+                {Number(driverEditable.total).toFixed(1)} OA
               </div>
             </div>
 
             <div className="flex flex-col gap-0.5 relative z-10">
-              <TelemetryInput label="ENERGIA" value={driver.energia} max={100} onChange={(e: any) => updateDriver('energia', Number(e.target.value))} disabled={!isEditMode} isEnergy />
+              <TelemetryInput label="ENERGIA" value={driverEditable.energia} max={100} onChange={(e: any) => updateDriverEditable('energia', Number(e.target.value))} disabled={!isEditMode} isEnergy />
               {['concentracao', 'talento', 'agressividade', 'experiencia', 'tecnica', 'resistencia', 'carisma', 'motivacao', 'reputacao'].map((skill) => (
-                <TelemetryInput key={skill} label={skill.toUpperCase()} value={(driver as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e: any) => updateDriver(skill as any, Number(e.target.value))} disabled={!isEditMode} />
+                <TelemetryInput key={skill} label={skill.toUpperCase()} value={(driverEditable as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e: any) => updateDriverEditable(skill as any, Number(e.target.value))} disabled={!isEditMode} />
               ))}
-              <div className="flex items-center gap-2 mt-2 border-t border-white/5 pt-2 text-[11px]">
-                <div className="flex-1 flex items-center justify-between bg-black/30 rounded-xl px-2.5 h-8 border border-white/5">
+              <div className="flex items-center gap-2 mt-2 border-t border-slate-100 pt-2 text-[11px]">
+                <div className="flex-1 flex items-center justify-between bg-slate-50 rounded-xl px-2.5 h-8 border border-slate-200">
                   <span className="text-[8px] font-black text-slate-500 uppercase">PESO kg</span>
-                  <input disabled={!isEditMode} type="number" value={driver.peso} onChange={(e) => updateDriver('peso', Number(e.target.value))} className="w-8 bg-transparent text-right font-mono font-black text-white outline-none" />
+                  <input disabled={!isEditMode} type="number" value={driverEditable.peso} onChange={(e) => updateDriverEditable('peso', Number(e.target.value))} className="w-8 bg-transparent text-right font-mono font-black text-slate-800 outline-none" />
                 </div>
-                <div className="flex-1 flex items-center justify-between bg-black/30 rounded-xl px-2.5 h-8 border border-white/5">
+                <div className="flex-1 flex items-center justify-between bg-slate-50 rounded-xl px-2.5 h-8 border border-slate-200">
                   <span className="text-[8px] font-black text-slate-500 uppercase">IDADE anos</span>
-                  <input disabled={!isEditMode} type="number" value={driver.idade} onChange={(e) => updateDriver('idade', Number(e.target.value))} className="w-8 bg-transparent text-right font-mono font-black text-white outline-none" />
+                  <input disabled={!isEditMode} type="number" value={driverEditable.idade} onChange={(e) => updateDriverEditable('idade', Number(e.target.value))} className="w-8 bg-transparent text-right font-mono font-black text-slate-800 outline-none" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* COLUNA 2: DIAGNÓSTICO DO CARRO */}
-          <section className="lg:col-span-4 bg-zinc-950/40 border border-white/5 rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative bg-gradient-to-r from-emerald-500/5 to-teal-500/5 p-3.5 border-b border-white/5 flex justify-between items-center mb-1">
-              <h3 className="text-[10px] font-black uppercase text-white tracking-widest flex items-center gap-2"><Car size={14} className="text-emerald-400" /> Desgaste Chassi</h3>
-              <div className="flex gap-2 pr-1 text-[8px] font-black text-slate-500 uppercase tracking-wider">
+          <section className="lg:col-span-4 bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="relative bg-slate-50 p-3.5 border-b border-slate-200 flex justify-between items-center mb-1">
+              <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-widest flex items-center gap-2"><Car size={14} className="text-emerald-600" /> Desgaste Chassi</h3>
+              <div className="flex gap-2 pr-1 text-[8px] font-black text-slate-400 uppercase tracking-wider">
                 <span className="w-9 text-center">NVL</span>
                 <span className="w-9 text-center">DSG%</span>
-                <span className="w-9 text-center text-emerald-400">FIM%</span>
+                <span className="w-9 text-center text-emerald-600">FIM%</span>
               </div>
             </div>
             <div className="relative p-3.5 pt-1 flex flex-col gap-0.5">
@@ -888,13 +975,13 @@ export default function DashboardHome() {
           </section>
 
           {/* COLUNA 3: PERFORMANCE */}
-          <section className="lg:col-span-4 bg-zinc-950/40 border border-white/5 rounded-2xl p-4.5 shadow-xl h-full space-y-4 flex flex-col backdrop-blur-sm relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="flex items-center gap-2 border-b border-white/5 pb-2.5 relative">
-              <div className="p-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg">
+          <section className="lg:col-span-4 bg-white/90 border border-slate-200 rounded-2xl p-4.5 shadow-sm h-full space-y-4 flex flex-col backdrop-blur-sm relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5 relative">
+              <div className="p-1 bg-emerald-600 rounded-lg shadow-sm">
                 <Activity size={14} className="text-white" />
               </div>
-              <h3 className="text-[10px] font-black uppercase text-white tracking-widest bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Ajuste de Exigência</h3>
+              <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-widest bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Ajuste de Exigência</h3>
             </div>
             {['power', 'handling', 'accel'].map((key) => (
               <PerformanceMetric
@@ -915,26 +1002,25 @@ export default function DashboardHome() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-0">
 
           {/* DIRETOR TÉCNICO */}
-          <div className={`border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-zinc-950/60 border-yellow-500/20 shadow-lg shadow-yellow-500/5' : 'bg-zinc-950/40 border-white/5'}`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className={`border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm'}`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             
-            {/* Cabeçalho com informações do TD */}
-            <div className="relative z-10 border-b border-white/5 pb-2 mb-3">
+            <div className="relative z-10 border-b border-slate-100 pb-2 mb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Briefcase size={14} className={isEditMode ? "text-yellow-400 animate-pulse" : "text-slate-500"} />
-                  <h3 className="text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">Diretor Técnico</h3>
+                  <Briefcase size={14} className={isEditMode ? "text-amber-500 animate-pulse" : "text-slate-400"} />
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800">Diretor Técnico</h3>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="text-slate-500">OA: <span className="text-white font-black">{(techDirector as any).overall || (techDirector as any).tdOA || '0'}</span></span>
-                  <span className="text-slate-500">${(techDirector as any).salary || (techDirector as any).tdSalary || '0'}</span>
+                  <span className="text-slate-500 font-bold">OA: <span className="text-slate-800 font-black">{(techDirector as any).overall || (techDirector as any).tdOA || '0'}</span></span>
+                  <span className="text-slate-500 font-bold">${(techDirector as any).salary || (techDirector as any).tdSalary || '0'}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-                <span className="font-bold text-white">{he.decode((techDirector as any).name || (techDirector as any).tdName || 'Nenhum')}</span>
-                <span className="w-px h-3 bg-white/10" />
+              <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                <span className="font-black text-slate-800">{he.decode((techDirector as any).name || (techDirector as any).tdName || 'Nenhum')}</span>
+                <span className="w-px h-3 bg-slate-200" />
                 <span>{he.decode((techDirector as any).nationality || (techDirector as any).tdNat || 'N/A')}</span>
-                <span className="w-px h-3 bg-white/10" />
+                <span className="w-px h-3 bg-slate-200" />
                 <span>{(techDirector as any).racesLeft || (techDirector as any).tdRacesLeft || '0'} corridas</span>
               </div>
             </div>
@@ -949,12 +1035,12 @@ export default function DashboardHome() {
           </div>
 
           {/* STAFF */}
-          <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-zinc-950/60 border-yellow-500/20 shadow-lg shadow-yellow-500/5' : 'bg-zinc-950/40 border-white/5'}`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="flex justify-between items-center relative z-10 border-b border-white/5 pb-2 mb-3">
+          <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm'}`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="flex justify-between items-center relative z-10 border-b border-slate-100 pb-2 mb-3">
               <div className="flex items-center gap-2">
-                <Users size={14} className={isEditMode ? "text-yellow-400 animate-pulse" : "text-slate-500"} />
-                <h3 className="text-[10px] font-black uppercase tracking-widest bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">Equipe de Pessoal (Staff)</h3>
+                <Users size={14} className={isEditMode ? "text-amber-500 animate-pulse" : "text-slate-400"} />
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-800">Equipe de Pessoal (Staff)</h3>
               </div>
             </div>
             <div className="flex flex-col gap-0.5 mt-2 relative z-10">
@@ -971,8 +1057,8 @@ export default function DashboardHome() {
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.2); }
       `}</style>
     </div>
   );

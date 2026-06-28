@@ -45,8 +45,6 @@ async function fetchGproJson(path: string, token: string): Promise<GproJson> {
 // ========== DRIVER (DriProfile + Office + Menu) ==========
 function mapDriver(data: GproJson, officeData: GproJson, menuData: GproJson) {
   // Fallback para o nome do piloto
-  // Se driName for 0, undefined, null ou string vazia,
-  // tenta buscar do Office (driName) ou do Menu (fName)
   const rawName = data.driName ?? officeData.driName ?? '';
   const nameValue = (rawName && rawName !== 0) ? rawName : (officeData.driName || menuData.fName || '');
   const name = String(nameValue);
@@ -85,7 +83,7 @@ function mapDriver(data: GproJson, officeData: GproJson, menuData: GproJson) {
     energia: Number(data.energy ?? 0),
   };
 
-  // Aliases (inglês) - facilitam migração gradual
+  // Aliases (inglês)
   const aliases = {
     energy: existentes.energia,
     concentration: existentes.concentracao,
@@ -110,7 +108,6 @@ function mapDriver(data: GproJson, officeData: GproJson, menuData: GproJson) {
 
 // ========== TECH DIRECTOR (TDProfile + Office) ==========
 function mapTechDirector(tdData: GproJson | null, officeData: GproJson) {
-  // Campos base (inglês)
   const novos = {
     name: String(tdData?.tdName ?? officeData.tdName ?? ''),
     id: String(tdData?.tdId ?? officeData.tdId ?? ''),
@@ -120,7 +117,6 @@ function mapTechDirector(tdData: GproJson | null, officeData: GproJson) {
     racesLeft: String(tdData?.tdRacesLeft ?? officeData.tdRacesLeft ?? '0'),
   };
 
-  // Campos existentes (português) - PRESERVADOS
   const existentes = {
     rdMecanico: Number(tdData?.mechanics ?? 0),
     rdEletronico: Number(tdData?.electronics ?? 0),
@@ -129,7 +125,6 @@ function mapTechDirector(tdData: GproJson | null, officeData: GproJson) {
     pitCoord: Number(tdData?.pitCoord ?? 0),
   };
 
-  // Aliases (inglês) - facilitam migração gradual
   const aliases = {
     mechanics: existentes.rdMecanico,
     electronics: existentes.rdEletronico,
@@ -147,7 +142,6 @@ function mapTechDirector(tdData: GproJson | null, officeData: GproJson) {
 
 // ========== MENU (Menu) ==========
 function mapMenu(data: GproJson) {
-  // Campos base (inglês)
   const novos = {
     id: Number(data.IDM ?? 0),
     firstName: String(data.fName ?? ''),
@@ -166,7 +160,6 @@ function mapMenu(data: GproJson) {
     apiRequestsRemaining: Number(data.apiRequestsRemaining ?? 0),
   };
 
-  // Campos existentes - PRESERVADOS
   const existentes = {
     IDM: Number(data.IDM ?? 0),
     fName: String(data.fName ?? ''),
@@ -183,7 +176,6 @@ function mapMenu(data: GproJson) {
 
 // ========== OFFICE (Office) ==========
 function mapOffice(data: GproJson) {
-  // Campos base (inglês)
   const novos = {
     season: String(data.seasonNb ?? '0'),
     race: String(data.raceNb ?? '0'),
@@ -200,7 +192,6 @@ function mapOffice(data: GproJson) {
     doneTesting: String(data.doneTesting ?? '0'),
   };
 
-  // Campos existentes - PRESERVADOS
   const existentes = {
     seasonNb: String(data.seasonNb ?? '0'),
     raceNb: String(data.raceNb ?? '0'),
@@ -217,7 +208,7 @@ function mapOffice(data: GproJson) {
   };
 }
 
-// ========== CAR (UpdateCar) - PRESERVADO ==========
+// ========== CAR (UpdateCar) ==========
 function mapCar(data: GproJson) {
   return [
     { name: 'Chassi', lvl: Number(data.lvlChassis ?? 0), wear: Number(data.usaChassis ?? 0) },
@@ -234,7 +225,7 @@ function mapCar(data: GproJson) {
   ];
 }
 
-// ========== WEATHER (Qualify2) - PRESERVADO ==========
+// ========== WEATHER (Qualify2) ==========
 function mapWeather(data: GproJson | null) {
   if (!data?.weather) return null;
   
@@ -318,7 +309,7 @@ function mapWeather(data: GproJson | null) {
   };
 }
 
-// ========== TEST POINTS (Testing) - PRESERVADO ==========
+// ========== TEST POINTS (Testing) ==========
 function mapTestPoints(data: GproJson | null) {
   if (!data) {
     return {
@@ -339,9 +330,7 @@ function mapTestPoints(data: GproJson | null) {
   };
 }
 
-// ========== TESTING (Testing) - PRESERVADO ==========
-// NOTA: testing é retornado na API mas NÃO é salvo no banco
-// pois não existe coluna testing_json na tabela user_state
+// ========== TESTING (Testing) ==========
 function mapTesting(data: GproJson | null) {
   if (!data) return null;
 
@@ -356,7 +345,7 @@ function mapTesting(data: GproJson | null) {
   };
 }
 
-// ========== STAFF (StaffAndFacilities) - PRESERVADO ==========
+// ========== STAFF (StaffAndFacilities) ==========
 function mapStaff(data: GproJson) {
   return {
     toleranciaPressao: Number(data.stressHandling ?? 0),
@@ -364,8 +353,7 @@ function mapStaff(data: GproJson) {
   };
 }
 
-// ========== TRACK (TrackProfile) - APENAS NOME ==========
-// track é uma coluna string, não jsonb
+// ========== TRACK (TrackProfile) ==========
 function getTrackName(data: GproJson): string {
   return String(data.trackName ?? '');
 }
@@ -508,11 +496,46 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // MAPEAMENTO DOS DADOS - ENRIQUECIMENTO
+    // MAPEAMENTO DOS DADOS - SEPARADOS
     // ============================================
 
     const menuDataEnriched = mapMenu(menuData);
     const driverDataEnriched = mapDriver(driverData, officeData, menuData);
+    
+    // ✅ DADOS IMUTÁVEIS DO PILOTO (NUNCA MUDAM)
+    const driverStatic = {
+      name: driverDataEnriched.name || '',
+      nationality: driverDataEnriched.nationality || '',
+      nationalityName: driverDataEnriched.nationalityName || '',
+      overall: driverDataEnriched.overall || 0,
+      salary: driverDataEnriched.salary || '0',
+      racesLeft: driverDataEnriched.racesLeft || '0',
+      driverId: driverDataEnriched.driverId || null,
+      trophies: driverDataEnriched.trophies || 0,
+      races: driverDataEnriched.races || 0,
+      wins: driverDataEnriched.wins || 0,
+      podiums: driverDataEnriched.podiums || 0,
+      points: driverDataEnriched.points || 0,
+      poles: driverDataEnriched.poles || 0,
+      fastLaps: driverDataEnriched.fastLaps || 0,
+    };
+    
+    // ✅ DADOS EDITÁVEIS DO PILOTO (PODEM MUDAR)
+    const driverEditable = {
+      concentracao: driverDataEnriched.concentracao || 0,
+      talento: driverDataEnriched.talento || 0,
+      agressividade: driverDataEnriched.agressividade || 0,
+      experiencia: driverDataEnriched.experiencia || 0,
+      tecnica: driverDataEnriched.tecnica || 0,
+      resistencia: driverDataEnriched.resistencia || 0,
+      carisma: driverDataEnriched.carisma || 0,
+      motivacao: driverDataEnriched.motivacao || 0,
+      reputacao: driverDataEnriched.reputacao || 0,
+      peso: driverDataEnriched.peso || 0,
+      idade: driverDataEnriched.idade || 0,
+      energia: driverDataEnriched.energia || 0,
+    };
+    
     const techDirectorDataEnriched = mapTechDirector(tdData, officeData);
     const officeDataEnriched = mapOffice(officeData);
     const trackName = getTrackName(trackData);
@@ -524,30 +547,28 @@ export async function POST(request: NextRequest) {
     const lastSyncAt = new Date().toISOString();
 
     // ============================================
-    // SALVAR NO user_state - COM VALIDAÇÃO
+    // SALVAR NO user_state - SEPARADO
     // ============================================
 
     try {
       const { error: updateError } = await supabase
         .from('user_state')
         .update({
-          // Colunas existentes - ENRIQUECIDAS
-          driver_json: driverDataEnriched,
+          // ✅ DADOS IMUTÁVEIS (NUNCA SOBRESCRITOS)
+          driver_static: driverStatic,
+          
+          // ✅ DADOS EDITÁVEIS (PODEM SER SOBRESCRITOS)
+          driver_editable: driverEditable,
+          
+          // Outros dados
           tech_director_json: techDirectorDataEnriched,
           menu_data: menuDataEnriched,
           office_data: officeDataEnriched,
-          
-          // Colunas existentes - PRESERVADAS
           car_json: carDataMapped,
           test_points_json: testPointsDataMapped,
           weather_data: weatherDataMapped,
           staff_facilities_json: staffDataMapped,
-          
-          // track (string) - atualizar com o nome da pista
           track: trackName,
-          
-          // NOTA: updated_at é atualizado automaticamente pelo trigger do Supabase
-          // NOTA: last_import_at NÃO deve ser sobrescrito (é para importações manuais)
         })
         .eq('user_id', userId);
 
@@ -557,7 +578,8 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('✅ user_state atualizado com sucesso');
-      console.log(`📊 Driver: ${driverDataEnriched.name || 'N/A'}`);
+      console.log(`📊 Driver Static (imutável): ${driverStatic.name}`);
+      console.log(`📊 Driver Editable (mutável): energia=${driverEditable.energia}, concentracao=${driverEditable.concentracao}`);
       console.log(`📊 Tech Director: ${techDirectorDataEnriched.name || 'Nenhum'}`);
       console.log(`📊 Track: ${trackName}`);
       console.log(`📊 Office: Season ${officeDataEnriched.season}, Race ${officeDataEnriched.race}`);
@@ -571,14 +593,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // RESPOSTA DA API - COMPATIBILIDADE TOTAL
+    // RESPOSTA DA API
     // ============================================
 
     return NextResponse.json({
       success: true,
-      
-      // Campos existentes (frontend espera estes)
-      driver: driverDataEnriched,
+      driver_static: driverStatic,
+      driver_editable: driverEditable,
       car: carDataMapped,
       weather: weatherDataMapped,
       tech_director: techDirectorDataEnriched,
@@ -587,11 +608,7 @@ export async function POST(request: NextRequest) {
       menu_data: menuDataEnriched,
       office_data: officeDataEnriched,
       track: trackName,
-      
-      // Campos adicionais (opcionais)
       testing: testingDataMapped,
-      
-      // Metadados
       last_sync_at: lastSyncAt,
     });
 

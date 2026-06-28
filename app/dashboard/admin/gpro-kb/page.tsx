@@ -27,6 +27,9 @@ import {
   deleteCatalogo,
   saveEndpoint
 } from '@/app/lib/knowledge-base-api';
+import { Loader2, Database, Sparkles, Crown, Shield, Rocket, Zap, Brain, ChevronRight, Star } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import he from 'he';
 
 export default function GproKbPage() {
   const { isGlobalLoading } = useGame();
@@ -58,9 +61,7 @@ export default function GproKbPage() {
   const [compareEndpoint2, setCompareEndpoint2] = useState('');
   const [observacaoEditando, setObservacaoEditando] = useState<string | null>(null);
 
-  // ============================================
-  // OBTER USER ID DA SESSÃO
-  // ============================================
+  // Obter User ID
   useEffect(() => {
     async function getUserId() {
       try {
@@ -77,9 +78,7 @@ export default function GproKbPage() {
     getUserId();
   }, []);
 
-  // ============================================
-  // CARREGAR CATÁLOGO DO SUPABASE
-  // ============================================
+  // Carregar catálogo do Supabase
   useEffect(() => {
     async function loadCatalogo() {
       if (!userId) {
@@ -91,7 +90,6 @@ export default function GproKbPage() {
         const data = await getCatalogo(userId);
         setCatalogo(data);
         
-        // Carregar categorias do localStorage (mantido para preferências)
         try {
           const savedCategorias = localStorage.getItem('gpro-categorias');
           if (savedCategorias) {
@@ -111,9 +109,7 @@ export default function GproKbPage() {
     loadCatalogo();
   }, [userId]);
 
-  // ============================================
-  // SALVAR CATEGORIAS (mantido localStorage - Sprint 2.5)
-  // ============================================
+  // Salvar categorias locais
   useEffect(() => {
     try {
       localStorage.setItem('gpro-categorias', JSON.stringify(categorias));
@@ -122,9 +118,7 @@ export default function GproKbPage() {
     }
   }, [categorias]);
 
-  // ============================================
-  // EXECUTAR UM ENDPOINT
-  // ============================================
+  // Executar Endpoint
   async function executar() {
     if (!userId) {
       setError('Usuário não autenticado. Faça login primeiro.');
@@ -164,9 +158,7 @@ export default function GproKbPage() {
     }
   }
 
-  // ============================================
-  // ANALISAR RESPOSTA E SALVAR NO SUPABASE
-  // ============================================
+  // Analisar e Salvar Resposta no Supabase
   async function analisarResposta(data: any, endpointName: string) {
     if (!data) {
       setAnalysis(null);
@@ -246,7 +238,6 @@ export default function GproKbPage() {
 
     setAnalysis(analysisResult);
 
-    // Atualizar catálogo local e salvar no Supabase
     const existing = catalogo[endpointName] || {
       campos: [],
       parametros: [],
@@ -289,9 +280,7 @@ export default function GproKbPage() {
     }
   }
 
-  // ============================================
-  // SCAN DE TODOS OS ENDPOINTS - PERSISTENTE
-  // ============================================
+  // Scan Completo Sequencial Persistente
   async function scanAllEndpoints() {
     if (!userId) {
       alert('Usuário não autenticado');
@@ -303,7 +292,6 @@ export default function GproKbPage() {
     setScanning(true);
     cancelScanRef.current = false;
     const novosLogs: string[] = [];
-    // ✅ Já usa o catálogo atualizado conforme cada endpoint é salvo
     let currentProgress = 0;
     let salvosComSucesso = 0;
     let falhas = 0;
@@ -329,7 +317,6 @@ export default function GproKbPage() {
 
           const hash = calcularHashSchema(tipos);
 
-          // ✅ Busca a versão mais recente do catálogo
           const existing = catalogo[ep] || {
             campos: [],
             parametros: [],
@@ -371,12 +358,10 @@ export default function GproKbPage() {
             hashHistory: [...(existing.hashHistory || []), hash].slice(-10)
           };
 
-          // ✅ SALVA IMEDIATAMENTE CADA ENDPOINT
           try {
             await saveEndpoint(ep, endpointInfo, userId!);
             salvosComSucesso++;
             
-            // ✅ ATUALIZA O CATÁLOGO LOCAL
             setCatalogo(prev => ({
               ...prev,
               [ep]: endpointInfo
@@ -394,7 +379,6 @@ export default function GproKbPage() {
         console.error(`Erro em ${ep}:`, error);
         const paramDetectado = detectarParametro(error.message || '');
         if (paramDetectado) {
-          // ✅ Mesmo com erro de parâmetro, salva o endpoint com os parâmetros detectados
           const existing = catalogo[ep] || {
             campos: [],
             parametros: [],
@@ -437,9 +421,8 @@ export default function GproKbPage() {
         }
       }
 
-      // Atualiza o log e progresso a cada iteração
       setScanLog([...novosLogs]);
-      await new Promise(r => setTimeout(r, 300)); // Reduzido para 300ms
+      await new Promise(r => setTimeout(r, 300));
     }
 
     if (!cancelScanRef.current) {
@@ -456,9 +439,7 @@ export default function GproKbPage() {
     setScanLog(prev => [...prev, '⛔ Cancelando scan...']);
   }
 
-  // ============================================
-  // FUNÇÕES DE CATEGORIA E STATUS
-  // ============================================
+  // Funções de Gerenciamento da KB
   function toggleFavorito(endpointName: string) {
     setCategorias(prev => {
       const novo = { ...prev };
@@ -573,9 +554,7 @@ export default function GproKbPage() {
     });
   }
 
-  // ============================================
-  // EXPORTAÇÃO E DOCUMENTAÇÃO
-  // ============================================
+  // Documentação e Backup
   function gerarDocumentacao() {
     if (Object.keys(catalogo).length === 0) {
       alert('Catálogo vazio. Execute algumas requisições primeiro.');
@@ -728,9 +707,7 @@ export default function GproKbPage() {
     }
   }
 
-  // ============================================
-  // FUNÇÕES AUXILIARES (Copiar, Baixar)
-  // ============================================
+  // Helpers de Exportação
   async function copiarJSON() {
     if (!response) {
       alert('Nenhum JSON para copiar');
@@ -783,9 +760,7 @@ export default function GproKbPage() {
     setDetectedParams([]);
   }
 
-  // ============================================
-  // ESTATÍSTICAS (useMemo)
-  // ============================================
+  // Estatísticas Memoizadas
   const estatisticas = useMemo(() => {
     const totalEndpoints = Object.keys(catalogo).length;
     const todosCampos = new Set(Object.values(catalogo).flatMap(info => info.campos));
@@ -846,9 +821,7 @@ export default function GproKbPage() {
     };
   }, [catalogo, categorias]);
 
-  // ============================================
-  // COMPARAÇÃO DE ENDPOINTS
-  // ============================================
+  // Comparador de Schemas
   const comparacao = useMemo(() => {
     if (!compareEndpoint1 || !compareEndpoint2) return null;
     if (!catalogo[compareEndpoint1] || !catalogo[compareEndpoint2]) return null;
@@ -870,9 +843,7 @@ export default function GproKbPage() {
     };
   }, [catalogo, compareEndpoint1, compareEndpoint2]);
 
-  // ============================================
-  // CAMPOS FILTRADOS
-  // ============================================
+  // Filtro de Busca de Campos de Resposta
   const camposFiltrados = useMemo(() => {
     if (!analysis?.campos) return [];
     if (!buscaCampos) return analysis.campos;
@@ -881,45 +852,31 @@ export default function GproKbPage() {
     );
   }, [analysis?.campos, buscaCampos]);
 
-  // ============================================
-  // UI: MATURIDADE LABELS
-  // ============================================
   const maturidadeLabels: Record<string, { label: string; color: string }> = {
-    descoberto: { label: '🔍 Descoberto', color: 'bg-gray-500/20 text-gray-300' },
-    parcial: { label: '⚠️ Parcial', color: 'bg-yellow-500/20 text-yellow-300' },
-    completo: { label: '✅ Completo', color: 'bg-green-500/20 text-green-300' },
-    instavel: { label: '🔄 Instável', color: 'bg-orange-500/20 text-orange-300' },
-    descontinuado: { label: '🚫 Descontinuado', color: 'bg-red-500/20 text-red-300' },
+    descoberto: { label: '🔍 Descoberto', color: 'bg-slate-100 border-slate-200 text-slate-600' },
+    parcial: { label: '⚠️ Parcial', color: 'bg-amber-50 border-amber-200 text-amber-600 font-bold' },
+    completo: { label: '✅ Completo', color: 'bg-emerald-50 border-emerald-300 text-emerald-600 font-black shadow-sm' },
+    instavel: { label: '🔄 Instável', color: 'bg-orange-50 border-orange-200 text-orange-600' },
+    descontinuado: { label: '🚫 Descontinuado', color: 'bg-rose-50 border-rose-200 text-rose-600' },
   };
 
   const isAuthenticated = !!userId;
   const isReady = !isLoadingAuth && !isLoadingCatalog && !isGlobalLoading;
 
-  // ============================================
-  // RENDER
-  // ============================================
   if (isLoadingAuth || isLoadingCatalog || isGlobalLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">
-            {isLoadingAuth ? 'Autenticando...' : 
-             isLoadingCatalog ? 'Carregando catálogo...' : 
-             'Carregando...'}
-          </p>
+      <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#eef2f6] text-emerald-600 font-mono text-xs gap-4">
+        <div className="w-12 h-12 border-2 border-emerald-500/10 rounded-full flex items-center justify-center relative">
+          <div className="w-12 h-12 border-2 border-t-emerald-600 rounded-full animate-spin absolute" />
+          <Loader2 className="animate-spin text-emerald-600 h-8 w-8" />
         </div>
+        <p className="text-slate-400 font-bold text-xs uppercase">Carregando API Database...</p>
       </div>
     );
   }
 
-  const progressPercent = scanProgress.total > 0
-    ? (scanProgress.current / scanProgress.total) * 100
-    : 0;
+  const progressPercent = scanProgress.total > 0 ? (scanProgress.current / scanProgress.total) * 100 : 0;
 
-  // ============================================
-  // AGRUPAR ENDPOINTS POR CATEGORIA
-  // ============================================
   const endpointsPorCategoria: Record<string, string[]> = {};
   endpoints.forEach(ep => {
     const cat = autoCategorizar(ep) || '📋 Geral';
@@ -930,66 +887,69 @@ export default function GproKbPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto font-mono text-slate-700 pb-24 relative overflow-hidden">
+      
+      {/* GLOWS AMBIENTAIS */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
+      </div>
 
-      {/* ==========================================
-          HEADER
-          ========================================== */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-3xl font-bold text-white">
-            🧪 GPRO API Knowledge Base
+      {/* HEADER BAR (LIGHT GELO) */}
+      <div className="bg-white/90 border border-slate-200 p-4 md:p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center sticky top-4 z-50 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/[0.01] blur-2xl rounded-full pointer-events-none" />
+        <div className="text-left w-full md:w-auto">
+          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-1 flex items-center gap-2">
+            GPRO API Database
+            <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">KB</span>
+            <Sparkles size={14} className="text-amber-400" />
           </h1>
-          <p className="text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
             Explore, analise e catalogue a estrutura da API GPRO
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs px-3 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-full">
+          <span className="text-[10px] px-3 py-1 bg-emerald-50 border-emerald-200 text-emerald-600 rounded-full font-black shadow-sm">
             ⚡ Explorer V2
           </span>
-          <span className="text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
+          <span className="text-[10px] px-3 py-1 bg-slate-50 border-slate-200 text-slate-600 rounded-full font-black shadow-sm">
             {endpoints.length} endpoints
           </span>
           {isAuthenticated && (
-            <span className="text-xs px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/20 rounded-full">
-              ✅ Autenticado
+            <span className="text-[10px] px-3 py-1 bg-emerald-50 border-emerald-250 text-emerald-600 rounded-full font-black shadow-sm flex items-center gap-1">
+              <Shield size={10} /> Autenticado
             </span>
           )}
           {Object.keys(catalogo).length > 0 && (
-            <span className="text-xs px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
+            <span className="text-[10px] px-3 py-1 bg-indigo-50 border-indigo-200 text-indigo-600 rounded-full font-black shadow-sm">
               📚 {Object.keys(catalogo).length} mapeados
             </span>
           )}
         </div>
       </div>
 
-      {/* ==========================================
-          STATUS DO TOKEN
-          ========================================== */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur-sm">
+      {/* STATUS DO TOKEN */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm relative z-10">
         <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-          <span className="text-sm text-slate-300">
+          <div className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
+          <span className="text-xs text-slate-700 font-bold">
             {isAuthenticated
               ? '🔑 Token GPRO carregado automaticamente da sua conta'
               : '❌ Usuário não autenticado'}
           </span>
         </div>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-2">
           {isAuthenticated
             ? 'O token é obtido automaticamente do seu perfil. Para alterar, vá em Integração GPRO.'
             : 'Faça login para acessar a Knowledge Base.'}
         </p>
       </div>
 
-      {/* ==========================================
-          CONTROLES PRINCIPAIS
-          ========================================== */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur-sm space-y-3">
-        <div className="flex gap-2 flex-wrap">
+      {/* CONTROLES PRINCIPAIS */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4 relative z-10">
+        <div className="flex gap-2.5 flex-wrap">
           <select
-            className="flex-1 min-w-[150px] bg-black/50 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cyan-500/50 transition-colors"
+            className="flex-1 min-w-[200px] bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-slate-800 outline-none focus:border-emerald-500 shadow-inner"
             value={endpoint}
             onChange={(e) => setEndpoint(e.target.value)}
             disabled={loading || scanning || !isAuthenticated}
@@ -1005,15 +965,21 @@ export default function GproKbPage() {
 
           <button
             onClick={executar}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50 font-medium"
+            className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all border border-emerald-500 active:scale-[0.98] disabled:opacity-50"
             disabled={loading || scanning || !isAuthenticated}
           >
-            {loading ? '⏳ Executando...' : '▶️ Executar'}
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="animate-spin h-3 w-3" /> Executando...
+              </span>
+            ) : (
+              '▶️ Executar'
+            )}
           </button>
 
           <button
             onClick={scanAllEndpoints}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50 font-medium"
+            className="bg-[#f8fafc] hover:bg-slate-50 border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
             disabled={scanning || loading || !isAuthenticated}
           >
             {scanning ? `⏳ ${scanProgress.current}/${scanProgress.total}` : '🔍 Scan Todos'}
@@ -1022,7 +988,7 @@ export default function GproKbPage() {
           {scanning && (
             <button
               onClick={cancelarScan}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="bg-rose-50 border border-rose-300 text-rose-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all hover:bg-rose-100"
             >
               ⛔ Cancelar
             </button>
@@ -1030,7 +996,7 @@ export default function GproKbPage() {
 
           <button
             onClick={limparResposta}
-            className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+            className="bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
             disabled={!response && !error}
           >
             ✕ Limpar
@@ -1038,35 +1004,35 @@ export default function GproKbPage() {
         </div>
 
         {/* Parâmetros */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <label className="flex items-center gap-2 text-sm text-slate-400">
+        <div className="flex items-center gap-4 flex-wrap border-t border-slate-100 pt-3">
+          <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
             <input
               type="checkbox"
               checked={hasParams}
               onChange={(e) => setHasParams(e.target.checked)}
-              className="accent-cyan-500"
+              className="accent-emerald-500"
               disabled={!isAuthenticated}
             />
             Parâmetros
           </label>
           {hasParams && (
-            <div className="flex gap-2 flex-1">
+            <div className="flex gap-2 flex-1 animate-fadeIn">
               <input
-                className="flex-1 min-w-[100px] bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+                className="flex-1 min-w-[120px] bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 shadow-inner"
                 placeholder="Ex: driverId"
                 value={paramKey}
                 onChange={(e) => setParamKey(e.target.value)}
                 disabled={!isAuthenticated}
               />
               <input
-                className="flex-1 min-w-[100px] bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+                className="flex-1 min-w-[120px] bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 shadow-inner"
                 placeholder="Valor"
                 value={paramValue}
                 onChange={(e) => setParamValue(e.target.value)}
                 disabled={!isAuthenticated}
               />
               {detectedParams.length > 0 && (
-                <span className="text-xs text-yellow-400 flex items-center">
+                <span className="text-[10px] text-amber-600 font-bold flex items-center">
                   ⚠️ Parâmetros sugeridos: {detectedParams.join(', ')}
                 </span>
               )}
@@ -1075,77 +1041,71 @@ export default function GproKbPage() {
         </div>
       </div>
 
-      {/* ==========================================
-          BOTÕES DE AÇÃO
-          ========================================== */}
-      <div className="flex flex-wrap gap-2">
+      {/* BOTÕES DE AÇÃO */}
+      <div className="flex flex-wrap gap-2.5 relative z-10">
         <button
           onClick={copiarJSON}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
           disabled={!response || loading}
         >
           📋 Copiar JSON
         </button>
         <button
           onClick={baixarJSON}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
           disabled={!response || loading}
         >
           💾 Baixar JSON
         </button>
         <button
           onClick={copiarCampos}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
           disabled={!analysis || loading}
         >
           📋 Copiar Campos
         </button>
         <button
           onClick={exportarCatalogo}
-          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
           disabled={Object.keys(catalogo).length === 0 || scanning}
         >
           📦 Exportar KB
         </button>
         <button
           onClick={gerarDocumentacao}
-          className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
           disabled={Object.keys(catalogo).length === 0 || scanning}
         >
           📄 Gerar Docs
         </button>
         <button
           onClick={limparKnowledgeBase}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          className="bg-rose-50 border border-rose-300 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
           disabled={Object.keys(catalogo).length === 0}
         >
           🗑️ Limpar KB
         </button>
       </div>
 
-      {/* ==========================================
-          ERRO
-          ========================================== */}
+      {/* ERRO */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400">
-          <p className="font-medium">❌ {error}</p>
+        <div className="bg-rose-50 border border-rose-250 rounded-xl p-4 text-rose-600 relative z-10 font-bold">
+          <p className="text-xs">❌ {error}</p>
         </div>
       )}
 
-      {/* ==========================================
-          SCAN PROGRESS
-          ========================================== */}
+      {/* SCAN PROGRESS */}
       {scanning && (
-        <div className="border border-yellow-500/20 rounded-xl p-4 bg-yellow-500/10 backdrop-blur-sm">
+        <div className="border border-amber-200 rounded-xl p-4 bg-amber-50 relative z-10 shadow-sm animate-pulse">
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <div className="flex justify-between text-sm">
-                <span className="text-yellow-300">Scaneando: {scanProgress.currentEndpoint}</span>
-                <span className="text-yellow-300">{scanProgress.current}/{scanProgress.total}</span>
+              <div className="flex justify-between text-xs font-black">
+                <span className="text-amber-700">Escaneando: {scanProgress.currentEndpoint}</span>
+                <span className="text-amber-600">{scanProgress.current}/{scanProgress.total}</span>
               </div>
-              <div className="w-full bg-black/50 h-2 mt-1 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-200 h-2 mt-2 rounded-full overflow-hidden border border-slate-300/30">
                 <div
-                  className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+                  className="bg-amber-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -1154,58 +1114,60 @@ export default function GproKbPage() {
         </div>
       )}
 
-      {/* ==========================================
-          SCAN LOG (atualizado em tempo real)
-          ========================================== */}
+      {/* SCAN LOG (atualizado em tempo real) */}
       {scanLog.length > 0 && (
-        <div className="border border-white/10 rounded-xl p-4 bg-black/30 backdrop-blur-sm max-h-60 overflow-y-auto">
-          <strong className="block mb-2 text-slate-300">
+        <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm max-h-60 overflow-y-auto relative z-10">
+          <strong className="block mb-2 text-xs font-black text-slate-800 uppercase flex items-center gap-2">
+            <Database size={14} className="text-emerald-600" />
             📋 Log do Scan: {scanning ? '🔄 Em andamento...' : '✅ Concluído'}
           </strong>
-          {scanLog.map((log, index) => (
-            <div key={index} className="text-sm font-mono text-slate-400">
-              {log}
-            </div>
-          ))}
+          <div className="space-y-1">
+            {scanLog.map((log, index) => (
+              <div key={index} className="text-xs font-mono text-slate-500">
+                {log}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* ==========================================
-          ESTATÍSTICAS
-          ========================================== */}
+      {/* ESTATÍSTICAS */}
       {Object.keys(catalogo).length > 0 && (
-        <div className="border border-blue-500/20 rounded-xl p-6 bg-blue-500/10 backdrop-blur-sm">
-          <h2 className="font-bold text-lg text-white">📊 ESTATÍSTICAS DO KNOWLEDGE BASE</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
-            <div>
-              <span className="text-slate-400 text-sm">Endpoints mapeados</span>
-              <div className="text-2xl font-bold text-white">{estatisticas.totalEndpoints}</div>
+        <div className="border border-emerald-250 rounded-xl p-6 bg-emerald-50/20 backdrop-blur-sm relative z-10 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Crown size={16} className="text-amber-500" />
+            <h2 className="font-black text-xs text-emerald-800 uppercase tracking-widest">📊 ESTATÍSTICAS DO KNOWLEDGE BASE</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Endpoints mapeados</span>
+              <div className="text-xl font-black text-slate-800">{estatisticas.totalEndpoints}</div>
             </div>
-            <div>
-              <span className="text-slate-400 text-sm">Campos únicos</span>
-              <div className="text-2xl font-bold text-white">{estatisticas.totalCampos}</div>
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Campos únicos</span>
+              <div className="text-xl font-black text-slate-800">{estatisticas.totalCampos}</div>
             </div>
-            <div>
-              <span className="text-slate-400 text-sm">Maior endpoint</span>
-              <div className="text-sm text-cyan-400">
-                {estatisticas.maiorEndpoint.nome} ({estatisticas.maiorEndpoint.campos} campos)
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Maior endpoint</span>
+              <div className="text-xs font-black text-emerald-600 leading-tight">
+                {estatisticas.maiorEndpoint.nome} <br/><span className="text-[10px] text-slate-400">({estatisticas.maiorEndpoint.campos} campos)</span>
               </div>
             </div>
-            <div>
-              <span className="text-slate-400 text-sm">Menor endpoint</span>
-              <div className="text-sm text-cyan-400">
-                {estatisticas.menorEndpoint.nome} ({estatisticas.menorEndpoint.campos} campos)
+            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Menor endpoint</span>
+              <div className="text-xs font-black text-emerald-600 leading-tight">
+                {estatisticas.menorEndpoint.nome} <br/><span className="text-[10px] text-slate-400">({estatisticas.menorEndpoint.campos} campos)</span>
               </div>
             </div>
           </div>
 
           {Object.keys(estatisticas.camposPorCategoria).length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-bold text-white">📂 Campos por Categoria</h3>
+            <div className="mt-4 pt-3 border-t border-emerald-100">
+              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">📂 Campos por Categoria</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
                 {Object.entries(estatisticas.camposPorCategoria).map(([categoria, total]) => (
-                  <div key={categoria} className="text-sm text-slate-300">
-                    <span className="text-cyan-400">{categoria}:</span> {total} campos
+                  <div key={categoria} className="text-xs font-bold text-slate-600">
+                    <span className="text-emerald-600">{categoria}:</span> {total} campos
                   </div>
                 ))}
               </div>
@@ -1213,12 +1175,12 @@ export default function GproKbPage() {
           )}
 
           {Object.keys(estatisticas.endpointsPorStatus).length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-bold text-white">📌 Status dos Endpoints</h3>
+            <div className="mt-4 pt-3 border-t border-emerald-100">
+              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">📌 Status dos Endpoints</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
                 {Object.entries(estatisticas.endpointsPorStatus).map(([status, total]) => (
-                  <div key={status} className="text-sm text-slate-300">
-                    <span className="text-cyan-400">{status}:</span> {total}
+                  <div key={status} className="text-xs font-bold text-slate-600">
+                    <span className="text-emerald-600">{status}:</span> {total}
                   </div>
                 ))}
               </div>
@@ -1226,8 +1188,8 @@ export default function GproKbPage() {
           )}
 
           {Object.keys(estatisticas.endpointsPorMaturidade).length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-bold text-white">🧬 Maturidade dos Endpoints</h3>
+            <div className="mt-4 pt-3 border-t border-emerald-100">
+              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">🧬 Maturidade dos Endpoints</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
                 {Object.entries(estatisticas.endpointsPorMaturidade).map(([maturidade, total]) => {
                   const labels: Record<string, string> = {
@@ -1238,8 +1200,8 @@ export default function GproKbPage() {
                     descontinuado: '🚫 Descontinuado'
                   };
                   return (
-                    <div key={maturidade} className="text-sm text-slate-300">
-                      <span className="text-cyan-400">{labels[maturidade] || maturidade}:</span> {total}
+                    <div key={maturidade} className="text-xs font-bold text-slate-600">
+                      <span className="text-emerald-600">{labels[maturidade] || maturidade}:</span> {total}
                     </div>
                   );
                 })}
@@ -1248,9 +1210,9 @@ export default function GproKbPage() {
           )}
 
           {estatisticas.ranking.length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-bold text-white">🏆 TOP ENDPOINTS</h3>
-              <ol className="list-decimal pl-5 mt-1">
+            <div className="mt-4 pt-3 border-t border-emerald-100">
+              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">🏆 TOP ENDPOINTS</h3>
+              <ol className="list-decimal pl-5 mt-1 space-y-0.5">
                 {estatisticas.ranking.slice(0, 5).map((item, index) => {
                   const labels: Record<string, string> = {
                     descoberto: '🔍',
@@ -1260,8 +1222,8 @@ export default function GproKbPage() {
                     descontinuado: '🚫'
                   };
                   return (
-                    <li key={item.nome} className="text-sm text-slate-300">
-                      <span className="text-cyan-400">{item.nome}</span> - {item.campos} campos
+                    <li key={item.nome} className="text-xs font-bold text-slate-600">
+                      <span className="text-emerald-600">{item.nome}</span> - {item.campos} campos
                       {item.parametros > 0 && ` (${item.parametros} params)`}
                       {item.confianca > 0 && ` | conf: ${item.confianca}%`}
                       {item.maturidade && ` | ${labels[item.maturidade] || ''}`}
@@ -1274,15 +1236,16 @@ export default function GproKbPage() {
         </div>
       )}
 
-      {/* ==========================================
-          COMPARADOR DE ENDPOINTS
-          ========================================== */}
+      {/* COMPARADOR DE ENDPOINTS */}
       {Object.keys(catalogo).length >= 2 && (
-        <div className="border border-white/10 rounded-xl p-6 bg-white/5 backdrop-blur-sm">
-          <h2 className="font-bold text-lg text-white">🔄 COMPARADOR DE ENDPOINTS</h2>
-          <div className="flex gap-4 mt-2 flex-wrap">
+        <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-sm relative z-10">
+          <h2 className="font-black text-xs text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2 flex items-center gap-2">
+            <Rocket size={14} className="text-amber-500" />
+            🔄 Comparador de Endpoints
+          </h2>
+          <div className="flex gap-4 mt-4 flex-wrap">
             <select
-              className="border border-white/10 rounded-lg px-4 py-2 bg-black/50 text-white focus:outline-none focus:border-cyan-500/50"
+              className="border border-slate-200 rounded-xl px-4 py-2 bg-[#f8fafc] text-xs font-black text-slate-800 focus:outline-none focus:border-emerald-500 shadow-inner"
               value={compareEndpoint1}
               onChange={(e) => setCompareEndpoint1(e.target.value)}
             >
@@ -1292,7 +1255,7 @@ export default function GproKbPage() {
               ))}
             </select>
             <select
-              className="border border-white/10 rounded-lg px-4 py-2 bg-black/50 text-white focus:outline-none focus:border-cyan-500/50"
+              className="border border-slate-200 rounded-xl px-4 py-2 bg-[#f8fafc] text-xs font-black text-slate-800 focus:outline-none focus:border-emerald-500 shadow-inner"
               value={compareEndpoint2}
               onChange={(e) => setCompareEndpoint2(e.target.value)}
             >
@@ -1304,55 +1267,58 @@ export default function GproKbPage() {
           </div>
 
           {comparacao && (
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-3 animate-fadeIn">
               <div className="grid grid-cols-3 gap-4">
-                <div className="border border-green-500/20 rounded-lg p-3 bg-green-500/10">
-                  <span className="text-slate-400 text-sm">Em comum</span>
-                  <div className="text-2xl font-bold text-green-400">{comparacao.totalComum}</div>
+                <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50/50 shadow-sm">
+                  <span className="text-slate-400 text-[10px] font-black uppercase">Em comum</span>
+                  <div className="text-2xl font-black text-emerald-600">{comparacao.totalComum}</div>
                 </div>
-                <div className="border border-blue-500/20 rounded-lg p-3 bg-blue-500/10">
-                  <span className="text-slate-400 text-sm">Somente {compareEndpoint1}</span>
-                  <div className="text-2xl font-bold text-blue-400">{comparacao.totalSomente1}</div>
+                <div className="border border-slate-200 rounded-xl p-3 bg-[#f8fafc] shadow-sm">
+                  <span className="text-slate-400 text-[10px] font-black uppercase">Somente {compareEndpoint1}</span>
+                  <div className="text-2xl font-black text-slate-700">{comparacao.totalSomente1}</div>
                 </div>
-                <div className="border border-orange-500/20 rounded-lg p-3 bg-orange-500/10">
-                  <span className="text-slate-400 text-sm">Somente {compareEndpoint2}</span>
-                  <div className="text-2xl font-bold text-orange-400">{comparacao.totalSomente2}</div>
+                <div className="border border-slate-200 rounded-xl p-3 bg-[#f8fafc] shadow-sm">
+                  <span className="text-slate-400 text-[10px] font-black uppercase">Somente {compareEndpoint2}</span>
+                  <div className="text-2xl font-black text-slate-700">{comparacao.totalSomente2}</div>
                 </div>
               </div>
 
-              <details className="text-sm">
-                <summary className="cursor-pointer font-medium text-slate-300 hover:text-white transition-colors">Ver detalhes</summary>
-                <div className="grid grid-cols-3 gap-4 mt-2 max-h-60 overflow-y-auto">
+              <details className="text-xs">
+                <summary className="cursor-pointer font-bold text-slate-400 hover:text-slate-800 transition-colors flex items-center gap-1">
+                  <ChevronRight size={12} className="text-emerald-500" />
+                  Ver detalhes
+                </summary>
+                <div className="grid grid-cols-3 gap-4 mt-3 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl p-3 shadow-inner">
                   <div>
-                    <strong className="text-slate-300">Em comum:</strong>
-                    <ul className="list-disc pl-4 text-slate-400">
+                    <strong className="text-slate-800 text-[10px] font-black uppercase">Em comum:</strong>
+                    <ul className="list-disc pl-4 text-slate-500 mt-1 font-bold space-y-0.5">
                       {comparacao.emComum.slice(0, 10).map(c => (
                         <li key={c}>{c}</li>
                       ))}
                       {comparacao.emComum.length > 10 && (
-                        <li className="text-slate-500">+ {comparacao.emComum.length - 10} mais</li>
+                        <li className="text-slate-400">+ {comparacao.emComum.length - 10} mais</li>
                       )}
                     </ul>
                   </div>
                   <div>
-                    <strong className="text-slate-300">Somente {compareEndpoint1}:</strong>
-                    <ul className="list-disc pl-4 text-slate-400">
+                    <strong className="text-slate-800 text-[10px] font-black uppercase">Somente {compareEndpoint1}:</strong>
+                    <ul className="list-disc pl-4 text-slate-500 mt-1 font-bold space-y-0.5">
                       {comparacao.somente1.slice(0, 10).map(c => (
                         <li key={c}>{c}</li>
                       ))}
                       {comparacao.somente1.length > 10 && (
-                        <li className="text-slate-500">+ {comparacao.somente1.length - 10} mais</li>
+                        <li className="text-slate-400">+ {comparacao.somente1.length - 10} mais</li>
                       )}
                     </ul>
                   </div>
                   <div>
-                    <strong className="text-slate-300">Somente {compareEndpoint2}:</strong>
-                    <ul className="list-disc pl-4 text-slate-400">
+                    <strong className="text-slate-800 text-[10px] font-black uppercase">Somente {compareEndpoint2}:</strong>
+                    <ul className="list-disc pl-4 text-slate-500 mt-1 font-bold space-y-0.5">
                       {comparacao.somente2.slice(0, 10).map(c => (
                         <li key={c}>{c}</li>
                       ))}
                       {comparacao.somente2.length > 10 && (
-                        <li className="text-slate-500">+ {comparacao.somente2.length - 10} mais</li>
+                        <li className="text-slate-400">+ {comparacao.somente2.length - 10} mais</li>
                       )}
                     </ul>
                   </div>
@@ -1363,23 +1329,24 @@ export default function GproKbPage() {
         </div>
       )}
 
-      {/* ==========================================
-          ANÁLISE DO ENDPOINT ATUAL
-          ========================================== */}
+      {/* ANÁLISE DO ENDPOINT ATUAL */}
       {analysis && (
-        <div className="border border-white/10 rounded-xl p-6 bg-white/5 backdrop-blur-sm">
-          <div className="flex justify-between items-center flex-wrap gap-2">
-            <h2 className="font-bold text-lg text-white">🔍 ANÁLISE: {analysis.endpoint}</h2>
+        <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-sm relative z-10">
+          <div className="flex justify-between items-center flex-wrap gap-2.5 border-b border-slate-200 pb-3">
+            <h2 className="font-black text-xs text-slate-800 uppercase flex items-center gap-2">
+              <Brain size={14} className="text-amber-500" />
+              🔍 ANÁLISE: {analysis.endpoint}
+            </h2>
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => toggleFavorito(analysis.endpoint)}
-                className="text-2xl"
+                className="text-2xl active:scale-95 transition-transform"
                 title="Favorito"
               >
                 {categorias[analysis.endpoint] === '⭐ Favorito' ? '⭐' : '☆'}
               </button>
               <select
-                className="border border-white/10 rounded-lg px-2 py-1 text-sm bg-black/50 text-white focus:outline-none focus:border-cyan-500/50"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
                 value={categorias[analysis.endpoint] || '📋 Geral'}
                 onChange={(e) => setCategoria(analysis.endpoint, e.target.value as CategoriaEndpoint)}
               >
@@ -1388,7 +1355,7 @@ export default function GproKbPage() {
                 ))}
               </select>
               <select
-                className="border border-white/10 rounded-lg px-2 py-1 text-sm bg-black/50 text-white focus:outline-none focus:border-cyan-500/50"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
                 value={analysis.status || '🔍 Pendente'}
                 onChange={(e) => setStatus(analysis.endpoint, e.target.value)}
               >
@@ -1397,7 +1364,7 @@ export default function GproKbPage() {
                 ))}
               </select>
               <select
-                className="border border-white/10 rounded-lg px-2 py-1 text-sm bg-black/50 text-white focus:outline-none focus:border-cyan-500/50"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
                 value={analysis.maturidade || 'descoberto'}
                 onChange={(e) => setMaturidade(analysis.endpoint, e.target.value)}
               >
@@ -1415,7 +1382,7 @@ export default function GproKbPage() {
                 })}
               </select>
               <select
-                className="border border-white/10 rounded-lg px-2 py-1 text-sm bg-black/50 text-white focus:outline-none focus:border-cyan-500/50"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
                 value={analysis.utilidade || 0}
                 onChange={(e) => setUtilidade(analysis.endpoint, Number(e.target.value) as 1 | 2 | 3 | 4 | 5)}
               >
@@ -1427,48 +1394,72 @@ export default function GproKbPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-            <div><span className="text-slate-400 text-sm">Campos</span><p className="text-white font-bold">{analysis.totalCampos}</p></div>
-            <div><span className="text-slate-400 text-sm">Objetos</span><p className="text-white font-bold">{analysis.objetos}</p></div>
-            <div><span className="text-slate-400 text-sm">Arrays</span><p className="text-white font-bold">{analysis.arrays}</p></div>
-            <div><span className="text-slate-400 text-sm">Status</span><p className="text-yellow-400 font-bold">{analysis.status || '🔍 Pendente'}</p></div>
-            <div><span className="text-slate-400 text-sm">Maturidade</span><p className="text-cyan-400 font-bold">{maturidadeLabels[analysis.maturidade || 'descoberto']?.label || '🔍 Descoberto'}</p></div>
-            <div><span className="text-slate-400 text-sm">Confiança</span><p className="text-white font-bold">{analysis.confianca || 0}%</p></div>
-            <div><span className="text-slate-400 text-sm">Scans</span><p className="text-white font-bold">{analysis.scansRealizados || 0}</p></div>
-            <div><span className="text-slate-400 text-sm">Hash</span><p className="font-mono text-xs text-cyan-400">{analysis.ultimoHash || 'N/A'}</p></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
+              <span className="text-slate-400 text-[9px] font-black uppercase">Campos</span>
+              <p className="text-slate-800 text-sm font-black">{analysis.totalCampos}</p>
+            </div>
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
+              <span className="text-slate-400 text-[9px] font-black uppercase">Objetos</span>
+              <p className="text-slate-800 text-sm font-black">{analysis.objetos}</p>
+            </div>
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
+              <span className="text-slate-400 text-[9px] font-black uppercase">Arrays</span>
+              <p className="text-slate-800 text-sm font-black">{analysis.arrays}</p>
+            </div>
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
+              <span className="text-slate-400 text-[9px] font-black uppercase">Status</span>
+              <p className="text-emerald-600 text-sm font-black">{analysis.status || '🔍 Pendente'}</p>
+            </div>
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
+              <span className="text-slate-400 text-[9px] font-black uppercase">Maturidade</span>
+              <p className="text-emerald-600 text-sm font-black truncate">{maturidadeLabels[analysis.maturidade || 'descoberto']?.label || '🔍 Descoberto'}</p>
+            </div>
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
+              <span className="text-slate-400 text-[9px] font-black uppercase">Confiança</span>
+              <p className="text-slate-800 text-sm font-black">{analysis.confianca || 0}%</p>
+            </div>
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
+              <span className="text-slate-400 text-[9px] font-black uppercase">Scans</span>
+              <p className="text-slate-800 text-sm font-black">{analysis.scansRealizados || 0}</p>
+            </div>
+            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center flex flex-col justify-center">
+              <span className="text-slate-400 text-[8px] font-black uppercase mb-0.5">Hash</span>
+              <p className="font-mono text-[10px] text-emerald-600 font-bold truncate">{analysis.ultimoHash || 'N/A'}</p>
+            </div>
             {analysis.parametros && analysis.parametros.length > 0 && (
-              <div className="col-span-2 md:col-span-4">
-                <span className="text-slate-400 text-sm">Parâmetros requeridos</span>
-                <p className="text-yellow-400 font-medium">{analysis.parametros.join(', ')}</p>
+              <div className="col-span-2 md:col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+                <span className="text-amber-700 text-[9px] font-black uppercase">Parâmetros requeridos</span>
+                <p className="text-amber-700 font-black text-xs mt-1">{analysis.parametros.join(', ')}</p>
               </div>
             )}
           </div>
 
           {/* Busca de Campos */}
-          <div className="mt-4">
+          <div className="mt-6">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-slate-300">Campos detectados ({analysis.campos.length})</span>
+              <span className="text-xs font-black text-slate-800 uppercase">Campos detectados ({analysis.campos.length})</span>
               <input
-                className="bg-black/50 border border-white/10 rounded-lg px-3 py-1 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 w-48"
+                className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-1 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 shadow-inner w-48"
                 placeholder="Buscar campo..."
                 value={buscaCampos}
                 onChange={(e) => setBuscaCampos(e.target.value)}
               />
             </div>
-            <ul className="list-disc pl-5 mt-1 max-h-40 overflow-y-auto text-slate-300">
+            <ul className="list-disc pl-5 mt-3 max-h-40 overflow-y-auto text-slate-600 font-bold space-y-0.5 bg-slate-50 border border-slate-150 p-3 rounded-xl shadow-inner">
               {camposFiltrados.slice(0, 30).map((campo: string) => (
-                <li key={campo} className="text-sm">
-                  <span className="font-medium text-white">{campo}</span>
-                  <span className="text-slate-500 text-xs ml-2">
+                <li key={campo} className="text-xs">
+                  <span className="font-black text-slate-800">{campo}</span>
+                  <span className="text-slate-400 text-[10px] ml-2 font-bold">
                     ({analysis.tipos?.[campo] || 'desconhecido'})
                   </span>
                 </li>
               ))}
               {camposFiltrados.length > 30 && (
-                <li className="text-slate-500">... e mais {camposFiltrados.length - 30} campos</li>
+                <li className="text-slate-400">... e mais {camposFiltrados.length - 30} campos</li>
               )}
               {buscaCampos && camposFiltrados.length === 0 && (
-                <li className="text-slate-500">Nenhum campo encontrado</li>
+                <li className="text-slate-400">Nenhum campo encontrado</li>
               )}
             </ul>
           </div>
@@ -1476,17 +1467,17 @@ export default function GproKbPage() {
           {/* Observações */}
           <div className="mt-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-300">Observações</span>
+              <span className="text-xs font-black text-slate-800 uppercase">Observações</span>
               {observacaoEditando === analysis.endpoint ? (
                 <div className="flex-1 flex gap-2">
                   <input
-                    className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-1 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+                    className="flex-1 bg-[#f8fafc] border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-inner"
                     value={analysis.observacoes || ''}
                     onChange={(e) => setObservacao(analysis.endpoint, e.target.value)}
                     placeholder="Adicione observações sobre este endpoint..."
                   />
                   <button
-                    className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg transition-colors"
+                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg transition-colors font-black uppercase shadow-sm"
                     onClick={() => setObservacaoEditando(null)}
                   >
                     Salvar
@@ -1494,11 +1485,11 @@ export default function GproKbPage() {
                 </div>
               ) : (
                 <div className="flex-1 flex items-center gap-2">
-                  <span className="text-sm text-slate-400">
+                  <span className="text-xs text-slate-500 font-bold">
                     {analysis.observacoes || 'Clique para adicionar observações'}
                   </span>
                   <button
-                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    className="text-xs text-emerald-600 hover:text-emerald-500 transition-colors"
                     onClick={() => setObservacaoEditando(analysis.endpoint)}
                   >
                     ✏️
@@ -1508,24 +1499,25 @@ export default function GproKbPage() {
             </div>
           </div>
 
-          {/* Histórico - CORRIGIDO */}
+          {/* Histórico */}
           {analysis.historico && analysis.historico.length > 0 && (
             <details className="mt-4">
-              <summary className="cursor-pointer font-medium text-sm text-slate-300 hover:text-white transition-colors">
+              <summary className="cursor-pointer font-bold text-xs text-slate-700 hover:text-slate-900 transition-colors flex items-center gap-1">
+                <ChevronRight size={12} className="text-emerald-500" />
                 📜 Histórico de Descoberta ({analysis.historico.length} registros)
               </summary>
-              <div className="text-xs mt-2 p-3 bg-black/50 border border-white/10 rounded-lg max-h-40 overflow-y-auto">
+              <div className="text-[10px] mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg max-h-40 overflow-y-auto">
                 {analysis.historico.map((h, idx) => (
-                  <div key={idx} className="font-mono text-slate-300">
+                  <div key={idx} className="font-mono text-slate-600 font-bold leading-normal">
                     {new Date(h.data).toLocaleString()}: {h.campos} campos
                     {h.hash && ` [${h.hash}]`}
                     {idx > 0 && h.hash !== analysis.historico?.[idx - 1]?.hash && (
-                      <span className="text-yellow-400 ml-2">⚠️ schema mudou</span>
+                      <span className="text-amber-500 ml-2 font-black">⚠️ schema mudou</span>
                     )}
                   </div>
                 ))}
                 {analysis.historico.length === 50 && (
-                  <div className="text-slate-500 italic mt-1">(últimos 50 registros)</div>
+                  <div className="text-slate-400 italic mt-1 font-bold">(últimos 50 registros)</div>
                 )}
               </div>
             </details>
@@ -1534,10 +1526,11 @@ export default function GproKbPage() {
           {/* Schema */}
           {analysis.tipos && (
             <details className="mt-4">
-              <summary className="cursor-pointer font-medium text-sm text-slate-300 hover:text-white transition-colors">
+              <summary className="cursor-pointer font-bold text-sm text-slate-700 hover:text-slate-800 transition-colors flex items-center gap-1">
+                <ChevronRight size={12} className="text-emerald-500" />
                 📑 Ver Schema
               </summary>
-              <pre className="text-xs mt-2 p-3 bg-black/50 border border-white/10 rounded-lg overflow-auto max-h-40 text-slate-300 font-mono">
+              <pre className="text-[11px] mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg overflow-auto max-h-40 text-slate-700 font-mono font-bold leading-relaxed shadow-inner">
                 {JSON.stringify(analysis.tipos, null, 2)}
               </pre>
             </details>
@@ -1545,189 +1538,151 @@ export default function GproKbPage() {
         </div>
       )}
 
-      {/* ==========================================
-          KNOWLEDGE BASE - MAPA DA API
-          ========================================== */}
+      {/* KNOWLEDGE BASE CATALOGUE - LIGHT GELO */}
       {Object.keys(catalogo).length > 0 && (
-        <div className="border border-green-500/20 rounded-xl p-6 bg-green-500/10 backdrop-blur-sm">
-          <div className="flex justify-between items-center flex-wrap gap-2">
-            <h2 className="font-bold text-lg text-white">🧠 KNOWLEDGE BASE - MAPA DA API</h2>
-            <div className="space-x-2 text-sm">
-              <button
-                onClick={gerarDocumentacao}
-                className="text-teal-400 hover:text-teal-300 transition-colors hover:underline"
-              >
-                📄 Gerar Docs
-              </button>
-              <button
-                onClick={exportarCatalogo}
-                className="text-orange-400 hover:text-orange-300 transition-colors hover:underline"
-              >
-                📦 Exportar KB
-              </button>
-              <button
-                onClick={limparKnowledgeBase}
-                className="text-red-400 hover:text-red-300 transition-colors hover:underline"
-              >
-                🗑️ Limpar
-              </button>
+        <section className="relative bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm z-10">
+          <div className="bg-zinc-50 p-4 border-b border-slate-200 flex justify-between items-center">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+              <Database size={14} className="text-emerald-600 animate-pulse" />
+              Catálogo API GPRO
+            </h2>
+            <div className="flex gap-2.5">
+              <button onClick={gerarDocumentacao} className="text-[9px] font-black text-slate-500 uppercase hover:text-emerald-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl transition-all shadow-sm">Gerar .MD</button>
+              <button onClick={exportarCatalogo} className="text-[9px] font-black text-slate-500 uppercase hover:text-emerald-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl transition-all shadow-sm">Exportar .JSON</button>
+              <button onClick={limparKnowledgeBase} className="text-[9px] font-black text-slate-500 uppercase hover:text-rose-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl transition-all shadow-sm">Limpar Catálogo</button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto mt-2">
-            {Object.entries(catalogo)
-              .sort((a, b) => {
-                const catA = categorias[a[0]] || '📋 Geral';
-                const catB = categorias[b[0]] || '📋 Geral';
-                return catA.localeCompare(catB);
-              })
-              .map(([endpointName, info]) => {
-                const categoria = categorias[endpointName] || '📋 Geral';
-                const isExpanded = expandedEndpoints.has(endpointName);
-                const isFavorito = categoria === '⭐ Favorito';
-                const status = info.status || '🔍 Pendente';
-                const maturidade = info.maturidade || 'descoberto';
-                const utilidade = info.utilidade || 0;
-                const confianca = info.confianca || 0;
-
-                const maturidadeLabelsLocal: Record<string, { label: string; color: string }> = {
-                  descoberto: { label: '🔍 Descoberto', color: 'bg-gray-500/20 text-gray-300' },
-                  parcial: { label: '⚠️ Parcial', color: 'bg-yellow-500/20 text-yellow-300' },
-                  completo: { label: '✅ Completo', color: 'bg-green-500/20 text-green-300' },
-                  instavel: { label: '🔄 Instável', color: 'bg-orange-500/20 text-orange-300' },
-                  descontinuado: { label: '🚫 Descontinuado', color: 'bg-red-500/20 text-red-300' }
-                };
-
-                const statusColors: Record<string, string> = {
-                  '✔ Validado': 'bg-green-500/20 text-green-300 border-green-500/20',
-                  '⚠️ Em análise': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/20',
-                  '❌ Inativo': 'bg-red-500/20 text-red-300 border-red-500/20',
-                  '🔍 Pendente': 'bg-gray-500/20 text-gray-300 border-gray-500/20',
-                };
-
-                return (
-                  <div
-                    key={endpointName}
-                    className={`border rounded-lg p-3 bg-black/30 backdrop-blur-sm transition-colors ${
-                      isFavorito ? 'border-yellow-500/50 bg-yellow-500/10' : 'border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    <div
-                      className="flex justify-between items-start cursor-pointer"
-                      onClick={() => toggleExpand(endpointName)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <strong className="text-cyan-400 truncate">{endpointName}</strong>
-                          {isFavorito && <span className="text-yellow-400">⭐</span>}
-                          {utilidade > 0 && (
-                            <span className="text-xs text-yellow-500">
-                              {'★'.repeat(utilidade)}{'☆'.repeat(5 - utilidade)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs flex-wrap">
-                          <span className="text-slate-400">{categoria}</span>
-                          <span className={`px-2 py-0.5 rounded-full border ${statusColors[status] || 'bg-gray-500/20 text-gray-300 border-gray-500/20'}`}>
-                            {status}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full border ${maturidadeLabelsLocal[maturidade]?.color || 'bg-gray-500/20 text-gray-300'}`}>
-                            {maturidadeLabelsLocal[maturidade]?.label || maturidade}
-                          </span>
-                          <span className="text-slate-500">{confianca}%</span>
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {info.campos.length} campos
-                          {info.parametros && info.parametros.length > 0 &&
-                            ` | ${info.parametros.length} params`}
-                        </div>
-                      </div>
-                      <span className="text-slate-500 ml-2">{isExpanded ? '▼' : '▶'}</span>
+          <div className="p-4 md:p-6 bg-white space-y-4">
+            {/* Barra de Progresso do Scan se estiver rodando */}
+            {scanning && (
+              <div className="border border-amber-250 rounded-xl p-4 bg-amber-50 shadow-sm animate-pulse mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-xs font-black">
+                      <span className="text-amber-700">Scan Completo: {scanProgress.currentEndpoint}</span>
+                      <span className="text-amber-600">{scanProgress.current}/{scanProgress.total}</span>
                     </div>
-                    {isExpanded && (
-                      <>
-                        <ul className="text-xs list-disc pl-4 mt-2 max-h-32 overflow-y-auto text-slate-300">
-                          {info.campos.slice(0, 10).map(campo => (
-                            <li key={campo} className="text-slate-300">{campo}</li>
-                          ))}
-                          {info.campos.length > 10 && (
-                            <li className="text-slate-500">+ {info.campos.length - 10} mais</li>
-                          )}
-                          {info.parametros && info.parametros.length > 0 && (
-                            <li className="text-yellow-400 mt-1">📌 {info.parametros.join(', ')}</li>
-                          )}
-                        </ul>
-                        {info.observacoes && (
-                          <div className="text-xs text-slate-400 mt-2 italic truncate">
-                            💭 {info.observacoes}
-                          </div>
-                        )}
-                        {info.historico && info.historico.length > 0 && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            Último scan: {new Date(info.historico[info.historico.length - 1].data).toLocaleDateString()}
-                            {info.historico.length >= 50 && ' (50 regs)'}
-                            {info.ultimoHash && ` | hash: ${info.ultimoHash}`}
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <div className="w-full bg-slate-200 h-2 mt-2 rounded-full overflow-hidden border border-slate-300/30">
+                      <div
+                        className="bg-amber-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
                   </div>
-                );
-              })}
+                </div>
+              </div>
+            )}
+
+            {/* Tabela de endpoints mapeados */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 bg-white max-h-96 overflow-y-auto custom-scrollbar p-1">
+              {Object.entries(catalogo)
+                .sort((a, b) => {
+                  const catA = categorias[a[0]] || '📋 Geral';
+                  const catB = categorias[b[0]] || '📋 Geral';
+                  return catA.localeCompare(catB);
+                })
+                .map(([endpointName, info]) => {
+                  const categoria = categorias[endpointName] || '📋 Geral';
+                  const isExpanded = expandedEndpoints.has(endpointName);
+                  const isFavorito = categoria === '⭐ Favorito';
+                  const status = info.status || '🔍 Pendente';
+                  const maturidade = info.maturidade || 'descoberto';
+                  const utilidade = info.utilidade || 0;
+                  const confianca = info.confianca || 0;
+
+                  const statusColors: Record<string, string> = {
+                    '✔ Validado': 'bg-emerald-50 text-emerald-700 border-emerald-250',
+                    '⚠️ Em análise': 'bg-amber-50 text-amber-700 border-amber-250',
+                    '❌ Inativo': 'bg-rose-50 text-rose-700 border-rose-250',
+                    '🔍 Pendente': 'bg-slate-50 text-slate-700 border-slate-250',
+                  };
+
+                  return (
+                    <div
+                      key={endpointName}
+                      className={`border rounded-xl p-3.5 transition-colors shadow-sm bg-white ${
+                        isFavorito ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start cursor-pointer" onClick={() => toggleExpand(endpointName)}>
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <strong className="text-xs font-black text-slate-800 truncate">{endpointName}</strong>
+                            {isFavorito && <span className="text-amber-500">⭐</span>}
+                            {utilidade > 0 && (
+                              <span className="text-[10px] text-amber-500">
+                                {'★'.repeat(utilidade)}{'☆'.repeat(5 - utilidade)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[9px] flex-wrap mt-1">
+                            <span className="text-slate-400 font-bold">{categoria}</span>
+                            <span className={`px-2 py-0.5 rounded-full border text-[8px] font-black ${statusColors[status] || 'bg-slate-50 text-slate-700 border-slate-250'}`}>
+                              {status}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full border text-[8px] font-black ${maturidadeLabels[maturidade]?.color || 'bg-slate-50 text-slate-600'}`}>
+                              {maturidadeLabels[maturidade]?.label || maturidade}
+                            </span>
+                            <span className="text-slate-400 font-bold">{confianca}%</span>
+                          </div>
+                        </div>
+                        <span className="text-slate-400 text-xs ml-2">{isExpanded ? '▼' : '▶'}</span>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 animate-fadeIn text-left">
+                          <ul className="text-[10px] font-bold list-disc pl-4 text-slate-500 max-h-32 overflow-y-auto custom-scrollbar space-y-0.5">
+                            {info.campos.slice(0, 10).map(campo => (
+                              <li key={campo} className="text-slate-600">{campo}</li>
+                            ))}
+                            {info.campos.length > 10 && (
+                              <li className="text-slate-400 font-bold">+ {info.campos.length - 10} mais</li>
+                            )}
+                            {info.parametros && info.parametros.length > 0 && (
+                              <li className="text-amber-600 mt-1 list-none font-black">📌 {info.parametros.join(', ')}</li>
+                            )}
+                          </ul>
+                          {info.observacoes && (
+                            <div className="text-[10px] text-slate-500 mt-2 italic font-bold truncate">
+                              💭 {info.observacoes}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* ==========================================
-          RESPOSTA JSON
-          ========================================== */}
+      {/* RESPOSTA JSON */}
       {response && (
-        <div className="border border-white/10 rounded-xl p-6 bg-black/30 backdrop-blur-sm">
-          <h3 className="font-bold text-lg text-white mb-3">📄 Resposta JSON</h3>
-          <pre className="border border-white/10 rounded-lg p-4 overflow-auto max-h-96 bg-black/50 text-slate-300 text-sm font-mono">
+        <div className="border border-slate-200 rounded-[2rem] p-6 bg-white shadow-sm relative z-10 text-left">
+          <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2 mb-4 flex items-center gap-2">
+            <Zap size={14} className="text-emerald-500" />
+            📄 Resposta JSON
+          </h3>
+          <pre className="border border-slate-200 rounded-xl p-4 overflow-auto max-h-96 bg-[#0f0f13] text-slate-300 text-xs font-mono font-bold leading-relaxed shadow-inner">
             {JSON.stringify(response, null, 2)}
           </pre>
         </div>
       )}
 
-      {/* ==========================================
-          ESTADO VAZIO
-          ========================================== */}
+      {/* ESTADO VAZIO */}
       {!response && !loading && !error && !scanning && (
-        <div className="border border-white/10 rounded-xl p-12 bg-white/5 backdrop-blur-sm text-center">
+        <div className="border border-slate-200 rounded-[2rem] p-12 bg-white text-center shadow-sm relative z-10">
           <div className="text-6xl mb-4">🔬</div>
-          <h2 className="text-2xl font-bold text-white mb-2">
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider mb-2">
             {isAuthenticated ? 'Pronto para explorar a API GPRO' : 'Faça login para acessar'}
           </h2>
-          <p className="text-slate-400 max-w-md mx-auto">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider max-w-md mx-auto leading-relaxed">
             {isAuthenticated
               ? 'Selecione um endpoint e clique em Executar para analisar a estrutura da resposta. Use "Scan Todos" para mapear toda a API de uma vez.'
               : 'Você precisa estar autenticado para usar a Knowledge Base. Faça login no Alfa Racing.'}
           </p>
-          {isAuthenticated && (
-            <div className="mt-6 flex items-center justify-center gap-4 text-sm text-slate-500 flex-wrap">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                {endpoints.length} endpoints
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-cyan-400 rounded-full"></span>
-                Análise automática
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
-                Hash do Schema
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full"></span>
-                Token automático
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
-                Catálogo persistente
-              </span>
-            </div>
-          )}
         </div>
       )}
 

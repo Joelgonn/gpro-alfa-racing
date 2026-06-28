@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { 
   Loader2, Gauge, Cloud, Lock, LockOpen, 
   Settings2, Zap, Activity, ShieldAlert, Thermometer,
-  CheckCircle2, Trash2, User, Eraser, Star
+  CheckCircle2, Trash2, User, Eraser, Star, Crown, Sparkles
 } from 'lucide-react';
 import { supabase } from '@/app/lib/supabase';
 import { useGame } from '@/app/context/GameContext';
@@ -44,7 +44,6 @@ const TRACK_TO_FLAG: Record<string, string> = {
   "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
 };
 
-// --- HELPERS ---
 const normalizarTexto = (texto: string) => {
   if (!texto) return "";
   return texto.toString().trim().toLowerCase();
@@ -74,7 +73,6 @@ export default function WearPlanningPage() {
   const [calendarData, setCalendarData] = useState<any>(null);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
 
-  // 🔥 REFS PARA CONTROLAR LOOP
   const hasCalculatedRef = useRef(false);
   const isInitialLoadRef = useRef(true);
   const calendarLoadedRef = useRef(false);
@@ -101,9 +99,7 @@ export default function WearPlanningPage() {
     return `/flags/${code}.png`;
   };
 
-  // ============================================
-  // CARREGAR CALENDÁRIO (UMA ÚNICA VEZ)
-  // ============================================
+  // Carregar Calendário GPRO
   useEffect(() => {
     async function loadCalendar() {
       try {
@@ -178,11 +174,9 @@ export default function WearPlanningPage() {
     }
 
     loadCalendar();
-  }, []); // 🔥 Executa apenas uma vez
+  }, []);
 
-  // ============================================
-  // CARREGAR DADOS SALVOS DO USUÁRIO
-  // ============================================
+  // Carregar Dados Salvos
   useEffect(() => {
     async function loadSavedData() {
       if (!userId || loadingCalendar || seasonSlots.length === 0) return;
@@ -229,7 +223,6 @@ export default function WearPlanningPage() {
               return slot;
             });
             setSeasonSlots(mergedSlots);
-            // 🔥 RESETA A REF PARA PERMITIR RECÁLCULO
             hasCalculatedRef.current = false;
           }
 
@@ -246,9 +239,7 @@ export default function WearPlanningPage() {
     loadSavedData();
   }, [userId, loadingCalendar, seasonSlots.length]);
 
-  // ============================================
-  // FUNÇÃO DE CÁLCULO
-  // ============================================
+  // Função de Cálculo do Motor Python
   const fetchCalculo = useCallback(async () => {
     if (seasonSlots.length === 0 || !userId || hasCalculatedRef.current) return;
     hasCalculatedRef.current = true;
@@ -282,9 +273,6 @@ export default function WearPlanningPage() {
     }
   }, [seasonSlots, manualOverrides, driver, userId]);
 
-  // ============================================
-  // DISPARA O CÁLCULO APENAS UMA VEZ
-  // ============================================
   useEffect(() => {
     if (loading || !userId || seasonSlots.length === 0) return;
     if (hasCalculatedRef.current) return;
@@ -295,9 +283,7 @@ export default function WearPlanningPage() {
     return () => clearTimeout(timer);
   }, [loading, userId, seasonSlots.length, fetchCalculo]);
 
-  // ============================================
-  // SALVAR NO CLOUD
-  // ============================================
+  // Salvar no Cloud GPRO Database
   const saveToCloud = useCallback(async (slots: any, overrides: any, locks: number[]) => {
     if (!userId) return;
     setSaving(true);
@@ -349,9 +335,7 @@ export default function WearPlanningPage() {
     }
   }, [userId]);
 
-  // ============================================
-  // AUTO-SAVE E AUTO-CALC
-  // ============================================
+  // Auto-Save do Planejamento
   useEffect(() => {
     if (loading || !userId) return;
     const saveTimer = setTimeout(() => {
@@ -360,9 +344,6 @@ export default function WearPlanningPage() {
     return () => clearTimeout(saveTimer);
   }, [manualOverrides, seasonSlots, lockedSlots, saveToCloud, loading, userId]);
 
-  // ============================================
-  // SALVAR ANTES DE SAIR
-  // ============================================
   useEffect(() => {
     return () => {
       if (userId && !loading) {
@@ -372,9 +353,6 @@ export default function WearPlanningPage() {
     };
   }, [userId, loading, saveToCloud]);
 
-  // ============================================
-  // FUNÇÕES DE ATUALIZAÇÃO
-  // ============================================
   const updateSeasonSlot = (index: number, field: string, value: any) => {
     if (lockedSlots.includes(index)) return;
     setSeasonSlots(prev => prev.map((slot, i) => i === index ? { ...slot, [field]: value } : slot));
@@ -410,45 +388,34 @@ export default function WearPlanningPage() {
     setMobileActiveTab(idx);
   };
 
-  // ============================================
-  // RENDER: LOADING
-  // ============================================
-  if (loading || loadingCalendar) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center bg-[#050505]">
-        <Loader2 className="animate-spin text-emerald-500 mb-4" size={40} />
-        <span className="text-zinc-500 font-mono text-xs tracking-[0.3em] uppercase tracking-tighter">
-          {loadingCalendar ? 'Carregando calendário...' : 'Sincronizando...'}
-        </span>
-      </div>
-    );
-  }
-
-  // ============================================
-  // RENDER: PRINCIPAL
-  // ============================================
   return (
-    <div className="p-0 sm:p-8 space-y-4 sm:space-y-6 text-slate-200 pb-40 bg-[#050505] min-h-screen">
+    <div className="p-0 sm:p-8 space-y-4 sm:space-y-6 text-slate-700 pb-40 bg-[#eef2f6] min-h-screen font-mono">
       
-      {/* HEADER GERAL */}
-      <div className="bg-zinc-900/40 backdrop-blur-2xl border-b sm:border border-white/5 p-4 sm:p-6 sm:rounded-[2.5rem] flex flex-col xl:flex-row justify-between items-center gap-6 shadow-2xl relative overflow-hidden">
+      {/* HEADER GERAL COM TOQUE DOURADO (LIGHT GELO) */}
+      <div className="bg-white border border-slate-200 p-4 sm:p-6 sm:rounded-3xl flex flex-col xl:flex-row justify-between items-center gap-6 shadow-sm relative overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-amber-500/[0.03] blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-amber-500/[0.02] blur-3xl pointer-events-none" />
+        
         <div className="flex items-center gap-5 z-10 w-full sm:w-auto justify-center sm:justify-start">
-          <div className="hidden sm:block p-4 bg-amber-500/10 rounded-3xl border border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-            <Gauge size={28} className="text-amber-400" />
+          <div className="hidden sm:block p-4 bg-amber-50 rounded-3xl border border-amber-200 shadow-sm">
+            <Crown size={28} className="text-amber-500" />
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black uppercase italic tracking-tighter leading-none text-white text-center sm:text-left">Planejamento</h1>
-            <div className="flex items-center justify-center sm:justify-start gap-2 mt-1">
+          <div className="text-center sm:text-left">
+            <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none text-slate-900 flex items-center justify-center sm:justify-start gap-2">
+              Planejamento
+              <Sparkles size={16} className="text-amber-500" />
+            </h1>
+            <div className="flex items-center justify-center sm:justify-start gap-2 mt-2">
                {calendarData?.calendarRaw?.group && (
-                 <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                 <span className="text-[10px] bg-amber-50 border border-amber-200 text-amber-600 px-2.5 py-0.5 rounded-full font-black">
                    {calendarData.calendarRaw.group}
                  </span>
                )}
-               <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">
+               <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                  {seasonSlots.length} corridas
                </span>
                {calendarData?.calendarRaw?.nextSeasonEvents?.length > 0 && (
-                 <span className="text-[8px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
+                 <span className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-600 px-2.5 py-0.5 rounded-full font-black">
                    + {calendarData.calendarRaw.nextSeasonEvents.filter((e: any) => e.eventType === 'R').length} prox. temp.
                  </span>
                )}
@@ -456,16 +423,16 @@ export default function WearPlanningPage() {
           </div>
         </div>
 
-        {/* Desktop Stats */}
+        {/* Desktop Stats (Light Gelo) */}
         <div className="hidden lg:flex flex-1 justify-center w-full z-10 px-4">
-            <div className="flex items-center gap-1 bg-black/40 px-6 py-2 rounded-2xl border border-white/5 shadow-inner backdrop-blur-sm">
-                <div className="mr-3 p-1.5 bg-zinc-800/50 rounded-lg border border-white/5">
-                    <User size={14} className="text-zinc-400" />
+            <div className="flex items-center gap-1 bg-[#f8fafc] px-6 py-2 rounded-2xl border border-slate-200 shadow-inner hover:border-emerald-500/20 transition-all duration-300">
+                <div className="mr-3 p-1.5 bg-white rounded-lg border border-slate-200">
+                    <User size={14} className="text-slate-400" />
                 </div>
                 {driverStats.map((stat) => (
-                    <div key={stat.label} className="flex flex-col items-center px-4 border-r border-white/5 last:border-0 relative">
-                        <span className="text-[8px] text-zinc-500 font-black uppercase tracking-wider mb-0.5">{stat.label}</span>
-                        <span className="text-sm font-mono font-bold text-zinc-200">
+                    <div key={stat.label} className="flex flex-col items-center px-4 border-r border-slate-200 last:border-0 relative">
+                        <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">{stat.label}</span>
+                        <span className="text-sm font-mono font-bold text-slate-700">
                             {stat.val}
                         </span>
                     </div>
@@ -473,71 +440,85 @@ export default function WearPlanningPage() {
             </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-4 bg-black/60 px-6 py-3 rounded-2xl border border-white/5 font-mono z-10 w-full sm:w-auto justify-between sm:justify-end">
+        {/* Controle e Status do Engine */}
+        <div className="hidden sm:flex items-center gap-4 bg-white px-6 py-3 rounded-2xl border border-slate-200 font-mono z-10 w-full sm:w-auto justify-between sm:justify-end shadow-sm hover:border-emerald-500/10 transition-all duration-300">
           <button 
             onClick={() => { if(confirm("ATENÇÃO: Limpar nuvem? Isso resetará TUDO.")) { saveToCloud([], {}, []); window.location.reload(); }}} 
-            className="mr-2 p-2 text-zinc-600 hover:text-rose-500 transition-colors group relative"
+            className="mr-2 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+            title="Limpar planejador da nuvem"
           >
             <Trash2 size={16}/>
           </button>
-          <div className="text-right border-l border-white/10 pl-4">
-            <span className="block text-[8px] font-black text-zinc-500 uppercase tracking-tighter">Engine Status</span>
+          <div className="text-right border-l border-slate-200 pl-4 shrink-0">
+            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter">Status de Cálculo</span>
             <div className="flex items-center justify-end gap-2">
-                <span className="text-xs text-emerald-400 font-bold">{calculating ? 'CALC...' : 'Pronto'}</span>
-                {calculating && <Loader2 size={14} className="animate-spin text-amber-400" />}
+                <span className="text-xs text-emerald-600 font-bold">{calculating ? 'CALCULANDO' : 'PRONTO'}</span>
+                {calculating && <Loader2 size={14} className="animate-spin text-emerald-600" />}
             </div>
           </div>
         </div>
       </div>
 
-      {/* --- DESKTOP VIEW --- */}
-      <div className="hidden md:block bg-zinc-900/20 border border-white/5 rounded-[3rem] overflow-hidden backdrop-blur-md shadow-3xl">
+      {/* --- DESKTOP VIEW (LIGHT GELO) --- */}
+      <div className="hidden md:block bg-white border border-slate-200 rounded-[3rem] overflow-hidden shadow-sm hover:border-emerald-500/10 transition-all duration-300">
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="bg-black/60">
-                <th className="sticky left-0 z-30 bg-[#080808] p-8 text-left border-b border-r border-white/10 min-w-[180px]">
-                  <span className="text-[11px] font-black uppercase text-zinc-500 tracking-[0.3em]">Peças</span>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="sticky left-0 z-30 bg-slate-100 p-8 text-left border-b border-r border-slate-200 min-w-[180px] shadow-sm">
+                  <span className="text-[11px] font-black uppercase text-slate-500 tracking-[0.3em] flex items-center gap-2">
+                    <Settings2 size={14} className="text-emerald-600" />
+                    Peças
+                  </span>
                 </th>
                 {seasonSlots.map((slot, i) => {
                   const isLocked = lockedSlots.includes(i);
                   const isCurrent = slot?.isCurrentRace;
                   const isFavorite = slot?.isFavTrack;
                   return (
-                    <th key={i} className={`p-6 border-b border-white/5 min-w-[260px] border-r border-white/5 transition-all ${isLocked ? 'bg-black/40' : 'bg-zinc-900/20'}`}>
+                    <th key={i} className={`p-6 border-b border-slate-200 min-w-[260px] border-r border-slate-200 transition-all ${isLocked ? 'bg-emerald-50/20' : 'bg-white'}`}>
                       <div className="flex flex-col items-center gap-4">
-                        <div className={`flex items-center justify-between gap-3 w-full px-4 py-2 rounded-xl border transition-all ${isLocked ? 'bg-emerald-500/10 border-emerald-500/20' : isCurrent ? 'bg-emerald-500/5 border-emerald-500/30' : isFavorite ? 'bg-yellow-500/5 border-yellow-500/30' : 'bg-white/5 border-white/5'}`}>
+                        <div className={`flex items-center justify-between gap-3 w-full px-4 py-2 rounded-xl border transition-all hover:shadow-md ${
+                          isLocked ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800' : 
+                          isCurrent ? 'bg-emerald-50 border-emerald-300' : 
+                          isFavorite ? 'bg-amber-50 border-amber-300' : 
+                          'bg-[#f8fafc] border-slate-200 hover:border-emerald-500/20'
+                        }`}>
                           <div className="flex items-center gap-2 truncate">
-                             <div className="relative w-5 h-3"><Image src={getFlagSrc(slot.name)} alt={slot.name} fill className="object-cover rounded-[1px]" unoptimized /></div>
-                             <span className={`text-[10px] font-black uppercase italic truncate ${isLocked ? 'text-emerald-400' : isCurrent ? 'text-emerald-400' : 'text-zinc-300'}`}>#{i + 1} {slot.name}</span>
-                             {isCurrent && <span className="text-[6px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded-full uppercase font-black">ATUAL</span>}
-                             {isFavorite && !isCurrent && <span className="text-[6px] bg-yellow-500/20 text-yellow-400 px-1 py-0.5 rounded-full uppercase font-black">⭐</span>}
+                             {/* ✅ CORRIGIDO: getFlagSrc com o parâmetro correto mapeado dinamicamente */}
+                             <div className="relative w-5 h-3 shadow-sm border border-slate-200/50 rounded-sm overflow-hidden"><Image src={getFlagSrc(slot.name)} alt={slot.name} fill className="object-cover rounded-[1px]" unoptimized /></div>
+                             <span className={`text-[10px] font-black uppercase italic truncate ${isLocked ? 'text-emerald-700' : isCurrent ? 'text-emerald-700' : isFavorite ? 'text-amber-700 font-black' : 'text-slate-700'}`}>#{i + 1} {slot.name}</span>
+                             {isCurrent && <span className="text-[7px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-black border border-emerald-300 shadow-sm animate-pulse">ATUAL</span>}
+                             {isFavorite && !isCurrent && <span className="text-[7px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full uppercase font-black flex items-center gap-0.5 border border-amber-200"><Star size={8} className="fill-amber-500 text-amber-500" /> FAV</span>}
                           </div>
                           <div className="flex items-center gap-1">
-                            {!isLocked && (<button onClick={() => resetTrackSlot(i)} className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"><Eraser size={14} /></button>)}
-                            <button onClick={() => toggleLock(i)} className={`p-1.5 rounded-lg transition-all ${isLocked ? 'text-emerald-400 bg-emerald-500/20' : 'text-zinc-600 hover:text-white'}`}>{isLocked ? <Lock size={14} /> : <LockOpen size={14} />}</button>
+                            {!isLocked && (<button onClick={() => resetTrackSlot(i)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"><Eraser size={14} /></button>)}
+                            <button onClick={() => toggleLock(i)} className={`p-1.5 rounded-lg transition-all ${isLocked ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-800'}`}>{isLocked ? <Lock size={14} /> : <LockOpen size={14} />}</button>
                           </div>
                         </div>
                         <div className={`flex items-center gap-3 ${isLocked ? 'opacity-30 pointer-events-none' : ''}`}>
                           <InputHeader label="CTR" value={slot.ctr} onChange={(v:any) => updateSeasonSlot(i, 'ctr', v)} color="emerald" />
                           <InputHeader label="TESTE" value={slot.testLaps} onChange={(v:any) => updateSeasonSlot(i, 'testLaps', v)} color="amber" />
                           <div className="flex flex-col items-center">
-                              <span className="text-[8px] font-black text-zinc-500 uppercase mb-1">Status</span>
-                              <button onClick={() => updateSeasonSlot(i, 'testEnabled', !slot.testEnabled)} className={`h-8 px-3 rounded-lg border text-[10px] font-black transition-all ${slot.testEnabled ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>{slot.testEnabled ? 'ACTIVE' : 'OFF'}</button>
+                              <span className="text-[9px] font-black text-slate-400 uppercase mb-1">Status</span>
+                              <button onClick={() => updateSeasonSlot(i, 'testEnabled', !slot.testEnabled)} className={`h-8 px-3 rounded-lg border text-[10px] font-black transition-all hover:shadow-md ${
+                                slot.testEnabled ? 'bg-emerald-50 border-emerald-300 text-emerald-600 hover:bg-emerald-500 hover:text-white' : 
+                                'bg-rose-50 border-rose-300 text-rose-500 hover:bg-rose-500 hover:text-white'
+                              }`}>{slot.testEnabled ? 'ACTIVE' : 'OFF'}</button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-5 w-full text-[7px] font-black text-zinc-600 uppercase mt-1 text-center tracking-widest border-t border-white/5 pt-2">
+                        <div className="grid grid-cols-5 w-full text-[8px] font-black text-slate-400 uppercase mt-1 text-center tracking-widest border-t border-slate-200 pt-2">
                            <span>PWR</span><span>HND</span><span>ACC</span><span>WEAR</span><span>FUEL</span>
                         </div>
-                        <div className="grid grid-cols-5 w-full text-[8px] font-bold text-zinc-400 text-center">
+                        <div className="grid grid-cols-5 w-full text-[9px] font-bold text-slate-700 text-center">
                            <span>{slot.power || 0}</span>
                            <span>{slot.handling || 0}</span>
                            <span>{slot.accel || 0}</span>
-                           <span className="text-amber-400">{slot.wear || '-'}</span>
-                           <span className="text-blue-400">{slot.fuel || '-'}</span>
+                           <span className="text-amber-600 font-bold">{slot.wear || '-'}</span>
+                           <span className="text-blue-600 font-bold">{slot.fuel || '-'}</span>
                         </div>
-                        <div className="grid grid-cols-4 w-full text-[8px] font-black text-zinc-600 uppercase mt-1 text-center tracking-widest border-t border-white/5 pt-2">
-                           <span>Nível</span><span>Início</span><span>Desg.</span><span className="text-emerald-500/50">Final</span>
+                        <div className="grid grid-cols-4 w-full text-[8px] font-black text-slate-400 uppercase mt-1 text-center tracking-widest border-t border-slate-200 pt-2">
+                           <span>Nível</span><span>Início</span><span>Desg.</span><span className="text-amber-600/70">Final</span>
                         </div>
                       </div>
                     </th>
@@ -547,11 +528,11 @@ export default function WearPlanningPage() {
             </thead>
             <tbody>
               {CAR_PARTS.map((part, pIdx) => (
-                <tr key={part.id} className="group hover:bg-emerald-500/[0.02] transition-colors border-b border-white/5">
-                  <td className="sticky left-0 z-20 bg-[#080808] p-6 border-r border-white/10 group-hover:bg-[#0c0c0c]">
+                <tr key={part.id} className="group hover:bg-slate-50 transition-colors border-b border-slate-200 bg-white">
+                  <td className="sticky left-0 z-20 bg-slate-100 p-6 border-r border-slate-200 shadow-sm group-hover:bg-slate-200/50">
                     <div className="flex items-center gap-3">
-                      <div className="text-zinc-600 group-hover:text-amber-400 transition-colors">{part.icon}</div>
-                      <span className="font-black text-[10px] uppercase text-zinc-500 group-hover:text-white tracking-wider">{part.label}</span>
+                      <div className="text-slate-400 group-hover:text-emerald-600 transition-colors">{part.icon}</div>
+                      <span className="font-black text-[10px] uppercase text-slate-500 group-hover:text-slate-800 tracking-wider">{part.label}</span>
                     </div>
                   </td>
                   {seasonSlots.map((_, sIdx) => {
@@ -561,13 +542,24 @@ export default function WearPlanningPage() {
                     const override = manualOverrides[part.id]?.[sIdx] || {};
                     const finalVal = Math.round(Number(data.final)) || 0;
                     return (
-                      <td key={sIdx} className={`p-3 border-r border-white/5 transition-all ${isLocked ? 'grayscale-[0.5] opacity-80' : ''}`}>
-                        <div className={`grid grid-cols-4 items-center gap-2 bg-black/40 p-2.5 rounded-2xl border transition-all ${isLocked ? 'border-emerald-500/10' : 'border-white/[0.03]'}`}>
-                          <input disabled={isLocked} type="text" placeholder="6" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className={`w-full bg-zinc-800/30 text-[11px] text-center font-mono rounded-md py-1 outline-none ${isLocked ? 'text-zinc-600' : 'text-white focus:ring-1 ring-amber-500/50'}`} />
-                          <input disabled={isLocked} type="text" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full bg-zinc-800/30 text-[11px] text-center font-mono rounded-md py-1 outline-none ${isLocked ? 'text-zinc-600' : (override.start !== undefined ? 'text-amber-400' : 'text-zinc-500')}`} />
-                          <div className={`text-[11px] font-bold italic text-center ${isLocked ? 'text-zinc-600' : 'text-zinc-100'}`}>{Math.round(Number(data.wear)) || 0}%</div>
-                          <div className={`relative flex items-center justify-center h-8 rounded-lg font-black text-xs border ${isLocked ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-600' : finalVal > 90 ? 'bg-rose-500/20 text-rose-500 border-rose-500/30' : finalVal > 70 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                            {isLocked && <CheckCircle2 size={8} className="absolute -top-1 -right-1 text-emerald-500 bg-black rounded-full" />}
+                      <td key={sIdx} className={`p-3 border-r border-slate-200 transition-all ${isLocked ? 'grayscale-[0.5] opacity-80' : ''}`}>
+                        <div className={`grid grid-cols-4 items-center gap-2 bg-[#f8fafc] p-2.5 rounded-2xl border transition-all hover:shadow-md ${
+                          isLocked ? 'border-emerald-300' : 'border-slate-200 hover:border-emerald-500/20'
+                        }`}>
+                          <input disabled={isLocked} type="text" placeholder="6" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className={`w-full bg-white text-xs text-center font-mono rounded-md py-1 border border-slate-200 outline-none ${
+                            isLocked ? 'text-slate-400' : 'text-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/10 hover:bg-slate-50 transition-all shadow-sm'
+                          }`} />
+                          <input disabled={isLocked} type="text" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full bg-white text-xs text-center font-mono rounded-md py-1 border border-slate-200 outline-none transition-all shadow-sm ${
+                            isLocked ? 'text-slate-400' : (override.start !== undefined ? 'text-amber-600 font-bold border-amber-300' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50')
+                          }`} />
+                          <div className={`text-xs font-bold italic text-center ${isLocked ? 'text-slate-400' : 'text-slate-800'}`}>{Math.round(Number(data.wear)) || 0}%</div>
+                          <div className={`relative flex items-center justify-center h-8 rounded-lg font-black text-xs border transition-all hover:shadow-md ${
+                            isLocked ? 'bg-emerald-50 border-emerald-300 text-emerald-600 shadow-sm' : 
+                            finalVal > 90 ? 'bg-rose-50 text-rose-500 border-rose-300' : 
+                            finalVal > 70 ? 'bg-amber-50 text-amber-600 border-amber-300' : 
+                            'bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm'
+                          }`}>
+                            {isLocked && <CheckCircle2 size={8} className="absolute -top-1 -right-1 text-emerald-500 bg-white rounded-full" />}
                             {finalVal}%
                           </div>
                         </div>
@@ -581,7 +573,7 @@ export default function WearPlanningPage() {
         </div>
       </div>
 
-      {/* --- MOBILE VIEW --- */}
+      {/* --- MOBILE VIEW COM TOQUE DOURADO (LIGHT GELO) --- */}
       <div className="block md:hidden pb-24 px-0 max-w-fit">
         {/* Slider de Pistas */}
         <div className="flex gap-2 overflow-x-auto pb-4 pl-2 snap-x snap-mandatory scrollbar-none items-start justify-start max-w-[315px]">
@@ -597,24 +589,24 @@ export default function WearPlanningPage() {
                         className={`
                             snap-start flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all w-[72px] relative
                             ${isActive 
-                                ? 'bg-zinc-800 border-amber-500/40 shadow-lg z-10' 
-                                : 'bg-zinc-900/30 border-white/5 opacity-60'
+                                ? 'bg-white border-emerald-500 shadow-md z-10 font-bold' 
+                                : 'bg-slate-50 border-slate-200 text-slate-500 opacity-80 hover:opacity-100 hover:border-slate-350'
                             }
-                            ${isCurrent ? 'border-emerald-500/30' : ''}
-                            ${isFavorite ? 'border-yellow-500/20' : ''}
+                            ${isCurrent ? 'border-emerald-400' : ''}
+                            ${isFavorite ? 'border-amber-400' : ''}
                         `}
                     >
-                         {isLocked && <div className="absolute -top-1 -right-1 bg-zinc-900 rounded-full p-0.5 text-emerald-400 border border-emerald-500/20"><Lock size={8} /></div>}
-                         {isCurrent && !isLocked && <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5"><CheckCircle2 size={8} className="text-black" /></div>}
-                         {isFavorite && !isCurrent && !isLocked && <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5"><Star size={8} className="text-black" fill="black" /></div>}
-                         <div className={`relative w-8 h-5 shadow-sm overflow-hidden rounded ${isActive ? 'ring-1 ring-white/10' : ''}`}>
+                         {isLocked && <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 text-emerald-600 border border-emerald-300 shadow-sm"><Lock size={8} /></div>}
+                         {isCurrent && !isLocked && <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5"><CheckCircle2 size={8} className="text-white" /></div>}
+                         {isFavorite && !isCurrent && !isLocked && <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full p-0.5"><Star size={8} className="text-white fill-white" /></div>}
+                         <div className={`relative w-8 h-5 shadow-sm overflow-hidden rounded transition-all ${isActive ? 'ring-2 ring-emerald-500/20' : ''}`}>
                              <Image src={getFlagSrc(slot.name)} alt="flag" fill className="object-cover" unoptimized />
                          </div>
                          <div className="flex flex-col w-full text-center">
-                           <span className={`text-[9px] font-black uppercase truncate w-full ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+                           <span className={`text-[10px] font-black uppercase truncate w-full ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>
                               {slot.name?.split(' ')[0] || '???'}
                            </span>
-                           <span className="text-[7px] font-mono text-zinc-600">
+                           <span className="text-[8px] font-mono text-slate-400 font-bold">
                              #{idx+1}
                            </span>
                          </div>
@@ -624,90 +616,107 @@ export default function WearPlanningPage() {
              <div className="w-2 flex-shrink-0" />
         </div>
 
-        {/* Card Principal */}
+        {/* Card Principal (Gelo Premium) */}
         {seasonSlots.length > 0 && (
-            <div className="bg-zinc-900/40 border-y border-white/10 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-white border-y border-slate-200 animate-in fade-in slide-in-from-bottom-2 duration-300 hover:border-emerald-500/10 transition-all duration-300">
                 
                 {/* Header */}
-                <div className="bg-gradient-to-r from-black/60 to-black/20 p-4 border-b border-white/5 max-w-[300px]">
-                    <div className="flex justify-between items-start mb-4">
+                <div className="bg-slate-50 p-4 border-b border-slate-200 max-w-[300px] relative overflow-hidden">
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/[0.01] rounded-full blur-2xl pointer-events-none" />
+                    
+                    <div className="flex justify-between items-start mb-4 relative z-10">
                         <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center border border-white/5 relative">
-                                 <div className="relative w-7 h-4"><Image src={getFlagSrc(seasonSlots[mobileActiveTab]?.name)} alt="flag" fill className="object-cover rounded-sm" unoptimized /></div>
-                                 {seasonSlots[mobileActiveTab]?.isCurrentRace && (
-                                   <div className="absolute -top-1 -right-1 bg-emerald-500 rounded-full p-0.5">
-                                     <CheckCircle2 size={8} className="text-black" />
-                                   </div>
-                                 )}
-                                 {seasonSlots[mobileActiveTab]?.isFavTrack && !seasonSlots[mobileActiveTab]?.isCurrentRace && (
-                                   <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
-                                     <Star size={8} className="text-black" fill="black" />
-                                   </div>
-                                 )}
+                             <div className="w-10 h-10 bg-white rounded-xl border border-slate-200 flex items-center justify-center shrink-0 shadow-sm relative">
+                                <div className="relative w-7 h-4">
+                                  {/* ✅ CORRIGIDO: getFlagSrc com o parâmetro correto no mobile */}
+                                  <Image 
+                                    src={getFlagSrc(seasonSlots[mobileActiveTab]?.name)} 
+                                    alt="flag" 
+                                    fill 
+                                    className="object-cover rounded-sm border border-slate-200" 
+                                    unoptimized 
+                                  />
+                                </div>
                              </div>
                              <div>
-                                 <h2 className="text-lg font-black italic uppercase text-white leading-none truncate max-w-[160px]">{seasonSlots[mobileActiveTab]?.name || 'Carregando...'}</h2>
-                                 <span className="text-[9px] text-amber-500 font-bold tracking-widest uppercase">
-                                   {seasonSlots[mobileActiveTab]?.isCurrentRace ? '🔴 CORRIDA ATUAL' : `Race #${mobileActiveTab + 1}`}
-                                 </span>
+                                <h2 className="text-lg font-black italic uppercase text-slate-900 leading-none truncate max-w-[160px] flex items-center gap-1.5">
+                                  {seasonSlots[mobileActiveTab]?.name || 'Carregando...'}
+                                  {seasonSlots[mobileActiveTab]?.isFavTrack && <Star size={12} className="text-amber-500 fill-amber-500" />}
+                                </h2>
+                                <span className="text-[10px] font-black tracking-widest uppercase flex items-center gap-1.5 mt-1.5 leading-none">
+                                  {seasonSlots[mobileActiveTab]?.isCurrentRace ? (
+                                    <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">🔴 GP ATUAL</span>
+                                  ) : seasonSlots[mobileActiveTab]?.isFavTrack ? (
+                                    <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">⭐ FAVORITA</span>
+                                  ) : (
+                                    <span className="text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Race #{mobileActiveTab + 1}</span>
+                                  )}
+                                </span>
                              </div>
                         </div>
                         <div className="flex items-center gap-2">
                             {!lockedSlots.includes(mobileActiveTab) && (
-                                <button onClick={() => resetTrackSlot(mobileActiveTab)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800/40 text-zinc-500 hover:text-rose-400 border border-white/5"><Eraser size={14} /></button>
+                                <button onClick={() => resetTrackSlot(mobileActiveTab)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 transition-all hover:shadow-lg"><Eraser size={14} /></button>
                             )}
                             <button 
                                 onClick={() => toggleLock(mobileActiveTab)} 
-                                className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all ${lockedSlots.includes(mobileActiveTab) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-800/40 border-white/5 text-zinc-500'}`}
+                                className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all hover:shadow-lg ${
+                                  lockedSlots.includes(mobileActiveTab) ? 'bg-emerald-50 border-emerald-300 text-emerald-600' : 'bg-white border-slate-200 text-slate-400 hover:text-slate-800'
+                                }`}
                             >
                                 {lockedSlots.includes(mobileActiveTab) ? <Lock size={14} /> : <LockOpen size={14} />}
                             </button>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-5 gap-1 mb-3 text-[7px] font-black text-zinc-500 uppercase text-center">
+                    <div className="grid grid-cols-5 gap-1 mb-3 text-[8px] font-black text-slate-400 uppercase text-center tracking-wider">
                         <span>PWR</span><span>HND</span><span>ACC</span><span>WEAR</span><span>FUEL</span>
                     </div>
-                    <div className="grid grid-cols-5 gap-1 mb-3 text-[9px] font-bold text-zinc-400 text-center">
+                    <div className="grid grid-cols-5 gap-1 mb-3 text-[10px] font-bold text-slate-700 text-center">
                         <span>{seasonSlots[mobileActiveTab]?.power || 0}</span>
                         <span>{seasonSlots[mobileActiveTab]?.handling || 0}</span>
                         <span>{seasonSlots[mobileActiveTab]?.accel || 0}</span>
-                        <span className="text-amber-400">{seasonSlots[mobileActiveTab]?.wear || '-'}</span>
-                        <span className="text-blue-400">{seasonSlots[mobileActiveTab]?.fuel || '-'}</span>
+                        <span className="text-amber-600 font-bold">{seasonSlots[mobileActiveTab]?.wear || '-'}</span>
+                        <span className="text-blue-600 font-bold">{seasonSlots[mobileActiveTab]?.fuel || '-'}</span>
                     </div>
 
                     <div className={`grid grid-cols-3 gap-2 w-full ${lockedSlots.includes(mobileActiveTab) ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
-                            <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">CTR</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab]?.ctr || 0} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-400 outline-none p-0" placeholder="0" />
+                        <div className="bg-white rounded-lg p-2 border border-slate-200 hover:border-emerald-500/20 transition-all hover:shadow-md flex flex-col items-center">
+                            <span className="text-[8px] text-slate-400 font-black uppercase mb-1">CTR</span>
+                            <input type="tel" value={seasonSlots[mobileActiveTab]?.ctr || 0} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'ctr', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-emerald-600 outline-none p-0" placeholder="0" />
                         </div>
-                        <div className="bg-zinc-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center">
-                            <span className="text-[7px] text-zinc-500 font-black uppercase mb-0.5">TESTE</span>
-                            <input type="tel" value={seasonSlots[mobileActiveTab]?.testLaps || 0} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-amber-400 outline-none p-0" placeholder="0" />
+                        <div className="bg-white rounded-lg p-2 border border-slate-200 hover:border-emerald-500/20 transition-all hover:shadow-md flex flex-col items-center">
+                            <span className="text-[8px] text-slate-400 font-black uppercase mb-1">TESTE</span>
+                            <input type="tel" value={seasonSlots[mobileActiveTab]?.testLaps || 0} onChange={(e) => updateSeasonSlot(mobileActiveTab, 'testLaps', e.target.value)} className="w-full bg-transparent text-center font-mono text-base font-bold text-amber-600 outline-none p-0" placeholder="0" />
                         </div>
                         <button 
                             onClick={() => updateSeasonSlot(mobileActiveTab, 'testEnabled', !seasonSlots[mobileActiveTab]?.testEnabled)}
-                            className={`rounded-lg p-2 border flex flex-col items-center justify-center ${seasonSlots[mobileActiveTab]?.testEnabled ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}
+                            className={`rounded-lg p-2 border flex flex-col items-center justify-center transition-all hover:shadow-lg ${
+                              seasonSlots[mobileActiveTab]?.testEnabled ? 'bg-emerald-50 border-emerald-300 text-emerald-600 hover:bg-emerald-500 hover:text-white' : 'bg-rose-50 border-rose-300 text-rose-500 hover:bg-rose-500 hover:text-white'
+                            }`}
                         >
-                            <span className="text-[7px] font-black uppercase mb-0.5 text-zinc-500">STATUS</span>
-                            <span className={`text-[10px] font-black ${seasonSlots[mobileActiveTab]?.testEnabled ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <span className="text-[8px] font-black uppercase mb-1 text-slate-400">STATUS</span>
+                            <span className={`text-[10px] font-black ${seasonSlots[mobileActiveTab]?.testEnabled ? 'text-emerald-600' : 'text-rose-500'}`}>
                                 {seasonSlots[mobileActiveTab]?.testEnabled ? 'ON' : 'OFF'}
                             </span>
                         </button>
                     </div>
                 </div>
 
-                {/* Tabela de Peças */}
-                <div className="flex flex-col w-full overflow-hidden">
-                    <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-black/40 text-[8px] font-black uppercase text-zinc-600 tracking-wider border-b border-white/5 items-center text-center justify-start">
-                        <div className="text-left pl-1">Peça</div>
+                {/* Tabela de Peças (Gelo) */}
+                <div className="flex flex-col w-full overflow-hidden bg-white">
+                    <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-slate-50 text-[8px] font-black uppercase text-slate-400 tracking-wider border-b border-slate-200 items-center text-center justify-start">
+                        <div className="text-left pl-1 flex items-center gap-1.5">
+                            <Settings2 size={10} className="text-emerald-600" />
+                            Peça
+                        </div>
                         <div>Lv</div>
                         <div>Ini</div>
                         <div>Des</div>
-                        <div>Fim</div>
+                        <div className="text-amber-600/70">Fim</div>
                     </div>
                     
-                    <div className="divide-y divide-white/[0.03]">
+                    <div className="divide-y divide-slate-100">
                     {CAR_PARTS.map((part) => {
                          const sIdx = mobileActiveTab;
                          const isLocked = lockedSlots.includes(sIdx);
@@ -719,23 +728,27 @@ export default function WearPlanningPage() {
                          return (
                              <div key={part.id} className={`grid grid-cols-[100px_35px_40px_35px_40px] gap-1 items-center px-3 py-2 justify-start ${isLocked ? 'opacity-40 grayscale-[0.3]' : ''}`}>
                                  <div className="flex items-center gap-2 overflow-hidden pl-1">
-                                     <div className="text-zinc-600 shrink-0">{part.icon}</div>
-                                     <span className="text-[9px] font-bold text-zinc-300 uppercase truncate leading-none">{part.label}</span>
+                                     <div className={`shrink-0 ${isLocked ? 'text-slate-300' : 'text-slate-400 group-hover:text-emerald-600'}`}>{part.icon}</div>
+                                     <span className="text-[10px] font-black text-slate-700 uppercase truncate leading-none">{part.label}</span>
                                  </div>
                                  <div>
-                                     <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className="w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] text-white font-mono focus:border-amber-500/50 outline-none p-0" />
+                                     <input disabled={isLocked} type="tel" placeholder="1" value={override.lvl || ""} onChange={(e) => updateOverride(part.id, sIdx, 'lvl', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-white rounded border border-slate-200 text-center text-[11px] text-slate-800 font-mono focus:border-emerald-500 outline-none p-0 transition-all ${
+                                       isLocked ? '' : 'hover:bg-slate-50 hover:border-emerald-300 shadow-sm'
+                                     }`} />
                                  </div>
                                  <div>
-                                     <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-zinc-800/40 rounded border border-white/5 text-center text-[11px] font-mono focus:border-amber-500/50 outline-none p-0 ${override.start !== undefined ? 'text-amber-400 font-bold' : 'text-zinc-500'}`} />
+                                     <input disabled={isLocked} type="tel" placeholder={(Math.round(Number(prevFinal)) || 0).toString()} value={override.start !== undefined ? override.start : ""} onChange={(e) => updateOverride(part.id, sIdx, 'start', e.target.value.replace(/\D/g, ''))} className={`w-full h-7 bg-white rounded border border-slate-200 text-center text-[11px] font-mono focus:border-emerald-500 outline-none p-0 transition-all ${
+                                       isLocked ? '' : (override.start !== undefined ? 'text-amber-600 font-bold border-amber-300 hover:bg-slate-50' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50 shadow-sm')
+                                     }`} />
                                  </div>
-                                 <div className="text-center text-[9px] font-mono text-zinc-500">
+                                 <div className="text-center text-[10px] font-mono text-slate-400">
                                     {Math.round(Number(data.wear))}%
                                  </div>
                                  <div className="flex justify-center">
-                                     <span className={`flex items-center justify-center w-full h-6 rounded text-[9px] font-black ${
-                                         finalVal > 90 ? 'text-rose-500 bg-rose-500/10' : 
-                                         finalVal > 70 ? 'text-amber-400 bg-amber-500/10' : 
-                                         'text-emerald-400 bg-emerald-500/5'
+                                     <span className={`flex items-center justify-center w-full h-6 rounded text-[10px] font-black border transition-all ${
+                                         finalVal > 90 ? 'text-rose-600 bg-rose-50 border-rose-200' : 
+                                         finalVal > 70 ? 'text-amber-400 bg-amber-50 border-amber-200' : 
+                                         'text-emerald-600 bg-emerald-50 border-emerald-100 shadow-sm'
                                      }`}>
                                          {finalVal}%
                                      </span>
@@ -759,12 +772,12 @@ export default function WearPlanningPage() {
 function InputHeader({ label, value, onChange, color }: any) {
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-wider">{label}</span>
+      <span className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">{label}</span>
       <input 
         type="text" 
         value={value} 
         onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))} 
-        className={`w-12 h-8 bg-${color}-500/5 border border-${color}-500/20 rounded-xl text-center text-[12px] font-mono font-bold text-${color}-400 outline-none focus:border-${color}-500/50 transition-all shadow-inner`} 
+        className={`w-12 h-8 bg-white border border-slate-200 rounded-xl text-center text-xs font-mono font-bold text-slate-800 outline-none focus:border-emerald-500 transition-all shadow-sm hover:bg-slate-50`} 
       />
     </div>
   );
