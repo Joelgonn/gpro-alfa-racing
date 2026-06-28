@@ -8,7 +8,8 @@ import { useGame } from '../../context/GameContext';
 import {
   Settings, Gauge, Zap, HardHat, BarChart3, Loader2, MapPin,
   Sparkles, ChevronLeft, ChevronRight, Fuel, TrendingUp,
-  ChevronDown, ShieldCheck, ShieldAlert, ChevronsRight
+  ChevronDown, ShieldCheck, ShieldAlert, ChevronsRight, Search, X,
+  Lock, Unlock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -39,6 +40,22 @@ const TYRE_NAMES: Record<string, string> = {
     "Rain": "Chuva"
 };
 
+// ✅ FORNECEDORES CORRETOS (IGUAL DA PÁGINA DE TESTES)
+const TYRE_SUPPLIERS = ["Pipirelli", "Avonn", "Yokomama", "Dunnolop", "Contimental", "Hancock", "Badyear", "Michelini", "Bridgerock"];
+
+// ✅ MAPEAMENTO DE FORNECEDORES PARA IMAGENS
+const TYRE_SUPPLIER_IMAGES: Record<string, string> = {
+    "Pipirelli": "pipirelli.gif",
+    "Avonn": "avonn.gif",
+    "Yokomama": "yokomama.gif",
+    "Dunnolop": "dunnolop.gif",
+    "Contimental": "contimental.gif",
+    "Hancock": "hancock.gif",
+    "Badyear": "badyear.gif",
+    "Michelini": "michelini.gif",
+    "Bridgerock": "bridgerock.gif",
+};
+
 const clampSetupDisplay = (value: unknown): unknown => {
   const num = Number(value);
   if (Number.isNaN(num)) {
@@ -49,15 +66,16 @@ const clampSetupDisplay = (value: unknown): unknown => {
 
 // --- COMPONENTES AUXILIARES ---
 
+// ✅ SELETOR DE PISTA CORRIGIDO (IGUAL AO DA PÁGINA DE SETUP)
 function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: any[], onSelect: (t: string) => void, placeholder?: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
-    
+
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) { if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false); }
         document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    }, [dropdownRef]);
 
     const filteredTracks = useMemo(() => {
         return tracksList.filter((track: any) => {
@@ -67,39 +85,93 @@ function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELE
     }, [tracksList, search]);
 
     return (
-        <div className="relative z-50 w-full md:w-auto" ref={dropdownRef}>
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full md:w-auto flex items-center justify-between gap-3 text-slate-800 font-black hover:text-emerald-600 outline-none group bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm transition-all text-xs">
-                <span className="truncate">{currentTrack && currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : placeholder}</span>
-                <ChevronDown size={14} className="text-slate-400 group-hover:text-emerald-600" />
+        <div className="relative z-50" ref={dropdownRef}>
+            <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className="
+                    flex items-center gap-2 sm:gap-2.5 
+                    text-[9px] sm:text-xs 
+                    text-slate-800 font-black tracking-wider 
+                    hover:text-emerald-600 transition-all duration-300 
+                    outline-none group 
+                    bg-white px-2.5 py-1.5 sm:px-3.5 sm:py-2 
+                    rounded-lg sm:rounded-xl 
+                    border border-slate-200 
+                    active:scale-[0.98] 
+                    shadow-sm hover:shadow-md 
+                    min-w-[100px] sm:min-w-[140px]
+                    truncate
+                "
+            >
+                <span className="truncate text-[9px] sm:text-xs">
+                    {currentTrack !== "Selecionar Pista" ? currentTrack.toUpperCase() : placeholder}
+                </span>
+                <ChevronDown 
+                    className={`
+                        transition-transform duration-300 
+                        text-slate-400 group-hover:text-emerald-600 
+                        ${isOpen ? 'rotate-180' : ''}
+                        w-3 h-3 sm:w-4 sm:h-4
+                    `} 
+                    size={14} 
+                />
             </button>
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full left-0 mt-2 w-full md:w-[300px] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden z-[60]">
-                        <div className="p-3 border-b border-slate-100 bg-slate-50">
-                            <input autoFocus type="text" placeholder="Buscar pista..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:border-emerald-500" />
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }} 
+                        className="absolute top-full left-0 mt-2 w-[240px] sm:w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-[60]"
+                    >
+                        <div className="p-2 sm:p-3 border-b border-slate-100 bg-slate-50">
+                            <div className="relative">
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input 
+                                    autoFocus 
+                                    type="text" 
+                                    placeholder="Buscar pista..." 
+                                    value={search} 
+                                    onChange={(e) => setSearch(e.target.value)} 
+                                    className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 outline-none font-bold uppercase tracking-wider" 
+                                />
+                                {search && (
+                                    <button 
+                                        onClick={() => setSearch('')} 
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1.5 bg-white space-y-0.5">
+                        <div className="max-h-[200px] sm:max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5 bg-white">
                             {filteredTracks.map((track: any) => {
                                 const name = typeof track === 'object' ? track.name : track;
                                 return (
-                                    <button 
-                                        key={name} 
-                                        onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }} 
-                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-left hover:bg-slate-50 transition-colors ${currentTrack === name ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
+                                    <button
+                                        key={name}
+                                        onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }}
+                                        className={`
+                                            w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 
+                                            rounded-lg text-[9px] sm:text-xs 
+                                            font-black uppercase tracking-wider 
+                                            flex items-center justify-between group transition-all
+                                            ${currentTrack === name 
+                                                ? 'bg-emerald-600 text-white' 
+                                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                            }
+                                        `}
                                     >
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2 sm:gap-2.5">
                                             {TRACK_FLAGS[name] ? (
-                                                <img 
-                                                    src={`/flags/${TRACK_FLAGS[name]}.png`} 
-                                                    alt={name} 
-                                                    className="w-5 h-3.5 object-cover rounded-sm border border-slate-200 shadow-sm" 
-                                                />
+                                                <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-3 h-2 sm:w-4 sm:h-2.5 object-cover rounded-sm shadow-sm" />
                                             ) : (
-                                                <div className="w-5 h-3 bg-slate-100 rounded-sm border border-slate-200"></div>
+                                                <div className="w-3 h-2 sm:w-4 sm:h-2.5 bg-slate-100 rounded-sm border border-slate-200"></div>
                                             )}
-                                            {name}
+                                            <span className="truncate max-w-[120px] sm:max-w-none">{name}</span>
                                         </div>
-                                        {currentTrack === name && <ShieldCheck size={12} />}
+                                        {currentTrack === name && <ShieldCheck size={12} className="shrink-0" />}
                                     </button>
                                 );
                             })}
@@ -125,7 +197,7 @@ function ConfigInput({ label, value, onChange, max }: { label: string, value: nu
     };
 
     return (
-        <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-500/20 transition-all">
+        <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-500/20 hover:shadow-md transition-all duration-300">
             <label className="text-[9px] font-black text-slate-500 uppercase block mb-1.5 tracking-wider">{label}</label>
             <div className="flex items-center">
                 <input 
@@ -142,6 +214,7 @@ function ConfigInput({ label, value, onChange, max }: { label: string, value: nu
     );
 }
 
+// ✅ SUPPLIER CAROUSEL CORRIGIDO - COM FORNECEDORES E IMAGENS CORRETAS
 function SupplierCarousel({ options, value, onChange }: { options: string[], value: string, onChange: (val: string) => void }) {
     const [imgError, setImgError] = useState(false);
 
@@ -153,58 +226,162 @@ function SupplierCarousel({ options, value, onChange }: { options: string[], val
     const handleNext = () => onChange(options[(currentIndex + 1) % options.length] || options[0]);
     const handlePrev = () => onChange(options[(currentIndex - 1 + options.length) % options.length] || options[0]);
 
+    // ✅ Obtém o nome do arquivo da imagem baseado no mapeamento
+    const getImageSrc = (supplierName: string): string => {
+        const imageName = TYRE_SUPPLIER_IMAGES[supplierName];
+        return imageName ? `/tyres/${imageName}` : '';
+    };
+
+    const imageSrc = value ? getImageSrc(value) : '';
+
     return (
-        <div className="flex items-center justify-between bg-[#f8fafc] p-2 rounded-xl border border-slate-200 h-10 w-full overflow-hidden shadow-sm hover:border-emerald-500/10 transition-all">
-            <button onClick={handlePrev} className="text-slate-400 hover:text-slate-800 p-1.5 transition-colors"><ChevronLeft size={16} /></button>
+        <div className="flex items-center justify-between bg-[#f8fafc] p-2 rounded-xl border border-slate-200 h-12 w-full overflow-hidden shadow-sm hover:border-emerald-500/20 hover:shadow-md transition-all duration-300">
+            <button 
+                onClick={handlePrev} 
+                className="text-slate-400 hover:text-slate-800 p-1.5 transition-colors hover:bg-slate-100 rounded-lg"
+            >
+                <ChevronLeft size={16} />
+            </button>
+            
             <div className="flex-1 flex justify-center items-center h-full">
-                {imgError || !value ? (
-                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">{value || 'Nenhum'}</span>
+                {!imgError && value && imageSrc ? (
+                    <img 
+                        src={imageSrc}
+                        alt={value} 
+                        className="h-8 w-auto object-contain drop-shadow-sm transition-all"
+                        onError={() => setImgError(true)}
+                    />
                 ) : (
-                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">{value}</span>
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide">
+                        {value || 'Nenhum'}
+                    </span>
                 )}
             </div>
-            <button onClick={handleNext} className="text-slate-400 hover:text-slate-800 p-1.5 transition-colors"><ChevronRight size={16} /></button>
+            
+            <button 
+                onClick={handleNext} 
+                className="text-slate-400 hover:text-slate-800 p-1.5 transition-colors hover:bg-slate-100 rounded-lg"
+            >
+                <ChevronRight size={16} />
+            </button>
         </div>
-    )
+    );
 }
 
-// --- BOOST PANEL COMPONENT ---
-function BoostSection({ className, inputs, handleInput, outputs }: any) {
+// --- BOOST PANEL COMPONENT - COM BLOQUEIO NO MODO AUTOMÁTICO E TOOLTIP ---
+function BoostSection({ className, inputs, handleInput, outputs, isAutoMode = false }: any) {
+    const isDisabled = isAutoMode;
+    
     return (
-        <section className={`bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200 overflow-hidden shadow-sm ${className}`}>
-            <div className="bg-zinc-50 p-3.5 border-b border-slate-200">
+        <section className={`bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 ${className}`}>
+            <div className="bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
                 <h3 className="font-black flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-800">
                     <Zap size={14} className="text-amber-500"/> Boost - Ajuste Manual
                 </h3>
+                {isDisabled ? (
+                    <span className="text-[8px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Lock size={10} /> BLOQUEADO
+                    </span>
+                ) : (
+                    <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Unlock size={10} /> EDITÁVEL
+                    </span>
+                )}
             </div>
-            <div className="p-4 space-y-3.5">
+            
+            <div className={`p-4 space-y-3.5 ${isDisabled ? 'opacity-60' : ''}`}>
                 {[1, 2, 3].map(i => {
                     const bKey = `boost${i}` as keyof BoostLapsInput;
+                    const displayValue = inputs.boost_laps[bKey]?.volta ?? '';
+                    
                     return (
-                        <div key={i} className="flex items-center justify-between bg-[#f8fafc] p-3 rounded-xl border border-slate-150 group hover:border-amber-500/30 transition-all shadow-sm">
-                            <span className="text-[10px] font-black text-slate-400 uppercase group-hover:text-amber-600">B{i}</span>
-                            <input 
-                              type="number" 
-                              placeholder="Volta" 
-                              value={inputs.boost_laps[bKey]?.volta ?? ''} 
-                              onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} 
-                              className="w-16 bg-white border border-slate-200 rounded p-2 text-center font-black text-xs text-slate-800 focus:border-amber-500 outline-none" 
-                            />
+                        <div 
+                            key={i} 
+                            className={`flex items-center justify-between bg-[#f8fafc] p-3 rounded-xl border border-slate-150 group transition-all duration-300 shadow-sm ${
+                                isDisabled 
+                                    ? 'hover:border-slate-200' 
+                                    : 'hover:border-amber-500/30 hover:shadow-md'
+                            }`}
+                        >
+                            <span className={`text-[10px] font-black uppercase ${
+                                isDisabled ? 'text-slate-400' : 'text-slate-400 group-hover:text-amber-600'
+                            }`}>
+                                B{i}
+                            </span>
+                            
+                            <div className="relative group/input">
+                                <input 
+                                    type="number" 
+                                    placeholder="Volta" 
+                                    value={displayValue} 
+                                    onChange={e => handleInput('boost_laps', 'volta', e.target.value, bKey)} 
+                                    className={`w-16 bg-white border border-slate-200 rounded p-2 text-center font-black text-xs text-slate-800 focus:border-amber-500 outline-none transition-all ${
+                                        isDisabled 
+                                            ? 'cursor-not-allowed opacity-50 bg-slate-100' 
+                                            : 'hover:border-amber-300'
+                                    }`}
+                                    disabled={isDisabled}
+                                />
+                                
+                                {/* Tooltip indicativo quando bloqueado */}
+                                {isDisabled && (
+                                    <>
+                                        {/* Ícone de interrogação */}
+                                        <div className="absolute -top-2 -right-2">
+                                            <div className="bg-amber-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black cursor-help shadow-sm">
+                                                ?
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Tooltip */}
+                                        <div className="
+                                            absolute bottom-full left-1/2 -translate-x-1/2 mb-2 
+                                            px-3 py-1.5 
+                                            bg-slate-800 text-white text-[9px] font-black uppercase tracking-wider 
+                                            rounded-lg shadow-xl 
+                                            opacity-0 group-hover/input:opacity-100 
+                                            transition-all duration-200 
+                                            pointer-events-none 
+                                            whitespace-nowrap
+                                            z-50
+                                            border border-slate-700
+                                        ">
+                                            🔒 Ative o modo Manual
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-0.5 border-4 border-transparent border-t-slate-800"></div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            
                             <div className="flex flex-col items-end leading-tight">
-                                <span className="text-[8px] text-slate-400 font-black uppercase">Seq / Stints</span>
-                                <span className="text-[11px] text-amber-600 font-black tracking-tighter">{outputs?.boost_laps_outputs?.[bKey]?.stint || '-'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '-'}</span>
+                                <span className={`text-[8px] font-black uppercase ${
+                                    isDisabled ? 'text-slate-300' : 'text-slate-400'
+                                }`}>
+                                    Seq / Stints
+                                </span>
+                                <span className={`text-[11px] font-black tracking-tighter ${
+                                    isDisabled ? 'text-slate-400' : 'text-amber-600'
+                                }`}>
+                                    {outputs?.boost_laps_outputs?.[bKey]?.stint || '-'} / {outputs?.boost_laps_outputs?.[bKey]?.voltas_list || '-'}
+                                </span>
                             </div>
                         </div>
                     )
                 })}
+                
+                {/* Mini Stints Grid - Sempre visível */}
                 <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-200">
-                  {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="bg-slate-50 p-2 rounded-lg border border-slate-150 text-center">
-                      <span className="text-[8px] text-slate-400 font-black block uppercase mb-1">S{i}</span>
-                      <div className="text-slate-800 font-black text-[10px] leading-none mb-1">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val1 || '--'}</div>
-                      <div className="text-amber-600 font-black text-[8px]">{outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val2 || '-'} B</div>
-                    </div>
-                  ))}
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="bg-slate-50 p-2 rounded-lg border border-slate-150 text-center hover:border-emerald-200 transition-all duration-300">
+                            <span className="text-[8px] text-slate-400 font-black block uppercase mb-1">S{i}</span>
+                            <div className="text-slate-800 font-black text-[10px] leading-none mb-1">
+                                {outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val1 || '--'}
+                            </div>
+                            <div className={`text-[8px] font-black ${isDisabled ? 'text-slate-400' : 'text-amber-600'}`}>
+                                {outputs?.boost_mini_stints_outputs?.[`stint${i}`]?.val2 || '-'} B
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </section>
@@ -230,7 +407,7 @@ function StatsGrid({ outputs, fmt, className = "" }: { outputs: any, fmt: Functi
     return (
         <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3 ${className}`}>
             {items.map((item, idx) => (
-                <div key={idx} className={`bg-white border ${item.isCtr ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'} p-2.5 rounded-2xl flex flex-col items-center justify-center shadow-sm h-[74px] md:h-[84px] transition-all`}>
+                <div key={idx} className={`bg-white border ${item.isCtr ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'} p-2.5 rounded-2xl flex flex-col items-center justify-center shadow-sm hover:shadow-md transition-all duration-300 h-[74px] md:h-[84px]`}>
                     <span className={`text-[9px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5 ${item.isCtr ? 'text-emerald-600' : 'text-slate-500'}`}>
                         {item.i} {item.l}
                     </span>
@@ -332,15 +509,51 @@ function SkyViewRainOverlay() {
 export default function StrategyPage() {
   const router = useRouter(); 
   
-  // ✅ CORRIGIDO: Removido updateDriver, agora usa updateDriverEditable
   const {
-    track, updateTrack, tracksList, tyreSuppliers,
+    track, updateTrack, tracksList: contextTracks,
     weather, updateWeather, driver, car, updateCar,
     techDirector, updateTechDirector,      
     staffFacilities, updateStaffFacilities, 
     idealSetup, updateIdealSetup,
-    updateDriverEditable // ✅ ADICIONADO
+    updateDriverEditable
   } = useGame();
+
+  // ✅ USANDO OS FORNECEDORES CORRETOS
+  const tyreSuppliers = TYRE_SUPPLIERS;
+
+  // ✅ ESTADO LOCAL PARA PISTAS (IGUAL À PÁGINA DE SETUP)
+  const [localTracks, setLocalTracks] = useState<string[]>([]);
+
+  // ✅ CARREGA A LISTA DE PISTAS DA API (IGUAL À PÁGINA DE SETUP)
+  useEffect(() => {
+    async function loadTracks() {
+      try {
+        const res = await fetch('/api/python?action=tracks');
+        const data = await res.json();
+        if (data.tracks) {
+          setLocalTracks(data.tracks);
+          console.log('✅ Pistas carregadas na StrategyPage:', data.tracks.length);
+        }
+      } catch (error) {
+        console.error("❌ Erro ao carregar pistas na StrategyPage:", error);
+      }
+    }
+    loadTracks();
+  }, []);
+
+  // ✅ COMBINA AS FONTES DE PISTAS (CONTEXTO + LOCAL)
+  const tracksList = useMemo(() => {
+    if (contextTracks && contextTracks.length > 0) {
+      console.log('📋 Usando pistas do contexto:', contextTracks.length);
+      return contextTracks;
+    }
+    if (localTracks && localTracks.length > 0) {
+      console.log('📋 Usando pistas locais:', localTracks.length);
+      return localTracks;
+    }
+    console.log('⚠️ Nenhuma pista disponível, usando fallback');
+    return ["Selecionar Pista"];
+  }, [contextTracks, localTracks]);
 
   const [inputs, setInputs] = useState<InputsState>({
     race_options: { desgaste_pneu_percent: 15, condicao: "Dry", pneus_fornecedor: "Pipirelli", tipo_pneu: "Extra Soft", pitstops_num: 1, ct_valor: 0, avg_temp: 0 },
@@ -467,7 +680,6 @@ export default function StrategyPage() {
           const d = json.data;
           
           if (d.current_track) updateTrack(d.current_track);
-          // ✅ CORRIGIDO: updateDriver -> updateDriverEditable
           if (d.driver) Object.entries(d.driver).forEach(([k, v]) => updateDriverEditable(k as any, Number(v)));
           if (d.car) d.car.forEach((p: any, i: number) => { updateCar(i, 'lvl', p.lvl); updateCar(i, 'wear', p.wear); });
           
@@ -731,46 +943,57 @@ export default function StrategyPage() {
       )}
       </AnimatePresence>
    
-      {/* HEADER BAR (LIGHT GELO) */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3.5 sm:p-4.5 relative shadow-sm">
+      {/* HEADER BAR (LIGHT GELO) - OTIMIZADO PARA MOBILE */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3 sm:p-4 relative shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
-        <div className="max-w-[1600px] mx-auto flex justify-between items-center relative z-10">
+        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 lg:gap-4 relative z-10">
+          
+          {/* ESQUERDA: Logo + Título */}
           <div className="flex items-center gap-3">
-            <div className="bg-emerald-600 p-2.5 rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)]">
-              <Settings size={16} className="text-white" />
+            <div className="bg-emerald-600 p-2 rounded-lg sm:rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)] shrink-0">
+              <Settings size={14} className="sm:w-4 sm:h-4 text-white" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+              <h1 className="text-[10px] sm:text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
                 Estratégia de Corrida
-                <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
+                <span className="text-[7px] sm:text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
               </h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[120px]">{userEmail}</p>
+              <p className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase truncate max-w-[100px] sm:max-w-[120px]">{userEmail}</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            {/* CIRCUITO SELECIONADO */}
-            <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
-              <div className="w-8 h-6 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" /> : <span className="text-xs">🏁</span>}
+          {/* DIREITA: Circuito + Status + Temp */}
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 w-full lg:w-auto">
+            
+            {/* Circuito Selecionado */}
+            <div className="flex items-center gap-2 border-r border-slate-200 pr-3 sm:pr-4">
+              <div className="w-7 h-5 sm:w-8 sm:h-6 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                {track && TRACK_FLAGS[track] ? (
+                  <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px] sm:text-xs">🏁</span>
+                )}
               </div>
               <div className="flex flex-col">
-                <span className="text-[7px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
+                <span className="text-[6px] sm:text-[7px] text-slate-500 font-black uppercase tracking-widest leading-none">Circuito</span>
                 <TrackSelector currentTrack={track} tracksList={tracksList} onSelect={updateTrack} />
               </div>
             </div>
 
+            {/* Status + Temperatura */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'}`} />
-                <span className={`text-[10px] font-bold ${loading ? 'text-amber-600' : 'text-emerald-600'}`}>
+                <span className={`text-[8px] sm:text-[10px] font-bold ${loading ? 'text-amber-600' : 'text-emerald-600'}`}>
                   {loading ? 'CALCULANDO' : 'SINCRONIZADO'}
                 </span>
               </div>
               
-              <div className="text-right border-l border-slate-200 pl-4 shrink-0 flex flex-col justify-center">
-                <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Temp. Média</p>
-                <p className="text-xl font-black text-emerald-600 leading-none">{inputs.race_options.avg_temp || '--'}°C</p>
+              <div className="text-right border-l border-slate-200 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
+                <p className="text-[7px] sm:text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5 sm:mb-1">Temp. Média</p>
+                <p className="text-base sm:text-xl font-black text-emerald-600 leading-none">
+                  {inputs.race_options.avg_temp || '--'}°C
+                </p>
               </div>
             </div>
           </div>
@@ -787,7 +1010,7 @@ export default function StrategyPage() {
             <StatsGrid outputs={outputs} fmt={fmt} className="xl:hidden" />
             
             {/* CONFIGURAÇÃO DA ESTRATÉGIA */}
-            <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+            <section className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
               <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -809,7 +1032,7 @@ export default function StrategyPage() {
                           handleInput('race_options', 'condicao', c);
                           updateWeather({ weatherRace: c });
                         }} 
-                        className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all ${inputs.race_options.condicao === c ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}`}
+                        className={`py-3 md:py-2 rounded font-black text-[10px] uppercase transition-all duration-300 ${inputs.race_options.condicao === c ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200'}`}
                       >
                         {c === 'Dry' ? '☀️ Pista Seca' : '🌧️ Pista Molhada'}
                       </button>
@@ -818,7 +1041,7 @@ export default function StrategyPage() {
 
                   <div className="grid grid-cols-3 gap-3 md:gap-4">
                       {/* Temperatura */}
-                      <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200 shadow-sm">
+                      <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300">
                           <label className="text-[9px] font-black text-slate-500 uppercase block mb-1.5 tracking-wider">Temp.</label>
                           <div className="flex items-center justify-between">
                               <input 
@@ -898,7 +1121,7 @@ export default function StrategyPage() {
                   </div>
 
                   {/* Range Slider de Margem */}
-                  <div className="bg-[#f8fafc] p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="bg-[#f8fafc] p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300">
                       <div className="flex justify-between mb-2">
                           <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Margem: (Desgaste)</label>
                           <span className="text-xs font-black text-emerald-600">{inputs.race_options.desgaste_pneu_percent}%</span>
@@ -908,7 +1131,13 @@ export default function StrategyPage() {
               </div>
             </section>
             
-            <BoostSection className="hidden xl:block" inputs={inputs} handleInput={handleInput} outputs={outputs} />
+            <BoostSection 
+                className="hidden xl:block" 
+                inputs={inputs} 
+                handleInput={handleInput} 
+                outputs={outputs}
+                isAutoMode={activeTab === 'auto'}
+            />
           </div>
           
           {/* COLUNA DIREITA: ANÁLISE */}
@@ -916,7 +1145,7 @@ export default function StrategyPage() {
               <StatsGrid outputs={outputs} fmt={fmt} className="hidden xl:grid" />
               
               {/* SETUP RECOMENDADO - LIGHT GLASS */}
-              <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm">
+              <section className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm transition-all duration-300 hover:border-slate-300">
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 
                 {!idealSetup ? (
@@ -932,7 +1161,7 @@ export default function StrategyPage() {
                       </div>
                       <button 
                           onClick={() => router.push('/dashboard/setup')} 
-                          className="shrink-0 w-full md:w-auto px-4 py-2.5 bg-amber-100 hover:bg-amber-500 hover:text-white border border-amber-300 rounded-xl text-amber-600 font-black text-[9px] uppercase transition-all shadow-sm"
+                          className="shrink-0 w-full md:w-auto px-4 py-2.5 bg-amber-100 hover:bg-amber-500 hover:text-white border border-amber-300 rounded-xl text-amber-600 font-black text-[9px] uppercase transition-all shadow-sm hover:shadow-md"
                       >
                           Ir para Setup Calculadora
                       </button>
@@ -961,7 +1190,7 @@ export default function StrategyPage() {
                               { id: 'cambio', label: 'Câmbio' },
                               { id: 'suspensao', label: 'Suspensão' }
                           ].map(part => (
-                              <div key={part.id} className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200 hover:border-emerald-500/30 transition-all flex flex-col items-center text-center group shadow-sm">
+                              <div key={part.id} className="bg-[#f8fafc] p-2.5 rounded-xl border border-slate-200 hover:border-emerald-500/30 hover:shadow-md transition-all duration-300 flex flex-col items-center text-center group shadow-sm">
                                   <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1 group-hover:text-slate-800 transition-colors">{part.label}</span>
                                   <span className="text-sm font-black text-emerald-600 leading-none mb-2">{displaySetupValue(idealSetup[part.id]?.race)}</span>
                                   <div className="flex items-center gap-2 text-[10px] font-black w-full justify-center pt-2 border-t border-slate-150">
@@ -977,7 +1206,7 @@ export default function StrategyPage() {
               </section>
               
               {/* ANÁLISE DA PERFORMANCE */}
-              <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+              <section className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 
                 <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200">
@@ -1008,7 +1237,7 @@ export default function StrategyPage() {
                               handleInput('race_options', 'pitstops_num', bestStrategy.pits);
                             }
                           }}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-1.5 shadow-md"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-[10px] uppercase transition-all flex items-center gap-1.5 shadow-md hover:shadow-lg"
                         >
                           <Sparkles size={10} /> Aplicar Estratégia
                         </button>
@@ -1047,7 +1276,7 @@ export default function StrategyPage() {
                                                         handleInput('race_options', 'tipo_pneu', c);
                                                         handleInput('race_options', 'pitstops_num', Number(d?.req_stops ?? 0));
                                                     }}
-                                                    className="text-emerald-700 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg border border-emerald-500/20 text-[10px] font-black transition-all flex items-center gap-1.5 mx-auto shadow-sm"
+                                                    className="text-emerald-700 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg border border-emerald-500/20 text-[10px] font-black transition-all flex items-center gap-1.5 mx-auto shadow-sm hover:shadow-md"
                                                     title="Clique para carregar esta configuração ideal no formulário"
                                                 >
                                                     <Sparkles size={10} /> Ideal (Aplicar)
@@ -1065,19 +1294,19 @@ export default function StrategyPage() {
               </section>
               
               {/* STINTS DE CORRIDA */}
-              <section className="relative bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden backdrop-blur-sm group">
+              <section className="relative bg-white/90 border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden backdrop-blur-sm group transition-all duration-300 hover:border-slate-300">
                 <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 
                 <div className="relative bg-zinc-50 p-3 flex flex-col md:flex-row items-stretch md:items-center gap-2 border-b border-slate-200 px-4">
                   <button 
                     onClick={() => setActiveTab('auto')} 
-                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'auto' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200'}`}
+                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all duration-300 ${activeTab === 'auto' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200 hover:bg-slate-200'}`}
                   >
                     <Sparkles size={14}/> Automático
                   </button>
                   <button 
                     onClick={() => setActiveTab('manual')} 
-                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === 'manual' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200'}`}
+                    className={`flex items-center justify-center gap-2 px-4 py-3 md:py-2 rounded-lg text-[10px] font-black uppercase transition-all duration-300 ${activeTab === 'manual' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 bg-slate-100 border border-slate-200 hover:bg-slate-200'}`}
                   >
                     <HardHat size={14}/> Manual
                   </button>
@@ -1106,7 +1335,7 @@ export default function StrategyPage() {
                                                     type="number" 
                                                     value={inputs.personal_stint_voltas[st] ?? ''} 
                                                     onChange={e => handleInput('personal_stint_voltas', st, e.target.value)}                                                                                                                                                             
-                                                    className="w-12 bg-white border border-slate-200 rounded p-2 text-center font-black text-slate-800 focus:border-emerald-500 outline-none transition-all focus:scale-110 shadow-sm" 
+                                                    className="w-12 bg-white border border-slate-200 rounded p-2 text-center font-black text-slate-800 focus:border-emerald-500 outline-none transition-all focus:scale-110 shadow-sm hover:shadow-md" 
                                                 /> 
                                             ) : ( 
                                                 <span className="font-black text-slate-800 block animate-fadeIn">{fmt(currentStintData?.voltas?.[st], 0)}</span> 
@@ -1140,7 +1369,13 @@ export default function StrategyPage() {
                 </div>
               </section>
               
-              <BoostSection className="block xl:hidden" inputs={inputs} handleInput={handleInput} outputs={outputs} />
+              <BoostSection 
+                  className="block xl:hidden" 
+                  inputs={inputs} 
+                  handleInput={handleInput} 
+                  outputs={outputs}
+                  isAutoMode={activeTab === 'auto'}
+              />
           </div>
         </div>
       </div>

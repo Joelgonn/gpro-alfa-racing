@@ -267,76 +267,122 @@ function DriverStaticCard({ driverStatic }: { driverStatic: any }) {
 }
 
 // ============================================
-// SELETOR DE PISTA
+// SELETOR DE PISTA - COM Z-INDEX ALTO E OVERFLOW VISIBLE
 // ============================================
-function TrackSelector({ currentTrack, tracksList, onSelect }: { currentTrack: string, tracksList: string[], onSelect: (t: string) => void }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+function TrackSelector({ currentTrack, tracksList, onSelect, placeholder = "SELECIONAR PISTA" }: { currentTrack: string, tracksList: any[], onSelect: (t: string) => void, placeholder?: string }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) { if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false); }
+        document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef]);
 
-  const filteredTracks = useMemo(() => {
-    return tracksList.filter((track: any) => {
-      const name = typeof track === 'object' ? (track.name || "") : (track || "");
-      return name.toLowerCase().includes(search.toLowerCase());
-    });
-  }, [tracksList, search]);
+    const filteredTracks = useMemo(() => {
+        return tracksList.filter((track: any) => {
+            const name = typeof track === 'object' ? (track.name || "") : (track || "");
+            return name.toLowerCase().includes(search.toLowerCase());
+        });
+    }, [tracksList, search]);
 
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between gap-3 text-sm md:text-base text-slate-800 font-black tracking-wider hover:text-emerald-600 transition-all duration-300 outline-none group bg-white border border-slate-200 px-4 py-2.5 rounded-xl active:scale-[0.98] shadow-sm hover:shadow-md min-w-[180px]"
-      >
-        <span className="truncate">
-          {currentTrack !== "Selecionar Pista" ? he.decode(currentTrack).toUpperCase() : "SELECIONAR CIRCUITO"}
-        </span>
-        <ChevronDown className={`transition-transform duration-300 text-slate-400 group-hover:text-emerald-600 ${isOpen ? 'rotate-180' : ''}`} size={16} />
-      </button>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full left-0 mt-2 w-[320px] bg-white border border-slate-200 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] overflow-hidden z-[9999]">
-            <div className="p-3 border-b border-slate-100 bg-slate-50">
-              <div className="relative">
-                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input autoFocus type="text" placeholder="BUSCAR CIRCUITO..." className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 h-9 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 outline-none font-bold uppercase tracking-wider" value={search} onChange={(e) => setSearch(e.target.value)} />
-                {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1.5"><X size={12} /></button>}
-              </div>
-            </div>
-            <div className="max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5 bg-white">
-              {filteredTracks.map((track: any) => {
-                const name = typeof track === 'object' ? track.name : track;
-                return (
-                  <button
-                    key={name}
-                    onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[10px] font-black uppercase text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-all group text-left"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      {TRACK_FLAGS[name] ? (
-                        <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-4 h-2.5 object-cover rounded-sm border border-slate-200" />
-                      ) : (
-                        <div className="w-4 h-2.5 bg-slate-100 rounded-sm border border-slate-200"></div>
-                      )}
-                      <span className="truncate max-w-[170px]">{he.decode(name)}</span>
-                    </div>
-                    {currentTrack === name && <ShieldCheck size={12} className="text-emerald-600 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+    return (
+        <div className="relative z-[9999]" ref={dropdownRef}> {/* ⚠️ Z-INDEX ALTÍSSIMO */}
+            <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className="
+                    flex items-center gap-2 sm:gap-2.5 
+                    text-[9px] sm:text-xs 
+                    text-slate-800 font-black tracking-wider 
+                    hover:text-emerald-600 transition-all duration-300 
+                    outline-none group 
+                    bg-white px-2.5 py-1.5 sm:px-3.5 sm:py-2 
+                    rounded-lg sm:rounded-xl 
+                    border border-slate-200 
+                    active:scale-[0.98] 
+                    shadow-sm hover:shadow-md 
+                    min-w-[100px] sm:min-w-[140px]
+                    truncate
+                "
+            >
+                <span className="truncate text-[9px] sm:text-xs">
+                    {currentTrack !== "Selecionar Pista" ? he.decode(currentTrack).toUpperCase() : placeholder}
+                </span>
+                <ChevronDown 
+                    className={`
+                        transition-transform duration-300 
+                        text-slate-400 group-hover:text-emerald-600 
+                        ${isOpen ? 'rotate-180' : ''}
+                        w-3 h-3 sm:w-4 sm:h-4
+                    `} 
+                    size={14} 
+                />
+            </button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }} 
+                        className="absolute top-full left-0 mt-2 w-[240px] sm:w-64 bg-white border border-slate-200 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] overflow-hidden z-[99999]" // ⚠️ Z-INDEX MÁXIMO + SHADOW FORTE
+                    >
+                        <div className="p-2 sm:p-3 border-b border-slate-100 bg-slate-50">
+                            <div className="relative">
+                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input 
+                                    autoFocus 
+                                    type="text" 
+                                    placeholder="Buscar pista..." 
+                                    value={search} 
+                                    onChange={(e) => setSearch(e.target.value)} 
+                                    className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 outline-none font-bold uppercase tracking-wider" 
+                                />
+                                {search && (
+                                    <button 
+                                        onClick={() => setSearch('')} 
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <div className="max-h-[200px] sm:max-h-[220px] overflow-y-auto custom-scrollbar p-1.5 space-y-0.5 bg-white">
+                            {filteredTracks.map((track: any) => {
+                                const name = typeof track === 'object' ? track.name : track;
+                                return (
+                                    <button
+                                        key={name}
+                                        onClick={() => { onSelect(name); setIsOpen(false); setSearch(""); }}
+                                        className={`
+                                            w-full text-left px-2 sm:px-3 py-1.5 sm:py-2 
+                                            rounded-lg text-[9px] sm:text-xs 
+                                            font-black uppercase tracking-wider 
+                                            flex items-center justify-between group transition-all
+                                            ${currentTrack === name 
+                                                ? 'bg-emerald-600 text-white' 
+                                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                            }
+                                        `}
+                                    >
+                                        <div className="flex items-center gap-2 sm:gap-2.5">
+                                            {TRACK_FLAGS[name] ? (
+                                                <img src={`/flags/${TRACK_FLAGS[name]}.png`} alt={name} className="w-3 h-2 sm:w-4 sm:h-2.5 object-cover rounded-sm shadow-sm" />
+                                            ) : (
+                                                <div className="w-3 h-2 sm:w-4 sm:h-2.5 bg-slate-100 rounded-sm border border-slate-200"></div>
+                                            )}
+                                            <span className="truncate max-w-[120px] sm:max-w-none">{he.decode(name)}</span>
+                                        </div>
+                                        {currentTrack === name && <ShieldCheck size={12} className="shrink-0" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 }
 
 // ============================================
@@ -451,7 +497,7 @@ export default function DashboardHome() {
     track, updateTrack,
     weather, updateWeather,
     desgasteModifier, updateDesgasteModifier,
-    tracksList,
+    tracksList: contextTracks,
     techDirector, updateTechDirector,
     staffFacilities, updateStaffFacilities,
     testPoints, updateTestPoints,
@@ -460,6 +506,37 @@ export default function DashboardHome() {
     officeData,
     reloadUserState,
   } = useGame();
+
+  // ✅ ESTADO LOCAL PARA PISTAS
+  const [localTracks, setLocalTracks] = useState<string[]>([]);
+
+  // ✅ CARREGA A LISTA DE PISTAS DA API
+  useEffect(() => {
+    async function loadTracks() {
+      try {
+        const res = await fetch('/api/python?action=tracks');
+        const data = await res.json();
+        if (data.tracks) {
+          setLocalTracks(data.tracks);
+          console.log('✅ Pistas carregadas no Dashboard:', data.tracks.length);
+        }
+      } catch (error) {
+        console.error("❌ Erro ao carregar pistas no Dashboard:", error);
+      }
+    }
+    loadTracks();
+  }, []);
+
+  // ✅ COMBINA AS FONTES DE PISTAS
+  const tracksList = useMemo(() => {
+    if (contextTracks && contextTracks.length > 0) {
+      return contextTracks;
+    }
+    if (localTracks && localTracks.length > 0) {
+      return localTracks;
+    }
+    return ["Selecionar Pista"];
+  }, [contextTracks, localTracks]);
 
   const [performanceData, setPerformanceData] = useState({
     power: { part: 0, test: 0, carro: 0, pista: 0 },
@@ -488,7 +565,7 @@ export default function DashboardHome() {
   }, [router]);
 
   // ============================================
-  // PERSISTÊNCIA - SOMENTE DADOS EDITÁVEIS
+  // PERSISTÊNCIA
   // ============================================
 
   const persistState = useCallback(async () => {
@@ -837,33 +914,54 @@ export default function DashboardHome() {
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 relative z-10">
 
-        {/* HEADER BAR (ICE MODE) */}
-        <motion.div initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl p-4 shadow-sm sticky top-4 z-50 relative overflow-hidden">
+        {/* HEADER BAR (ICE MODE) - OTIMIZADO PARA MOBILE */}
+        <motion.div 
+          initial={{ opacity: 0, y: -15 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm sticky top-4 z-50 relative overflow-visible hover:shadow-md transition-shadow duration-300" // ⚠️ overflow-visible
+        >
           <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
-          <div className="flex flex-col xl:flex-row items-center justify-between gap-5 relative">
-            <div className="flex items-center gap-6 self-stretch xl:self-auto justify-between sm:justify-start">
+          
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 relative">
+            
+            {/* ESQUERDA: FLAG + TRACK + TEMPORADA */}
+            <div className="flex items-start sm:items-center gap-3 w-full lg:w-auto">
               {/* Flag */}
-              <div className="w-16 h-10 bg-white border border-slate-200 rounded flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                {track && TRACK_FLAGS[track] ? <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" /> : <span className="text-lg">🏁</span>}
+              <div className="w-12 h-8 sm:w-16 sm:h-10 bg-white border border-slate-200 rounded-lg sm:rounded-xl flex items-center justify-center overflow-hidden shrink-0 shadow-sm hover:shadow-md transition-shadow duration-300">
+                {track && TRACK_FLAGS[track] ? (
+                  <img src={`/flags/${TRACK_FLAGS[track]}.png`} alt={track} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg sm:text-xl">🏁</span>
+                )}
               </div>
 
               {/* Track + Temporada */}
-              <div className="text-left">
-                <h2 className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                  <MapPin size={10} className="text-emerald-500" /> CIRCUITO SELECIONADO
+              <div className="flex-1 min-w-0">
+                <h2 className="text-[7px] sm:text-[8px] text-slate-400 font-black uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <MapPin size={10} className="text-emerald-500 shrink-0" />
+                  <span className="truncate">CIRCUITO SELECIONADO</span>
                 </h2>
-                <div className="flex items-center gap-4">
-                  <TrackSelector currentTrack={track} tracksList={tracksList} onSelect={updateTrack} />
+                
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <TrackSelector 
+                    currentTrack={track} 
+                    tracksList={tracksList} 
+                    onSelect={updateTrack}
+                    placeholder="SELECIONAR PISTA"
+                  />
+                  
                   {officeData && (officeData.season || officeData.seasonNb) && (
-                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                      <Calendar size={14} className="text-amber-500" />
-                      <span className="text-sm font-black text-slate-800">
+                    <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50/80 backdrop-blur-sm px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 hover:border-emerald-200">
+                      <Calendar size={12} className="text-amber-500 shrink-0" />
+                      <span className="text-[10px] sm:text-sm font-black text-slate-800 whitespace-nowrap">
                         S{officeData.season || officeData.seasonNb || '0'} R{officeData.race || officeData.raceNb || '0'}
                       </span>
                       {officeData.trackName && (
                         <>
-                          <span className="w-px h-4 bg-slate-300" />
-                          <span className="text-xs text-slate-500 font-bold">{he.decode(officeData.trackName)}</span>
+                          <span className="hidden sm:block w-px h-4 bg-slate-300" />
+                          <span className="hidden sm:block text-[10px] sm:text-xs text-slate-500 font-bold truncate max-w-[120px]">
+                            {he.decode(officeData.trackName)}
+                          </span>
                         </>
                       )}
                     </div>
@@ -872,34 +970,97 @@ export default function DashboardHome() {
               </div>
             </div>
 
-            {/* BOTÕES DE CONTROLE */}
-            <div className="flex items-center justify-between sm:justify-end gap-4 w-full xl:w-auto self-stretch xl:self-auto border-t xl:border-t-0 border-slate-200 pt-3 xl:pt-0">
-              <div className="flex items-center gap-4">
-                <button onClick={handleRestoreImportSnapshot} disabled={isRestoring} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform" title="Restaurar Snapshot GPRO">
-                  <div className={`p-2 rounded-lg border bg-white border-slate-200 shadow-sm transition-all duration-200 ${isRestoring ? 'animate-spin border-amber-500 text-amber-500 bg-amber-50 shadow-sm' : 'text-slate-505 hover:text-amber-500 hover:border-amber-400 hover:bg-amber-50/50'}`}><History size={16} /></div>
-                  <span className="text-[7px] font-black tracking-widest text-slate-400 uppercase">RESTAURAR</span>
-                </button>
-
-                <button onClick={handleImportGPRO} disabled={isImporting} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform" title="Sincronizar dados direto da GPRO">
-                  <div className={`p-2 rounded-lg border bg-white border-slate-200 shadow-sm transition-all duration-200 ${isImporting ? 'animate-spin border-emerald-500 text-emerald-500 bg-emerald-50' : 'text-slate-500 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/50'}`}><Zap size={16} /></div>
-                  <span className="text-[7px] font-black tracking-widest text-slate-400 uppercase">GPRO SYNC</span>
-                </button>
-
-                <button onClick={persistState} className="group flex flex-col items-center gap-1 active:scale-95 transition-transform" title="Salvar modificações atuais">
-                  <div className={`p-2 rounded-lg border bg-white border-slate-200 shadow-sm transition-all duration-200 ${isSyncing ? 'animate-spin border-emerald-500 text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/50'}`}><RefreshCw size={16} /></div>
-                  <span className="text-[7px] font-black tracking-widest text-slate-400 uppercase">GRAVAR</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button onClick={() => setIsEditMode(!isEditMode)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-300 shadow-sm ${isEditMode ? 'bg-amber-50 border-amber-300 text-amber-600 font-bold' : 'bg-white border-slate-200 text-slate-500'}`}>
-                  {isEditMode ? <Unlock size={12} className="animate-pulse text-amber-500" /> : <Lock size={12} />}
-                  <div className="flex flex-col text-left">
-                    <span className="text-[7px] font-bold text-slate-400 leading-none">MODO</span>
-                    <span className="text-[9px] font-black tracking-wider leading-none mt-0.5">{isEditMode ? 'EDIÇÃO' : 'BLOQUEADO'}</span>
+            {/* DIREITA: BOTÕES DE CONTROLE */}
+            <div className="flex items-center justify-between sm:justify-end gap-3 w-full lg:w-auto border-t lg:border-t-0 border-slate-200 pt-3 lg:pt-0">
+              
+              {/* Grupo de Botões */}
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                
+                {/* Restaurar Snapshot */}
+                <button 
+                  onClick={handleRestoreImportSnapshot} 
+                  disabled={isRestoring} 
+                  className="group flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
+                  title="Restaurar Snapshot GPRO"
+                >
+                  <div className={`
+                    p-1.5 sm:p-2 rounded-lg border shadow-sm transition-all duration-300
+                    ${isRestoring 
+                      ? 'animate-spin border-amber-500 text-amber-500 bg-amber-50 shadow-amber-200' 
+                      : 'bg-white border-slate-200 text-slate-500 hover:text-amber-600 hover:border-amber-400 hover:bg-amber-50/50 hover:shadow-md'
+                    }
+                  `}>
+                    <History size={14} className="sm:w-4 sm:h-4" />
                   </div>
+                  <span className="text-[6px] sm:text-[7px] font-black tracking-widest text-slate-400 uppercase group-hover:text-amber-500 transition-colors">
+                    RESTAURAR
+                  </span>
+                </button>
+
+                {/* GPRO Sync */}
+                <button 
+                  onClick={handleImportGPRO} 
+                  disabled={isImporting} 
+                  className="group flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
+                  title="Sincronizar dados direto da GPRO"
+                >
+                  <div className={`
+                    p-1.5 sm:p-2 rounded-lg border shadow-sm transition-all duration-300
+                    ${isImporting 
+                      ? 'animate-spin border-emerald-500 text-emerald-500 bg-emerald-50 shadow-emerald-200' 
+                      : 'bg-white border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/50 hover:shadow-md'
+                    }
+                  `}>
+                    <Zap size={14} className="sm:w-4 sm:h-4" />
+                  </div>
+                  <span className="text-[6px] sm:text-[7px] font-black tracking-widest text-slate-400 uppercase group-hover:text-emerald-500 transition-colors">
+                    GPRO SYNC
+                  </span>
+                </button>
+
+                {/* Gravar */}
+                <button 
+                  onClick={persistState} 
+                  className="group flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
+                  title="Salvar modificações atuais"
+                >
+                  <div className={`
+                    p-1.5 sm:p-2 rounded-lg border shadow-sm transition-all duration-300
+                    ${isSyncing 
+                      ? 'animate-spin border-emerald-500 text-emerald-600 bg-emerald-50 shadow-emerald-200' 
+                      : 'bg-white border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/50 hover:shadow-md'
+                    }
+                  `}>
+                    <RefreshCw size={14} className="sm:w-4 sm:h-4" />
+                  </div>
+                  <span className="text-[6px] sm:text-[7px] font-black tracking-widest text-slate-400 uppercase group-hover:text-emerald-500 transition-colors">
+                    GRAVAR
+                  </span>
                 </button>
               </div>
+
+              {/* Modo Edição */}
+              <button 
+                onClick={() => setIsEditMode(!isEditMode)} 
+                className={`
+                  flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border transition-all duration-300 shadow-sm
+                  ${isEditMode 
+                    ? 'bg-amber-50 border-amber-300 text-amber-600 font-bold hover:bg-amber-100 hover:border-amber-400 hover:shadow-md' 
+                    : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md'
+                  }
+                `}
+              >
+                {isEditMode 
+                  ? <Unlock size={12} className="text-amber-500 animate-pulse" /> 
+                  : <Lock size={12} className="text-slate-400" />
+                }
+                <div className="flex flex-col text-left leading-tight">
+                  <span className="text-[6px] font-bold text-slate-400 uppercase">MODO</span>
+                  <span className="text-[7px] sm:text-[9px] font-black tracking-wider">
+                    {isEditMode ? 'EDIÇÃO' : 'BLOQUEADO'}
+                  </span>
+                </div>
+              </button>
             </div>
           </div>
         </motion.div>
@@ -924,7 +1085,7 @@ export default function DashboardHome() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 relative z-0">
 
           {/* COLUNA 1: PILOTO TELEMETRIA (EDITÁVEL) */}
-          <div className={`lg:col-span-4 border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm'}`}>
+          <div className={`lg:col-span-4 border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             {!isEditMode && <div className="absolute top-2 right-2 text-slate-200 opacity-40 pointer-events-none" title="Controle travado. Ative o modo edição."><Lock size={64} /></div>}
 
@@ -944,11 +1105,11 @@ export default function DashboardHome() {
                 <TelemetryInput key={skill} label={skill.toUpperCase()} value={(driverEditable as any)[skill]} max={skill === 'experiencia' ? 300 : 250} onChange={(e: any) => updateDriverEditable(skill as any, Number(e.target.value))} disabled={!isEditMode} />
               ))}
               <div className="flex items-center gap-2 mt-2 border-t border-slate-100 pt-2 text-[11px]">
-                <div className="flex-1 flex items-center justify-between bg-slate-50 rounded-xl px-2.5 h-8 border border-slate-200">
+                <div className="flex-1 flex items-center justify-between bg-slate-50 rounded-xl px-2.5 h-8 border border-slate-200 hover:border-emerald-200 transition-colors">
                   <span className="text-[8px] font-black text-slate-500 uppercase">PESO kg</span>
                   <input disabled={!isEditMode} type="number" value={driverEditable.peso} onChange={(e) => updateDriverEditable('peso', Number(e.target.value))} className="w-8 bg-transparent text-right font-mono font-black text-slate-800 outline-none" />
                 </div>
-                <div className="flex-1 flex items-center justify-between bg-slate-50 rounded-xl px-2.5 h-8 border border-slate-200">
+                <div className="flex-1 flex items-center justify-between bg-slate-50 rounded-xl px-2.5 h-8 border border-slate-200 hover:border-emerald-200 transition-colors">
                   <span className="text-[8px] font-black text-slate-500 uppercase">IDADE anos</span>
                   <input disabled={!isEditMode} type="number" value={driverEditable.idade} onChange={(e) => updateDriverEditable('idade', Number(e.target.value))} className="w-8 bg-transparent text-right font-mono font-black text-slate-800 outline-none" />
                 </div>
@@ -957,7 +1118,7 @@ export default function DashboardHome() {
           </div>
 
           {/* COLUNA 2: DIAGNÓSTICO DO CARRO */}
-          <section className="lg:col-span-4 bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm relative">
+          <section className="lg:col-span-4 bg-white/90 border border-slate-200 shadow-sm rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm relative hover:shadow-md hover:border-slate-300 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="relative bg-slate-50 p-3.5 border-b border-slate-200 flex justify-between items-center mb-1">
               <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-widest flex items-center gap-2"><Car size={14} className="text-emerald-600" /> Desgaste Chassi</h3>
@@ -975,7 +1136,7 @@ export default function DashboardHome() {
           </section>
 
           {/* COLUNA 3: PERFORMANCE */}
-          <section className="lg:col-span-4 bg-white/90 border border-slate-200 rounded-2xl p-4.5 shadow-sm h-full space-y-4 flex flex-col backdrop-blur-sm relative">
+          <section className="lg:col-span-4 bg-white/90 border border-slate-200 rounded-2xl p-4.5 shadow-sm h-full space-y-4 flex flex-col backdrop-blur-sm relative hover:shadow-md hover:border-slate-300 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5 relative">
               <div className="p-1 bg-emerald-600 rounded-lg shadow-sm">
@@ -1002,7 +1163,7 @@ export default function DashboardHome() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-0">
 
           {/* DIRETOR TÉCNICO */}
-          <div className={`border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm'}`}>
+          <div className={`border rounded-2xl p-4.5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             
             <div className="relative z-10 border-b border-slate-100 pb-2 mb-3">
@@ -1035,7 +1196,7 @@ export default function DashboardHome() {
           </div>
 
           {/* STAFF */}
-          <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm'}`}>
+          <div className={`border rounded-2xl p-5 backdrop-blur-sm relative transition-all duration-300 flex flex-col h-full ${isEditMode ? 'bg-white border-amber-300 shadow-md shadow-amber-500/5' : 'bg-white/90 border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="flex justify-between items-center relative z-10 border-b border-slate-100 pb-2 mb-3">
               <div className="flex items-center gap-2">
