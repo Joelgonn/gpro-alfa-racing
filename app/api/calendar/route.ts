@@ -141,32 +141,89 @@ async function fetchGproCalendar(token: string): Promise<GproJson | null> {
 /**
  * Processa o calendário bruto da GPRO
  */
-function processCalendar(calendarRaw: GproJson | null): any[] | null {
+function processCalendar(calendarRaw: GproJson | null): {
+  events: any[];
+  nextSeasonEvents: any[];
+  testTrackName: string;
+  testTrackId: string;
+  group: string;
+} | null {
   if (!calendarRaw) return null;
 
-  // A estrutura exata será validada quando tivermos o payload real
-  // Por enquanto, assumimos que existe um array de corridas
-  if (Array.isArray(calendarRaw.races)) {
-    return calendarRaw.races.map((race: any) => ({
-      race: Number(race.race ?? race.raceNumber ?? 0),
-      trackName: String(race.trackName ?? race.track ?? '')
-    }));
-  }
+  // Tenta extrair eventos da estrutura esperada (events array)
+  let events: any[] = [];
+  let nextSeasonEvents: any[] = [];
+  let testTrackName = '';
+  let testTrackId = '';
+  let group = '';
 
-  // Fallback: tenta encontrar um array em qualquer propriedade
-  for (const key of Object.keys(calendarRaw)) {
-    if (Array.isArray(calendarRaw[key]) && calendarRaw[key].length > 0) {
-      const firstItem = calendarRaw[key][0];
-      if (firstItem && (firstItem.trackName || firstItem.track || firstItem.race || firstItem.raceNumber)) {
-        return calendarRaw[key].map((race: any) => ({
-          race: Number(race.race ?? race.raceNumber ?? 0),
-          trackName: String(race.trackName ?? race.track ?? '')
-        }));
+  if (Array.isArray(calendarRaw.events)) {
+    events = calendarRaw.events.map((event: any) => ({
+      idx: event.idx ?? event.race ?? event.raceNumber ?? 0,
+      trackName: String(event.trackName ?? event.track ?? ''),
+      trackId: String(event.trackId ?? ''),
+      dateEvent: String(event.dateEvent ?? event.date ?? ''),
+      eventType: String(event.eventType ?? 'R'),
+      isCurrentRace: Boolean(event.isCurrentRace ?? false),
+      isFavTrack: Boolean(event.isFavTrack ?? false),
+      trackNatCode: String(event.trackNatCode ?? ''),
+    }));
+  } else {
+    // Fallback: tenta encontrar um array em qualquer propriedade
+    for (const key of Object.keys(calendarRaw)) {
+      if (Array.isArray(calendarRaw[key]) && calendarRaw[key].length > 0) {
+        const firstItem = calendarRaw[key][0];
+        if (firstItem && (firstItem.trackName || firstItem.track || firstItem.race || firstItem.raceNumber)) {
+          events = calendarRaw[key].map((race: any) => ({
+            idx: Number(race.race ?? race.raceNumber ?? 0),
+            trackName: String(race.trackName ?? race.track ?? ''),
+            trackId: String(race.trackId ?? ''),
+            dateEvent: String(race.dateEvent ?? race.date ?? ''),
+            eventType: String(race.eventType ?? 'R'),
+            isCurrentRace: Boolean(race.isCurrentRace ?? false),
+            isFavTrack: Boolean(race.isFavTrack ?? false),
+            trackNatCode: String(race.trackNatCode ?? ''),
+          }));
+          break;
+        }
       }
     }
   }
 
-  return null;
+  // Extrai próximos eventos da temporada
+  if (Array.isArray(calendarRaw.nextSeasonEvents)) {
+    nextSeasonEvents = calendarRaw.nextSeasonEvents.map((event: any) => ({
+      idx: event.idx ?? event.race ?? event.raceNumber ?? 0,
+      trackName: String(event.trackName ?? event.track ?? ''),
+      trackId: String(event.trackId ?? ''),
+      dateEvent: String(event.dateEvent ?? event.date ?? ''),
+      eventType: String(event.eventType ?? 'R'),
+      isCurrentRace: false,
+      isFavTrack: Boolean(event.isFavTrack ?? false),
+      trackNatCode: String(event.trackNatCode ?? ''),
+    }));
+  }
+
+  // Extrai pista de testes
+  if (calendarRaw.testTrackName) {
+    testTrackName = String(calendarRaw.testTrackName);
+  }
+  if (calendarRaw.testTrackId) {
+    testTrackId = String(calendarRaw.testTrackId);
+  }
+
+  // Extrai nome do grupo
+  if (calendarRaw.group) {
+    group = String(calendarRaw.group);
+  }
+
+  return {
+    events,
+    nextSeasonEvents,
+    testTrackName,
+    testTrackId,
+    group,
+  };
 }
 
 /**
@@ -263,23 +320,31 @@ export async function GET(request: Request) {
     const calendarRaw = await fetchGproCalendar(token);
 
     // 5. Processa o calendário
-    const calendar = processCalendar(calendarRaw);
+    const processed = processCalendar(calendarRaw);
 
-    // 6. Mescla calendário com dados da planilha
-    const mergedCalendar = mergeCalendarWithTracks(calendar, tracks);
+    // 6. Mescla eventos com dados da planilha
+    const mergedCalendar = processed ? mergeCalendarWithTracks(processed.events, tracks) : null;
+    const mergedNextSeason = processed ? mergeCalendarWithTracks(processed.nextSeasonEvents, tracks) : null;
 
-    // TODO: Remover após homologação do endpoint Calendar
-    // Mantido temporariamente para validar estrutura real da API
-    console.log('🔍 Calendar API Response:');
-    console.dir(calendarRaw, { depth: null });
-
-    return NextResponse.json({
+    // 7. Monta resposta completa
+    const responsePayload: any = {
       sucesso: true,
       tracks,
       calendar: mergedCalendar,
-      // TODO: Remover após homologação do endpoint Calendar
-      calendarRaw: calendarRaw,
-    });
+      calendarRaw: {
+        events: processed?.events ?? [],
+        nextSeasonEvents: processed?.nextSeasonEvents ?? [],
+        testTrackName: processed?.testTrackName ?? '',
+        testTrackId: processed?.testTrackId ?? '',
+        group: processed?.group ?? '',
+      },
+    };
+
+    // TODO: Remover após homologação do endpoint Calendar
+    console.log('🔍 Calendar API Response:');
+    console.dir(calendarRaw, { depth: null });
+
+    return NextResponse.json(responsePayload);
   } catch (error: any) {
     console.error("Erro na API de calendário:", error);
     return NextResponse.json(

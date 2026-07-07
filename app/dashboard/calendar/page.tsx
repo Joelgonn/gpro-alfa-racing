@@ -122,104 +122,121 @@ export default function CalendarioOficialGPRO() {
           const tracks = apiData.tracks || [];
           setAllTracks(tracks);
           
-          if (apiData.calendarRaw?.events) {
-            const events = apiData.calendarRaw.events;
-            
-            const raceEvents = events.filter((e: any) => e.eventType === 'R');
-            const testEvents = events.filter((e: any) => e.eventType === 'T' || e.eventType === 'Test');
-            
-            const mappedRaces = raceEvents.map((event: any, index: number) => {
-              const trackName = extrairNomePista(event.trackName || '');
-              const trackData = tracks.find((t: any) => 
-                normalizarTexto(t.name) === normalizarTexto(trackName)
-              );
-              
-              const rawDate = event.dateEvent || '';
-              const cleanDate = limparHtml(rawDate);
-              const isToday = contemHoje(rawDate);
-              
-              return {
-                race: Number(event.idx || index + 1),
-                trackId: String(event.trackId || ''),
-                trackName: trackName,
-                trackFullName: event.trackName || '',
-                date: cleanDate,
-                dateRaw: rawDate,
-                isToday: isToday,
-                current: Boolean(event.isCurrentRace),
-                favorite: Boolean(event.isFavTrack),
-                natCode: event.trackNatCode || '',
-                ...trackData
-              };
-            });
-            
-            setCurrentSeason(mappedRaces);
-            
-            const currentIdx = mappedRaces.findIndex((r: any) => r.current);
-            if (currentIdx !== -1) {
-              setCurrentRaceIndex(currentIdx);
-            }
-            
-            if (testEvents.length > 0) {
-              const testEvent = testEvents[0];
-              const testName = extrairNomePista(testEvent.trackName || '');
-              setCurrentTestTrack({
-                name: testName,
-                id: String(testEvent.trackId || '')
-              });
-            } else if (apiData.calendarRaw.testTrackName) {
-              setCurrentTestTrack({
-                name: extrairNomePista(apiData.calendarRaw.testTrackName),
-                id: String(apiData.calendarRaw.testTrackId || '')
-              });
-            }
-            
-            if (apiData.calendarRaw.group) {
-              setGroupName(apiData.calendarRaw.group);
-            }
+          // --- Processa eventos da temporada atual ---
+          const rawEvents = apiData.calendarRaw?.events ?? [];
+          const rawNextEvents = apiData.calendarRaw?.nextSeasonEvents ?? [];
+
+          // Se não houver eventos no calendarRaw, tenta usar o array calendar (simplificado)
+          const eventsToUse = rawEvents.length > 0
+            ? rawEvents
+            : (apiData.calendar ?? []).map((race: any, idx: number) => ({
+                idx: race.race ?? idx + 1,
+                trackName: race.trackName ?? '',
+                trackId: race.trackId ?? '',
+                dateEvent: race.date ?? '',
+                eventType: 'R',
+                isCurrentRace: false,
+                isFavTrack: false,
+                trackNatCode: race.natCode ?? '',
+              }));
+
+          const raceEvents = eventsToUse.filter((e: any) => e.eventType === 'R');
+          const testEvents = eventsToUse.filter((e: any) => e.eventType === 'T' || e.eventType === 'Test');
+
+          const mappedRaces = raceEvents.map((event: any, index: number) => {
+            const trackName = extrairNomePista(event.trackName || '');
+            const trackData = tracks.find((t: any) => 
+              normalizarTexto(t.name) === normalizarTexto(trackName)
+            );
+
+            const rawDate = event.dateEvent || '';
+            const cleanDate = limparHtml(rawDate);
+            const isToday = contemHoje(rawDate);
+
+            return {
+              race: Number(event.idx || index + 1),
+              trackId: String(event.trackId || ''),
+              trackName: trackName,
+              trackFullName: event.trackName || '',
+              date: cleanDate,
+              dateRaw: rawDate,
+              isToday: isToday,
+              current: Boolean(event.isCurrentRace),
+              favorite: Boolean(event.isFavTrack),
+              natCode: event.trackNatCode || '',
+              ...trackData
+            };
+          });
+
+          setCurrentSeason(mappedRaces);
+
+          const currentIdx = mappedRaces.findIndex((r: any) => r.current);
+          if (currentIdx !== -1) {
+            setCurrentRaceIndex(currentIdx);
           }
-          
-          if (apiData.calendarRaw?.nextSeasonEvents) {
-            const nextEvents = apiData.calendarRaw.nextSeasonEvents;
-            
-            const nextRaceEvents = nextEvents.filter((e: any) => e.eventType === 'R');
-            const nextTestEvents = nextEvents.filter((e: any) => e.eventType === 'T' || e.eventType === 'Test');
-            
-            const mappedNextRaces = nextRaceEvents.map((event: any, index: number) => {
-              const trackName = extrairNomePista(event.trackName || '');
-              const trackData = tracks.find((t: any) => 
-                normalizarTexto(t.name) === normalizarTexto(trackName)
-              );
-              
-              const rawDate = event.dateEvent || '';
-              const cleanDate = limparHtml(rawDate);
-              const isToday = contemHoje(rawDate);
-              
-              return {
-                race: Number(event.idx || index + 1),
-                trackId: String(event.trackId || ''),
-                trackName: trackName,
-                trackFullName: event.trackName || '',
-                date: cleanDate,
-                dateRaw: rawDate,
-                isToday: isToday,
-                current: false,
-                favorite: Boolean(event.isFavTrack),
-                natCode: event.trackNatCode || '',
-                ...trackData
-              };
+
+          // Teste atual
+          if (testEvents.length > 0) {
+            const testEvent = testEvents[0];
+            const testName = extrairNomePista(testEvent.trackName || '');
+            setCurrentTestTrack({
+              name: testName,
+              id: String(testEvent.trackId || '')
             });
-            
-            setNextSeason(mappedNextRaces);
-            
-            if (nextTestEvents.length > 0) {
-              const testEvent = nextTestEvents[0];
-              const testName = extrairNomePista(testEvent.trackName || '');
-              setNextTestTrack({
-                name: testName,
-                id: String(testEvent.trackId || '')
-              });
-            }
+          } else if (apiData.calendarRaw?.testTrackName) {
+            setCurrentTestTrack({
+              name: extrairNomePista(apiData.calendarRaw.testTrackName),
+              id: String(apiData.calendarRaw.testTrackId || '')
+            });
+          }
+
+          // Grupo
+          if (apiData.calendarRaw?.group) {
+            setGroupName(apiData.calendarRaw.group);
+          }
+
+          // --- Processa eventos da próxima temporada ---
+          const nextEventsToUse = rawNextEvents.length > 0
+            ? rawNextEvents
+            : [];
+
+          const nextRaceEvents = nextEventsToUse.filter((e: any) => e.eventType === 'R');
+          const nextTestEvents = nextEventsToUse.filter((e: any) => e.eventType === 'T' || e.eventType === 'Test');
+
+          const mappedNextRaces = nextRaceEvents.map((event: any, index: number) => {
+            const trackName = extrairNomePista(event.trackName || '');
+            const trackData = tracks.find((t: any) => 
+              normalizarTexto(t.name) === normalizarTexto(trackName)
+            );
+
+            const rawDate = event.dateEvent || '';
+            const cleanDate = limparHtml(rawDate);
+            const isToday = contemHoje(rawDate);
+
+            return {
+              race: Number(event.idx || index + 1),
+              trackId: String(event.trackId || ''),
+              trackName: trackName,
+              trackFullName: event.trackName || '',
+              date: cleanDate,
+              dateRaw: rawDate,
+              isToday: isToday,
+              current: false,
+              favorite: Boolean(event.isFavTrack),
+              natCode: event.trackNatCode || '',
+              ...trackData
+            };
+          });
+
+          setNextSeason(mappedNextRaces);
+
+          if (nextTestEvents.length > 0) {
+            const testEvent = nextTestEvents[0];
+            const testName = extrairNomePista(testEvent.trackName || '');
+            setNextTestTrack({
+              name: testName,
+              id: String(testEvent.trackId || '')
+            });
           }
         }
       } catch (e) {
