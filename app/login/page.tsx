@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { FaUserAstronaut, FaLock, FaTicketAlt, FaSignInAlt, FaArrowLeft } from 'react-icons/fa';
-
-// Mantendo suas importações originais
-import { supabase } from '../lib/supabase'; 
-import { signUpWithInviteCode } from '../actions/signup'; 
+import { supabase } from '../lib/supabase';
+import { signUpWithInviteCode } from '../actions/signup';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,12 +13,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Estados dos inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
 
-  // --- LÓGICA DE LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -35,8 +32,7 @@ export default function LoginPage() {
         setMessage('Erro: ' + error.message);
         setLoading(false);
       } else {
-        // Redirecionamento alterado para a nova página inicial
-        router.push('/dashboard/manager'); 
+        router.push('/dashboard/manager');
         router.refresh();
       }
     } catch (err) {
@@ -45,7 +41,6 @@ export default function LoginPage() {
     }
   };
 
-  // --- LÓGICA DE CADASTRO ---
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -70,9 +65,8 @@ export default function LoginPage() {
           email,
           password,
         });
-        
+
         if (!loginError) {
-          // Redirecionamento alterado para a nova página inicial após cadastro
           router.push('/dashboard/manager');
         } else {
           setMessage('Conta criada! Faça login manualmente.');
@@ -89,164 +83,234 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-950 via-gray-900 to-blue-950 flex flex-col items-center justify-center p-4 sm:p-6 font-sans text-white overflow-y-auto">
-      
-      <div className="w-full max-w-md animate-fade-in-down">
-        
-        {/* Card Principal */}
-        <div className="bg-gray-900/60 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-2xl border border-white/10 relative overflow-hidden">
-          
-          {/* Efeito de brilho no topo do card */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500/50 to-transparent"></div>
+    <div className="min-h-[100dvh] bg-[#030712] text-zinc-100 antialiased overflow-x-hidden selection:bg-yellow-400 selection:text-zinc-900">
+      {/* fundo premium */}
+      <div aria-hidden className="pointer-events-none fixed inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628]/50 via-transparent to-emerald-950/10" />
+        <div className="absolute -top-24 right-[-8%] h-[420px] w-[420px] rounded-full bg-emerald-500/10 blur-[80px]" />
+        <div className="absolute -bottom-32 left-[-10%] h-[520px] w-[520px] rounded-full bg-blue-600/10 blur-[90px]" />
+        <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.7) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.7) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-emerald-500 via-yellow-400 to-blue-600 opacity-60" />
+      </div>
 
-          {/* Cabeçalho */}
-          <header className="text-center mb-8">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              ALFA RACING <span className="text-yellow-500">BRASIL</span>
-            </h1>
-            <p className="text-gray-400 text-xs sm:text-sm mt-2 font-mono uppercase tracking-widest">
-              {isLoginMode ? 'Terminal de Acesso' : 'Credenciamento VIP'}
-            </p>
-          </header>
+      <a href="#form-login" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-500">
+        Pular para formulário
+      </a>
 
-          {/* Abas de Navegação (Login / Cadastro) */}
-          <nav className="flex mb-8 bg-black/30 rounded-lg p-1 border border-white/5">
-            <button
-              type="button"
-              onClick={() => { setIsLoginMode(true); setMessage(''); }}
-              className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
-                isLoginMode 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Login
-            </button>
-            <button
-              type="button"
-              onClick={() => { setIsLoginMode(false); setMessage(''); }}
-              className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
-                !isLoginMode 
-                  ? 'bg-yellow-500 text-gray-900 shadow-lg shadow-yellow-500/20' 
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Cadastro
-            </button>
-          </nav>
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:gap-10 lg:px-8 lg:py-10">
+        {/* Identidade - desktop lateral */}
+        <div className="mx-auto w-full max-w-md lg:mx-0 lg:max-w-[420px] lg:shrink-0">
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold tracking-wide text-zinc-300 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+          >
+            <FaArrowLeft aria-hidden className="text-[11px]" /> Voltar ao início
+          </button>
 
-          {/* Mensagens de Feedback */}
-          {message && (
-            <div 
-              role="alert" 
-              className={`mb-6 p-3 rounded-lg text-xs sm:text-sm font-medium text-center border animate-pulse ${
-                message.toLowerCase().includes('sucesso') || message.includes('criada')
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-              }`}
-            >
-              {message}
+          <div className="mt-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white">
+              <Image src="/splash/splash-gpro.png" alt="Lobo Alfa" width={40} height={40} className="h-10 w-10 object-cover" priority />
             </div>
-          )}
+            <div className="leading-none">
+              <div className="text-xs font-black tracking-[0.18em] text-white">LOBO <span className="text-yellow-400">ALFA</span></div>
+              <div className="text-[11px] font-semibold tracking-[0.14em] text-zinc-400">GPRO • ALFA RACING BRASIL</div>
+            </div>
+          </div>
 
-          {/* Formulário */}
-          <form onSubmit={isLoginMode ? handleLogin : handleSignUp} className="space-y-5">
-            
-            {/* Campo E-mail */}
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                E-mail
-              </label>
-              <div className="relative group">
-                <FaUserAstronaut className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors text-lg" />
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl h-12 pl-12 pr-4 text-base text-white focus:border-indigo-500 focus:bg-white/5 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder-gray-600"
-                  placeholder="piloto@alfaracing.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+          <h1 className="mt-6 text-2xl font-black leading-tight tracking-tight text-white sm:text-[28px]">
+            A corrida começa na decisão.
+          </h1>
+          <div className="mt-3 space-y-3 text-sm leading-relaxed text-zinc-300">
+            <p>Velocidade é apenas parte do resultado.</p>
+            <p>O verdadeiro diferencial está na preparação, na leitura dos dados e na capacidade de evoluir depois de cada corrida.</p>
+            <p>O Lobo Alfa reúne essa mentalidade em uma experiência criada para managers que levam sua evolução a sério.</p>
+          </div>
+
+          <blockquote className="relative mt-5 overflow-hidden rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 via-[#0a0f1f]/60 to-emerald-500/5 px-4 py-3">
+            <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-yellow-400 to-emerald-500" />
+            <p className="text-sm font-bold leading-relaxed text-white">Prepare melhor. Decida com inteligência. Evolua a cada corrida.</p>
+          </blockquote>
+
+          <div className="mt-6 grid gap-3">
+            <div className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-emerald-400" aria-hidden />
+              <div>
+                <div className="text-sm font-bold text-white">Estratégia</div>
+                <div className="text-xs leading-relaxed text-zinc-400">Decisões mais conscientes antes e durante a corrida.</div>
               </div>
             </div>
-
-            {/* Campo Senha */}
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
-                Senha
-              </label>
-              <div className="relative group">
-                <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-indigo-400 transition-colors text-lg" />
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete={isLoginMode ? "current-password" : "new-password"}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl h-12 pl-12 pr-4 text-base text-white focus:border-indigo-500 focus:bg-white/5 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder-gray-600"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+            <div className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-yellow-400" aria-hidden />
+              <div>
+                <div className="text-sm font-bold text-white">Performance</div>
+                <div className="text-xs leading-relaxed text-zinc-400">Leitura dos dados que ajudam você a entender seu resultado.</div>
               </div>
             </div>
+            <div className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-sky-400" aria-hidden />
+              <div>
+                <div className="text-sm font-bold text-white">Evolução</div>
+                <div className="text-xs leading-relaxed text-zinc-400">Cada teste, cada desgaste e cada corrida fazem parte do aprendizado.</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            {/* Campo Código de Convite (Condicional) */}
-            {!isLoginMode && (
-              <div className="space-y-1.5 animate-fade-in-up">
-                <label htmlFor="inviteCode" className="text-xs font-bold text-yellow-500 uppercase tracking-wider ml-1 flex items-center gap-1.5">
-                  <FaTicketAlt /> Código VIP
-                </label>
-                <input
-                  id="inviteCode"
-                  type="text"
-                  required={!isLoginMode}
-                  className="w-full bg-yellow-900/10 border border-yellow-500/30 rounded-xl h-12 px-4 text-base text-yellow-100 focus:border-yellow-500 focus:bg-yellow-900/20 focus:ring-1 focus:ring-yellow-500 outline-none transition-all uppercase placeholder-yellow-700/40 font-mono tracking-wider text-center"
-                  placeholder="ALFA-VIP-XXXX"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                />
+        {/* Card principal */}
+        <div className="mx-auto mt-6 w-full max-w-md lg:mx-0 lg:ml-auto lg:mt-0">
+          <div id="form-login" className="relative overflow-hidden rounded-[24px] border border-white/10 bg-[#0a0f1f] p-5 shadow-[0_24px_64px_rgba(0,0,0,0.5)] backdrop-blur sm:p-7">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-yellow-500/40 to-transparent" />
+            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+
+            {/* Abas */}
+            <div role="tablist" aria-label="Modo de acesso" className="flex gap-1 rounded-full border border-white/10 bg-black/40 p-1">
+              <button
+                id="tab-login"
+                role="tab"
+                type="button"
+                aria-selected={isLoginMode}
+                aria-controls="panel-login"
+                onClick={() => { setIsLoginMode(true); setMessage(''); }}
+                className={`flex-1 rounded-full px-4 py-2.5 text-xs font-extrabold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 ${isLoginMode ? 'bg-yellow-400 text-zinc-900 shadow' : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200'}`}
+              >
+                Login
+              </button>
+              <button
+                id="tab-cadastro"
+                role="tab"
+                type="button"
+                aria-selected={!isLoginMode}
+                aria-controls="panel-cadastro"
+                onClick={() => { setIsLoginMode(false); setMessage(''); }}
+                className={`flex-1 rounded-full px-4 py-2.5 text-xs font-extrabold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 ${!isLoginMode ? 'bg-yellow-400 text-zinc-900 shadow' : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200'}`}
+              >
+                Cadastro
+              </button>
+            </div>
+
+            {/* Título da aba */}
+            <div className="mt-6">
+              {isLoginMode ? (
+                <>
+                  <h2 className="text-base font-black tracking-tight text-white">Entre no seu paddock.</h2>
+                  <p className="mt-1 text-sm font-semibold text-zinc-300">Sua próxima decisão começa aqui.</p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-400">Acesse sua plataforma e continue construindo sua evolução no GPRO.</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-base font-black tracking-tight text-white">Seu lugar na equipe começa aqui.</h2>
+                  <p className="mt-1 text-sm font-semibold text-zinc-300">Você recebeu uma credencial. Agora é hora de entrar para o grid.</p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-400">Valide seu código VIP, crie seu acesso e prepare-se para acompanhar sua jornada no Lobo Alfa.</p>
+                </>
+              )}
+            </div>
+
+            {/* Mensagem */}
+            {message && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className={`mt-5 rounded-xl border px-4 py-3 text-sm font-medium ${message.toLowerCase().includes('sucesso') || message.includes('criada') ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-red-500/20 bg-red-500/10 text-red-300'}`}
+              >
+                {message}
               </div>
             )}
 
-            {/* Botão de Ação */}
+            {/* Formulário único com branching */}
+            <form onSubmit={isLoginMode ? handleLogin : handleSignUp} className="mt-6 space-y-4" noValidate>
+              <div id="panel-login" role="tabpanel" aria-labelledby={isLoginMode ? 'tab-login' : 'tab-cadastro'} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">E-mail</label>
+                  <div className="relative group">
+                    <FaUserAstronaut aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-yellow-400 text-base" />
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="piloto@alfaracing.com"
+                      className="h-12 w-full rounded-xl border border-white/10 bg-black/40 pl-11 pr-4 text-base text-white placeholder-zinc-600 outline-none transition-colors focus:border-yellow-500/50 focus:bg-white/[0.04] focus:ring-2 focus:ring-yellow-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">Senha</label>
+                  <div className="relative group">
+                    <FaLock aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-yellow-400 text-base" />
+                    <input
+                      id="password"
+                      type="password"
+                      required
+                      autoComplete={isLoginMode ? 'current-password' : 'new-password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="h-12 w-full rounded-xl border border-white/10 bg-black/40 pl-11 pr-4 text-base text-white placeholder-zinc-600 outline-none transition-colors focus:border-yellow-500/50 focus:bg-white/[0.04] focus:ring-2 focus:ring-yellow-500/20"
+                    />
+                  </div>
+                </div>
+
+                {/* Código VIP - apenas Cadastro, totalmente visível */}
+                <div className={`${isLoginMode ? 'hidden' : 'block'} space-y-1.5`}>
+                  <label htmlFor="inviteCode" className="ml-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-yellow-300">
+                    <FaTicketAlt aria-hidden /> CÓDIGO DE CREDENCIAMENTO VIP
+                  </label>
+                  <input
+                    id="inviteCode"
+                    type="text"
+                    required={!isLoginMode}
+                    aria-required={!isLoginMode}
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    placeholder="ALFA-VIP-XXXX"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="h-12 w-full rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 text-center font-mono text-base uppercase tracking-[0.14em] text-yellow-100 placeholder-yellow-700/50 outline-none transition-colors focus:border-yellow-400 focus:bg-yellow-500/10 focus:ring-2 focus:ring-yellow-500/20"
+                  />
+                  <p className="px-1 text-xs text-zinc-500">Informe o código VIP exatamente como recebido. Campo obrigatório no cadastro.</p>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                aria-busy={loading}
+                className={`flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-extrabold uppercase tracking-widest shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1f] ${isLoginMode ? 'bg-yellow-400 text-zinc-900 hover:bg-yellow-300' : 'bg-yellow-400 text-zinc-900 hover:bg-yellow-300'}`}
+              >
+                {loading ? (
+                  <span className="inline-flex items-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" aria-hidden /> Processando</span>
+                ) : (
+                  <>
+                    {isLoginMode ? 'ACESSAR PADDOCK' : 'VALIDAR CREDENCIAL'} <FaSignInAlt aria-hidden />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 flex items-center gap-2 text-xs text-zinc-500">
+              <span className="h-px flex-1 bg-white/10" aria-hidden />
+              <span className="shrink-0">Supabase • RLS • Sessão segura</span>
+              <span className="h-px flex-1 bg-white/10" aria-hidden />
+            </div>
+          </div>
+
+          <div className="mt-4 text-center">
             <button
-              type="submit"
-              disabled={loading}
-              className={`w-full h-12 mt-6 rounded-xl font-bold text-sm uppercase tracking-widest shadow-lg flex items-center justify-center gap-3 transition-all transform active:scale-[0.98] hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
-                isLoginMode 
-                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white' 
-                  : 'bg-yellow-500 hover:bg-yellow-400 text-gray-900'
-              }`}
+              type="button"
+              onClick={() => router.push('/')}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
             >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-                  Processando
-                </span>
-              ) : (
-                <>
-                  {isLoginMode ? 'Acessar Paddock' : 'Validar Credencial'} 
-                  <FaSignInAlt className="text-lg" aria-hidden="true" />
-                </>
-              )}
+              <FaArrowLeft aria-hidden /> Voltar para Página Inicial
             </button>
-          </form>
+          </div>
         </div>
-
-        {/* Botão Voltar para Página Inicial */}
-        <div className="mt-8 text-center">
-          <button 
-            onClick={() => router.push('/')}
-            className="text-xs font-bold text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto group py-2 px-4"
-          >
-            <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" aria-hidden="true" />
-            Voltar para Página Inicial
-          </button>
-        </div>
-
       </div>
+
+      <style>{`@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}}`}</style>
     </div>
   );
 }

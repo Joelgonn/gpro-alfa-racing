@@ -8,17 +8,6 @@ const config: CapacitorConfig = {
     url: 'https://gpro-alfa-racing.vercel.app',
     cleartext: false,
   },
-  plugins: {
-    SplashScreen: {
-      launchShowDuration: 0,
-      launchAutoHide: false,
-      backgroundColor: '#030712',
-      androidScaleType: 'CENTER',
-      showSpinner: false,
-      splashFullScreen: true,
-      splashImmersive: true,
-    },
-  },
 };
 
 export default config;

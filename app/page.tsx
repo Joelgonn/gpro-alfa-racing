@@ -1,279 +1,437 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link'; // <-- 1. IMPORTAMOS O COMPONENTE LINK AQUI
-import { useState, useRef } from 'react';
-import { 
-  FaDiscord, 
-  FaTwitter, 
-  FaTrophy, 
-  FaUsers, 
-  FaChartLine, 
-  FaBars, 
-  FaTimes 
-} from 'react-icons/fa'; 
+import Link from 'next/link';
+import { useState } from 'react';
+import {
+  Menu,
+  X,
+  ArrowRight,
+  Target,
+  Gauge,
+  TrendingUp,
+  ShieldCheck,
+  Settings2,
+  Route,
+  FlaskConical,
+  Wrench,
+  ShoppingBag,
+  Handshake,
+  CalendarDays,
+  Zap,
+  BarChart3,
+  Layers,
+  LockKeyhole,
+  Check,
+  Trophy,
+  Users,
+} from 'lucide-react';
 
 export default function LandingPage() {
-  const [copied, setCopied] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const emailRef = useRef<HTMLInputElement>(null);
-
-  const handleCopyEmail = () => {
-    if (emailRef.current) {
-      emailRef.current.select();
-      document.execCommand('copy');
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const closeMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-blue-950 text-white font-sans antialiased overflow-x-hidden">
-      
-      {/* Navbar */}
-      <nav className="fixed top-0 left-0 w-full z-50 bg-gray-950/90 backdrop-blur-md shadow-lg border-b border-gray-800/50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          
-          <div className="text-xl font-bold text-yellow-500 tracking-wider">
-            ALFA RACING
-          </div>
+    <div className="min-h-screen bg-[#030712] text-zinc-100 antialiased overflow-x-hidden selection:bg-yellow-500 selection:text-zinc-900">
+      {/* Skip link */}
+      <a
+        href="#conteudo"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+      >
+        Pular para conteúdo
+      </a>
 
-          {/* Menu Desktop */}
-          <div className="hidden md:flex space-x-8 items-center">
-            {/* 2. TROCAMOS AS TAGS <a> POR <Link> */}
-            <Link href="/login" className="text-white hover:text-yellow-400 font-medium transition-colors duration-300">Login @</Link>
-            <Link href="#sobre" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Sobre</Link>
-            <Link href="#conquistas" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Conquistas</Link>
-            <Link href="#junte-se" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Junte-se</Link>
-            <Link href="#contato" className="text-gray-300 hover:text-yellow-400 transition-colors duration-300">Contato</Link>
-          </div>
-
-          {/* Botão Menu Mobile */}
-          <button 
-            onClick={toggleMobileMenu} 
-            className="md:hidden text-2xl text-white focus:outline-none hover:text-yellow-500 transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
-          </button>
-        </div>
-
-        {/* Menu Mobile Dropdown */}
-        <div className={`md:hidden absolute w-full bg-gray-950/95 backdrop-blur-xl border-b border-gray-800 shadow-2xl transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10 pointer-events-none'}`}>
-          <div className="flex flex-col items-center py-6 space-y-6 text-lg">
-            {/* 3. TROCAMOS AQUI TAMBÉM */}
-            <Link href="/login" onClick={closeMenu} className="text-yellow-400 font-semibold tracking-wide">Login @</Link>
-            <Link href="#sobre" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Sobre</Link>
-            <Link href="#conquistas" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Conquistas</Link>
-            <Link href="#junte-se" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Junte-se</Link>
-            <Link href="#contato" onClick={closeMenu} className="hover:text-yellow-400 transition-colors">Contato</Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section id="home" className="relative min-h-screen flex items-center justify-center text-center overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed" style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}>
-        <div className="absolute inset-0 bg-black/60 md:bg-black/70 flex flex-col items-center justify-center p-6 pt-20">          
-          <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-white leading-tight animate-fade-in-up drop-shadow-lg">
-            ALFA RACING <br className="md:hidden"/> <span className="text-yellow-500">BRASIL</span>
-          </h1>
-          <p className="mt-6 text-base sm:text-lg md:text-xl max-w-2xl text-gray-200 animate-fade-in-up delay-200 font-medium px-4">
-            A paixão pela velocidade e a estratégia do GPRO se encontram aqui.
-            Domine as pistas conosco!
-          </p>
-          <Link
-            href="#junte-se"
-            className="mt-10 px-8 py-4 bg-yellow-500 text-gray-900 text-lg font-bold rounded-full shadow-yellow-500/20 shadow-lg hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 active:scale-95 animate-bounce-in delay-500"
-          >
-            Seja um Lobo Alfa!
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#030712]/80 backdrop-blur-xl supports-[backdrop-filter]:bg-[#030712]/60">
+        <div className="mx-auto flex h-[64px] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 text-[#030712] shadow-[0_0_20px_rgba(250,204,21,0.25)]">
+              <Trophy size={18} strokeWidth={2.5} aria-hidden />
+            </div>
+            <div className="leading-none">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[11px] font-black tracking-[0.18em] text-white">LOBO</span>
+                <span className="text-[11px] font-black tracking-[0.18em] text-yellow-400">ALFA</span>
+              </div>
+              <div className="text-[10px] font-semibold tracking-[0.14em] text-zinc-400">GPRO • ALFA RACING BRASIL</div>
+            </div>
           </Link>
-        </div>
-      </section>
 
-      {/* Sobre Nós */}
-      <section id="sobre" className="py-16 px-6 md:px-12 bg-gradient-to-b from-gray-900 to-blue-900">
-        {/* ... (O RESTO DO CONTEÚDO CONTINUA IGUAL) ... */}
-        <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-left">Sobre a Alfa Racing Brasil</h2>
-          <p className="text-base md:text-lg text-gray-300 mb-12 animate-fade-in-left delay-100 max-w-3xl mx-auto leading-relaxed">
-            Nascemos da paixão por automobilismo e pelo desafio estratégico do Grand Prix Racing Online (GPRO).
-            Nossa equipe é formada por gerentes dedicados, apaixonados por táticas, desenvolvimento de pilotos e carros.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            <div className="p-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-xl hover:shadow-2xl hover:border-yellow-500/30 transition-all duration-300 animate-fade-in-up">
-              <FaUsers className="text-5xl text-yellow-500 mx-auto mb-6" />
-              <h3 className="text-xl font-semibold mb-3 text-white">Comunidade Ativa</h3>
-              <p className="text-gray-400 text-sm md:text-base">Troque ideias, estratégias e experiências com outros entusiastas do GPRO.</p>
-            </div>
-            
-            <div className="p-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-xl hover:shadow-2xl hover:border-yellow-500/30 transition-all duration-300 animate-fade-in-up delay-100">
-              <FaChartLine className="text-5xl text-yellow-500 mx-auto mb-6" />
-              <h3 className="text-xl font-semibold mb-3 text-white">Foco em Estratégia</h3>
-              <p className="text-gray-400 text-sm md:text-base">Aprimore suas habilidades de gerenciamento e tática para dominar as pistas.</p>
-            </div>
-            
-            <div className="p-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-xl hover:shadow-2xl hover:border-yellow-500/30 transition-all duration-300 animate-fade-in-up delay-200">
-               <div className="mx-auto mb-6 relative w-24 h-24 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center">
-                  <Image
-                    src="/images/bandeira-brasil.png"
-                    alt="Bandeira do Brasil"
-                    width={80}
-                    height={80}
-                    className="object-cover w-full h-full"
-                  />
-               </div>
-              <h3 className="text-xl font-semibold mb-3 text-white">Orgulho Brasileiro</h3>
-              <p className="text-gray-400 text-sm md:text-base">Representamos o Brasil com garra e talento no cenário global do GPRO.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          <nav aria-label="Navegação principal" className="hidden items-center gap-1 lg:flex">
+            <a href="#recursos" className="rounded-full px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Recursos</a>
+            <a href="#diferenciais" className="rounded-full px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Diferenciais</a>
+            <a href="#fluxo" className="rounded-full px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Como funciona</a>
+          </nav>
 
-      {/* Conquistas Recentes */}
-      <section id="conquistas" className="py-16 px-6 md:px-12 bg-gray-950">
-        <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-10 animate-fade-in-right">Nossas Conquistas</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-lg flex flex-col items-center text-center animate-fade-in-right">
-              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                <FaTrophy className="text-4xl text-yellow-500" />
-              </div>
-              <h3 className="text-2xl font-semibold mb-4 text-white">Títulos de Liga</h3>
-              <p className="text-gray-400 mb-6 text-sm md:text-base">
-                Celebramos diversos títulos em ligas de diferentes níveis, mostrando nossa consistência.
-              </p>
-              <ul className="text-left w-full text-gray-400 text-sm space-y-3 bg-gray-800/50 p-4 rounded-lg">
-                <li><span className="font-bold text-yellow-500">🏆 Liga Elite:</span> Quem será o primeiro? ()</li>
-                <li><span className="font-bold text-yellow-500">🥇 Liga Pro:</span> Campeões ()</li>
-                <li><span className="font-bold text-yellow-500">🌟 Liga Amador:</span> Múltiplas vitórias</li>
-              </ul>
-            </div>
-
-            <div className="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-lg flex flex-col items-center text-center animate-fade-in-right delay-100">
-              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                <FaChartLine className="text-4xl text-yellow-500" />
-              </div>
-              <h3 className="text-2xl font-semibold mb-4 text-white">Recordes e Evolução</h3>
-              <p className="text-gray-400 mb-6 text-sm md:text-base">
-                Constantemente quebramos nossos próprios recordes e ajudamos nossos membros.
-              </p>
-              <ul className="text-left w-full text-gray-400 text-sm space-y-3 bg-gray-800/50 p-4 rounded-lg">
-                <li><span className="font-bold text-yellow-500">📈 Recorde:</span> 461.2001 pts na temporada 82</li>
-                <li><span className="font-bold text-yellow-500">🚀 Promoções:</span> +50 subidas de liga</li>
-                <li><span className="font-bold text-yellow-500">⚙️ Setup:</span> 90% eficiência média</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Junte-se à Equipe */}
-      <section id="junte-se" className="py-20 px-6 md:px-12 bg-gradient-to-r from-blue-900 to-gray-900 text-center relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-pattern opacity-10 pointer-events-none"></div>
-
-        <div className="max-w-4xl mx-auto relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 animate-fade-in-up">Quer Fazer Parte?</h2>
-          <p className="text-base md:text-lg text-gray-300 mb-10 animate-fade-in-up delay-100 max-w-2xl mx-auto">
-            Buscamos gerentes dedicados, com espírito de equipe e vontade de aprender.
-            Se você compartilha essa paixão, nós temos um lugar para você!
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 text-left">
-            <div className="bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl border border-gray-700 shadow-xl animate-fade-in-left">
-              <h3 className="text-xl font-bold text-yellow-500 mb-4">O Que Oferecemos:</h3>
-              <ul className="list-disc list-inside space-y-2 text-gray-300 text-sm md:text-base">
-                <li>Apoio de gerentes experientes.</li>
-                <li>Ambiente colaborativo.</li>
-                <li>Oportunidades de crescimento.</li>
-                <li>Campeonatos internos.</li>
-              </ul>
-            </div>
-            <div className="bg-gray-800/80 backdrop-blur-sm p-6 rounded-xl border border-gray-700 shadow-xl animate-fade-in-right">
-              <h3 className="text-xl font-bold text-yellow-500 mb-4">Como se Candidatar:</h3>
-              <p className="text-gray-300 mb-4 text-sm md:text-base">
-                É simples! Entre em contato via Discord ou e-mail. Conte-nos sua experiência no GPRO.
-              </p>
-              <p className="text-white font-semibold text-sm md:text-base">Estamos ansiosos para te conhecer!</p>
-            </div>
-          </div>
-
-          {/* O DISCORD CONTINUA COM A TAG <a> POIS É UM LINK EXTERNO AO SEU SITE */}
-          <a
-            href="https://discord.gg/SEULINKDISCORD" 
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-12 inline-flex items-center px-8 py-4 bg-[#5865F2] hover:bg-[#4752C4] text-white text-lg font-bold rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 animate-bounce-in w-full md:w-auto justify-center"
-          >
-            <FaDiscord className="mr-3 text-2xl" />
-            Entrar no Discord
-          </a>
-        </div>
-      </section>
-
-      {/* Contato */}
-      <section id="contato" className="py-16 px-6 md:px-12 bg-gray-950 text-center">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-yellow-500 mb-6 animate-fade-in-down">Fale Conosco</h2>
-          <p className="text-base md:text-lg text-gray-300 mb-10 animate-fade-in-down delay-100">
-            Dúvidas ou sugestões? Entre em contato!
-          </p>
-
-          <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-6">
-            <div className="relative w-full md:w-auto group">
-              <input
-                ref={emailRef}
-                type="text"
-                value="contato@alfaracingbrasil.com" 
-                readOnly
-                className="w-full md:w-80 p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-300 text-sm md:text-base focus:outline-none focus:border-yellow-500 transition-colors pr-20 truncate"
-              />
-              <button
-                onClick={handleCopyEmail}
-                className={`absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-md text-sm font-semibold transition-all duration-300 ${
-                    copied 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-blue-600 text-white hover:bg-blue-500'
-                }`}
-              >
-                {copied ? 'Copiado!' : 'Copiar'}
-              </button>
-            </div>
-
-            <a
-              href="https://twitter.com/alfaracingbr"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full md:w-auto inline-flex justify-center items-center px-8 py-3.5 bg-black text-white border border-gray-800 rounded-full shadow-lg hover:bg-gray-900 hover:border-blue-400 transition-all duration-300"
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="hidden sm:inline-flex h-9 items-center justify-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-zinc-900 shadow-[0_0_20px_rgba(250,204,21,0.18)] hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
             >
-              <FaTwitter className="mr-3 text-xl text-blue-400" />
-              Twitter/X
-            </a>
+              Entrar na plataforma
+              <ArrowRight size={16} aria-hidden />
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex sm:hidden h-9 items-center justify-center rounded-full bg-yellow-400 px-4 text-sm font-bold text-zinc-900 hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+              aria-label="Entrar na plataforma"
+            >
+              Entrar
+            </Link>
+            <button
+              type="button"
+              aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-expanded={mobileOpen}
+              aria-controls="menu-mobile"
+              onClick={() => setMobileOpen((v) => !v)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 lg:hidden"
+            >
+              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
           </div>
         </div>
-      </section>
+
+        {/* Mobile */}
+        <div
+          id="menu-mobile"
+          className={`${mobileOpen ? 'block' : 'hidden'} lg:hidden border-t border-white/[0.06] bg-[#030712]`}
+        >
+          <nav className="mx-auto max-w-7xl px-4 py-3 flex flex-col gap-1" aria-label="Menu mobile">
+            <a onClick={() => setMobileOpen(false)} href="#recursos" className="rounded-xl px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Recursos</a>
+            <a onClick={() => setMobileOpen(false)} href="#diferenciais" className="rounded-xl px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Diferenciais</a>
+            <a onClick={() => setMobileOpen(false)} href="#fluxo" className="rounded-xl px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Como funciona</a>
+            <Link onClick={() => setMobileOpen(false)} href="/login" className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-yellow-400 px-6 text-sm font-bold text-zinc-900 hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
+              Entrar na plataforma <ArrowRight size={16} aria-hidden />
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main id="conteudo">
+        {/* Hero */}
+        <section className="relative overflow-hidden">
+          {/* fundo decorativo */}
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628]/60 via-transparent to-transparent" />
+            <div className="absolute -top-32 right-[-10%] h-[520px] w-[520px] rounded-full bg-emerald-500/10 blur-[80px]" />
+            <div className="absolute -bottom-40 left-[-10%] h-[600px] w-[600px] rounded-full bg-blue-600/10 blur-[90px]" />
+            <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+            {/* faixa quadriculada sutil no topo */}
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500 via-yellow-400 to-blue-600 opacity-60" />
+          </div>
+
+          <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:px-8 lg:py-16">
+            {/* texto */}
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]" aria-hidden />
+                Plataforma para gerentes GPRO • Alfa Racing Brasil
+              </div>
+
+              <h1 className="mt-4 text-[28px] font-black leading-[0.95] tracking-[-0.03em] sm:text-[36px] lg:text-[48px]">
+                <span className="block text-white">Sua estratégia.</span>
+                <span className="block text-white">Seu desempenho.</span>
+                <span className="block bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent">Seu próximo resultado.</span>
+              </h1>
+
+              <p className="mt-4 max-w-[56ch] text-sm leading-relaxed text-zinc-300 sm:text-base">
+                Uma plataforma inteligente para organizar decisões, analisar desempenho e evoluir sua jornada no <span className="font-semibold text-zinc-100">GPRO Racing Online</span>. Setup, estratégia, testes e gestão — em um só lugar.
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href="/login"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-yellow-400 px-7 text-sm font-extrabold tracking-wide text-zinc-900 shadow-[0_8px_24px_rgba(250,204,21,0.22)] hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
+                >
+                  Entrar na plataforma
+                  <ArrowRight size={18} aria-hidden />
+                </Link>
+                <a
+                  href="#recursos"
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-7 text-sm font-semibold text-white hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                >
+                  Ver recursos
+                </a>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-zinc-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+                  <LockKeyhole size={14} className="text-zinc-300" aria-hidden /> Acesso seguro via Supabase
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+                  <ShieldCheck size={14} className="text-emerald-400" aria-hidden /> Dados protegidos por RLS
+                </span>
+              </div>
+            </div>
+
+            {/* arte - imagem principal sem sobreposição */}
+            <div className="relative mx-auto w-full max-w-[520px] lg:mx-0 lg:ml-auto">
+              <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-zinc-900 to-[#0b1226] p-2 shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
+                <div className="overflow-hidden rounded-[20px] bg-black">
+                  <Image
+                    src="/splash/splash-gpro.png"
+                    alt="Lobo Alfa - GPRO Alfa Racing Brasil"
+                    width={1024}
+                    height={1024}
+                    priority
+                    className="h-auto w-full object-cover"
+                    sizes="(max-width: 1024px) 100vw, 520px"
+                  />
+                </div>
+              </div>
+              <div aria-hidden className="pointer-events-none absolute -inset-3 -z-10 rounded-[32px] bg-gradient-to-r from-emerald-500/10 via-yellow-500/10 to-blue-600/10 blur-xl" />
+
+              {/* faixa independente - Telemetria / Setup / Estratégia */}
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Destaques do Hero">
+                <div className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/20">
+                    <Gauge size={18} aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold leading-none text-white">Telemetria</div>
+                    <div className="mt-1 text-xs leading-relaxed text-zinc-400">Leitura técnica da pista</div>
+                  </div>
+                </div>
+                <div className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-500/20">
+                    <BarChart3 size={18} aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold leading-none text-white">Setup</div>
+                    <div className="mt-1 text-xs leading-relaxed text-zinc-400">Acerto por pista e clima</div>
+                  </div>
+                </div>
+                <div className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/20">
+                    <Route size={18} aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold leading-none text-white">Estratégia</div>
+                    <div className="mt-1 text-xs leading-relaxed text-zinc-400">Plano de prova consciente</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Faixa pilares */}
+        <section aria-label="Pilares" className="border-y border-white/[0.06] bg-white/[0.02]">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 gap-px bg-white/[0.06] lg:grid-cols-4">
+              {[
+                { icon: Target, title: 'Estratégia', desc: 'Decisões guiadas por dados, não por palpite.' },
+                { icon: Gauge, title: 'Performance', desc: 'Leitura clara de rendimento e consistência.' },
+                { icon: TrendingUp, title: 'Evolução', desc: 'Ajustes contínuos, corrida após corrida.' },
+                { icon: ShieldCheck, title: 'Controle', desc: 'Organização total da sua jornada no GPRO.' },
+              ].map((p) => (
+                <div key={p.title} className="bg-[#070b18] px-5 py-6 sm:px-6 sm:py-7">
+                  <p.icon size={20} className="text-yellow-400" aria-hidden />
+                  <h3 className="mt-3 text-sm font-bold tracking-wide text-white">{p.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-zinc-400">{p.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Recursos */}
+        <section id="recursos" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold tracking-[0.14em] text-zinc-300">
+              <Layers size={14} className="text-yellow-400" aria-hidden /> MÓDULOS REAIS
+            </div>
+            <h2 className="mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">Tudo para decidir melhor.</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400 sm:text-base">Recursos conectados aos módulos existentes da plataforma — sem promessas vazias, apenas o que você já usa no dia a dia de gerente.</p>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { icon: Settings2, title: 'Setup', desc: 'Cálculo de acerto por pista, clima e características do carro.', href: '/dashboard/setup' },
+              { icon: Route, title: 'Estratégia', desc: 'Planejamento de combustível, pneus e paradas com base em cenários reais.', href: '/dashboard/strategy' },
+              { icon: FlaskConical, title: 'Testes', desc: 'Análise de testes e desempenho para priorizar evolução.', href: '/dashboard/tests' },
+              { icon: Wrench, title: 'Desgaste', desc: 'Acompanhamento de desgaste e condição de componentes.', href: '/dashboard/wear' },
+              { icon: ShoppingBag, title: 'Mercado', desc: 'Visão organizada do mercado de pilotos e oportunidades.', href: '/dashboard/market' },
+              { icon: Handshake, title: 'Patrocinadores', desc: 'Gestão e acompanhamento de patrocínios e receitas.', href: '/dashboard/sponsors' },
+              { icon: CalendarDays, title: 'Calendário', desc: 'Temporada, etapas e planejamento integrado.', href: '/dashboard/calendar' },
+            ].map((r) => (
+              <Link
+                key={r.title}
+                href="/login"
+                aria-label={`${r.title}: ${r.desc} — Entrar para acessar`}
+                className="group relative flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur transition-colors hover:bg-white/[0.07] hover:border-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-zinc-800 to-zinc-900 text-yellow-400 shadow-inner group-hover:from-zinc-800 group-hover:to-zinc-800">
+                  <r.icon size={18} aria-hidden />
+                </div>
+                <h3 className="mt-4 text-sm font-bold text-white">{r.title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-zinc-400">{r.desc}</p>
+                <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-zinc-300 group-hover:text-white">
+                  Acessar <ArrowRight size={14} aria-hidden className="transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-zinc-500">* O acesso aos módulos exige autenticação. Faça login para continuar.</p>
+        </section>
+
+        {/* Por que Lobo Alfa */}
+        <section id="diferenciais" className="border-y border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent">
+          <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+            <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+              {/* Texto institucional */}
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-emerald-300">
+                  <Zap size={14} aria-hidden /> Por que Lobo Alfa
+                </div>
+                <h2 className="mt-3 max-w-[20ch] text-2xl font-black leading-[1.05] tracking-tight text-white sm:text-3xl">Estratégia não é improviso. É preparação.</h2>
+
+                <div className="mt-5 max-w-[62ch] space-y-4 text-sm leading-relaxed text-zinc-300">
+                  <p>O Lobo Alfa nasceu para transformar a experiência do GPRO Racing Online em uma jornada mais organizada, estratégica e consciente.</p>
+                  <p>Aqui, cada decisão tem um propósito. Setup, estratégia, testes, desgaste, mercado e calendário fazem parte de uma visão integrada, criada para ajudar o manager a compreender melhor sua corrida e evoluir com consistência.</p>
+                  <p>Não se trata apenas de acompanhar números. Trata-se de interpretar informações, comparar possibilidades e tomar decisões com mais clareza.</p>
+                  <p>O Lobo Alfa representa disciplina para preparar, inteligência para decidir e constância para evoluir. Porque grandes resultados não dependem apenas de velocidade — dependem de estratégia, controle e aprendizado a cada corrida.</p>
+                </div>
+
+                {/* frase de destaque */}
+                <blockquote className="relative mt-8 overflow-hidden rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 via-[#0a1226]/60 to-emerald-500/5 px-5 py-5 sm:px-6">
+                  <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-yellow-400 via-amber-500 to-emerald-500" />
+                  <div aria-hidden className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-yellow-400/10 blur-2xl" />
+                  <p className="relative text-sm font-black leading-relaxed tracking-wide text-white sm:text-[15px]">
+                    “Leia a corrida. Entenda as decisões. Evolua como manager.”
+                  </p>
+                  <div className="relative mt-2 h-px w-12 bg-white/10" aria-hidden />
+                </blockquote>
+
+                {/* linha telemetria discreta */}
+                <div className="mt-6 flex items-center gap-2 text-xs text-zinc-500">
+                  <span className="h-px w-8 bg-white/10" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> Detalhe inspirado em telemetria • sem poluição visual</span>
+                </div>
+              </div>
+
+              {/* Pilares */}
+              <div className="grid grid-cols-1 gap-4">
+                {[
+                  { icon: ShieldCheck, title: 'Disciplina', desc: 'Preparar cada corrida com método, organização e atenção aos detalhes.' },
+                  { icon: Target, title: 'Estratégia', desc: 'Transformar informações em decisões mais conscientes durante toda a jornada.' },
+                  { icon: TrendingUp, title: 'Evolução', desc: 'Aprender com cada teste, cada resultado e cada escolha.' },
+                  { icon: Trophy, title: 'Identidade', desc: 'Representar a força, a inteligência e a determinação do Lobo Alfa brasileiro.' },
+                ].map((p) => (
+                  <div key={p.title} className="flex gap-4 rounded-2xl border border-white/10 bg-[#0a0f1f] px-5 py-5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-yellow-400">
+                      <p.icon size={18} aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold leading-none text-white">{p.title}</h3>
+                      <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">{p.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Fluxo */}
+        <section id="fluxo" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Entre, organize, analise e evolua.</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">Quatro etapas simples que espelham o uso real da plataforma — do login à sua próxima decisão de box.</p>
+          </div>
+
+          <ol className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Fluxo em quatro etapas">
+            {[
+              { n: '01', title: 'Entrar', desc: 'Acesse com sua conta. Seu acesso segue as regras de autenticação e RLS.' },
+              { n: '02', title: 'Organizar', desc: 'Centralize setup, estratégia e calendário em um painel coerente.' },
+              { n: '03', title: 'Analisar', desc: 'Cruze desempenho, desgaste e testes para enxergar o próximo ajuste.' },
+              { n: '04', title: 'Evoluir', desc: 'Decida com mais segurança e registre sua evolução contínua.' },
+            ].map((s) => (
+              <li key={s.n} className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+                <div className="inline-flex h-7 items-center rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2.5 text-xs font-black tracking-widest text-yellow-300">{s.n}</div>
+                <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-zinc-400">{s.desc}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* CTA final */}
+        <section className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#0e1a33] via-[#0a1226] to-black p-6 sm:p-10">
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-yellow-400/10 blur-3xl" />
+              <div className="absolute -bottom-24 left-0 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+              <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+            </div>
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">Pronto para o próximo acerto?</h2>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-300">Entre na plataforma e retome de onde parou — com seus dados, sua estratégia e seu ritmo.</p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/login"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-yellow-400 px-7 text-sm font-extrabold text-zinc-900 shadow-lg hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+                >
+                  Entrar na plataforma <ArrowRight size={18} aria-hidden />
+                </Link>
+                <a
+                  href="#recursos"
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/10 bg-white/10 px-7 text-sm font-semibold text-white hover:bg-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                >
+                  Conhecer recursos
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer className="bg-gray-950 border-t border-gray-900 py-8 px-6 text-center text-gray-500 text-xs md:text-sm">
-        <div className="max-w-4xl mx-auto">
-          <p className="font-medium text-gray-400">&copy; {new Date().getFullYear()} Alfa Racing Brasil.</p>
-          <p className="mt-1">Feito com paixão por GPRO.</p>
-          <div className="flex flex-col md:flex-row justify-center items-center gap-3 md:gap-6 mt-6">
-            <a href="https://gpro.net/gb/gpro.asp" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">GPRO Official</a>
-            <span className="hidden md:inline text-gray-700">|</span>
-            <Link href="/privacidade" className="hover:text-yellow-500 transition-colors">Política de Privacidade</Link>
+      <footer className="border-t border-white/[0.06] bg-black/40">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-yellow-400">
+                  <Trophy size={16} aria-hidden />
+                </div>
+                <span className="text-sm font-black tracking-wide text-white">LOBO ALFA</span>
+                <span className="text-sm font-light tracking-wide text-zinc-400">• Alfa Racing Brasil</span>
+              </div>
+              <p className="mt-2 max-w-md text-xs leading-relaxed text-zinc-500">Plataforma independente para gerentes do GPRO. Motorsport premium, estratégia e evolução — sem vínculo oficial com o jogo.</p>
+              <p className="mt-3 text-xs text-zinc-600">© {new Date().getFullYear()} Alfa Racing Brasil. Todos os direitos reservados.</p>
+            </div>
+            <div className="flex flex-wrap gap-6 text-xs">
+              <div>
+                <div className="font-semibold tracking-wide text-zinc-300">Oficial</div>
+                <a href="https://www.gpro.net" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 text-zinc-400 hover:text-white hover:underline underline-offset-4">gpro.net</a>
+              </div>
+              <div>
+                <div className="font-semibold tracking-wide text-zinc-300">Legal</div>
+                <Link href="/login" className="mt-2 inline-flex rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 text-zinc-400 hover:text-white">Privacidade via login</Link>
+              </div>
+              <div>
+                <div className="font-semibold tracking-wide text-zinc-300">Acesso</div>
+                <Link href="/login" className="mt-2 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-semibold text-zinc-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
+                  Entrar <ArrowRight size={12} aria-hidden />
+                </Link>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6 flex items-center gap-2 border-t border-white/[0.06] pt-4 text-[11px] tracking-wide text-zinc-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            Conexão • Performance • Evolução
+            <span className="ml-auto hidden sm:inline text-zinc-600">Feito para 320px → 1920px • Toque e teclado • Sem scroll horizontal</span>
           </div>
         </div>
       </footer>
+
+      <style>{`
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+        }
+      `}</style>
     </div>
   );
 }
