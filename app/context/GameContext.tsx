@@ -82,6 +82,13 @@ export interface TestPoints {
   accel: number;
 }
 
+// ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 3)
+export interface CarTotals {
+  power: number;
+  handling: number;
+  accel: number;
+}
+
 export interface WeatherData {
   tempQ1: number;
   weatherQ1: "Dry" | "Wet";
@@ -150,17 +157,10 @@ export interface OfficeData {
 
 // ============================================
 // CONSTANTES - FORNECEDORES DE PNEUS
+// Re-export da fonte única (app/lib/tracks.ts) para compatibilidade
 // ============================================
-
-export const TYRE_SUPPLIERS = [
-  "Pipirelli",
-  "Hantook",
-  "Dunlop",
-  "Michelin",
-  "Pirelli",
-  "Goodyear",
-  "Bridgestone"
-];
+import { TYRE_SUPPLIERS as CENTRAL_TYRE_SUPPLIERS } from '@/app/lib/tracks';
+export const TYRE_SUPPLIERS = CENTRAL_TYRE_SUPPLIERS;
 
 // ============================================
 // DEFAULT VALUES
@@ -237,6 +237,13 @@ const defaultStaffFacilities: StaffFacilities = {
 };
 
 const defaultTestPoints: TestPoints = {
+  power: 0,
+  handling: 0,
+  accel: 0,
+};
+
+// ✅ DEFAULT CAR TOTALS (ADICIONADO - PASSO 3)
+const defaultCarTotals: CarTotals = {
   power: 0,
   handling: 0,
   accel: 0,
@@ -352,9 +359,15 @@ interface GameContextType {
   techDirector: TechDirector;
   staffFacilities: StaffFacilities;
   testPoints: TestPoints;
+  
+  // ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 3)
+  carTotals: CarTotals;
+  
   isGlobalLoading: boolean;
   menuData: MenuData | null;
   officeData: OfficeData | null;
+  lastImportAt: string | null;
+  updatedAt: string | null;
   
   // Atualizadores - SOMENTE para dados editáveis
   updateDriverEditable: <K extends keyof DriverEditable>(key: K, value: DriverEditable[K]) => void;
@@ -405,12 +418,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [weather, setWeather] = useState<WeatherData>(defaultWeather);
   const [desgasteModifier, setDesgasteModifier] = useState<number>(0);
   const [tracksList, setTracksList] = useState<string[]>([]);
-  const [tyreSuppliers, setTyreSuppliers] = useState<string[]>(TYRE_SUPPLIERS); // ✅ ADICIONADO
+  const [tyreSuppliers, setTyreSuppliers] = useState<string[]>(TYRE_SUPPLIERS);
   const [techDirector, setTechDirector] = useState<TechDirector>(defaultTechDirector);
   const [staffFacilities, setStaffFacilities] = useState<StaffFacilities>(defaultStaffFacilities);
   const [testPoints, setTestPoints] = useState<TestPoints>(defaultTestPoints);
+  
+  // ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 3)
+  const [carTotals, setCarTotals] = useState<CarTotals>(defaultCarTotals);
+  
   const [menuData, setMenuData] = useState<MenuData | null>(null);
   const [officeData, setOfficeData] = useState<OfficeData | null>(null);
+  const [lastImportAt, setLastImportAt] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   // ============================================
   // UPDATE WEATHER - COM NORMALIZAÇÃO
@@ -461,6 +480,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         weatherQ2: loaded.weather?.weatherQ2,
         weatherRace: loaded.weather?.weatherRace,
       });
+      console.log('📊 Car Totals (carregado):', loaded.car_totals);
       console.log("===== FIM LOAD USER STATE =====");
 
       // ✅ ATUALIZAR DADOS IMUTÁVEIS
@@ -509,12 +529,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setTestPoints(loaded.test_points);
       }
 
+      // ✅ ATUALIZAR TOTAIS DO CARRO (ADICIONADO - PASSO 3)
+      if (loaded.car_totals) {
+        setCarTotals(loaded.car_totals);
+        console.log('✅ Car Totals carregados no contexto:', loaded.car_totals);
+      } else {
+        setCarTotals(defaultCarTotals);
+        console.log('⚠️ Car Totals não encontrados, usando padrão:', defaultCarTotals);
+      }
+
+      // ✅ Expor timestamps reais (updated_at / last_import_at) sem inventar
+      setLastImportAt((loaded as any).last_import_at ?? null);
+      setUpdatedAt((loaded as any).updated_at ?? (loaded as any).created_at ?? null);
+
       if (loaded.menu_data) {
         setMenuData(loaded.menu_data);
+      } else {
+        setMenuData(null);
       }
 
       if (loaded.office_data) {
         setOfficeData(loaded.office_data);
+      } else {
+        setOfficeData(null);
       }
 
       // ✅ ATUALIZAR FORNECEDORES DE PNEUS (se vier do banco)
@@ -657,13 +694,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     weather,
     desgasteModifier,
     tracksList,
-    tyreSuppliers, // ✅ ADICIONADO
+    tyreSuppliers,
     techDirector,
     staffFacilities,
     testPoints,
+    
+    // ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 3)
+    carTotals,
+    
     isGlobalLoading,
     menuData,
     officeData,
+    lastImportAt,
+    updatedAt,
     
     // Atualizadores
     updateDriverEditable,

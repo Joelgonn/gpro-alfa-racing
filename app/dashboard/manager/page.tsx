@@ -13,24 +13,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- MAPEAMENTO DE BANDEIRAS ---
-const TRACK_FLAGS: { [key: string]: string } = {
-  "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
-  "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
-  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb",
-  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
-  "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu",
-  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in",
-  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
-  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
-  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
-  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
-  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
-  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
-  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
-  "Valencia": "es", "Vallelunga": "it",
-  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
-};
+import { TRACK_FLAGS } from '@/app/lib/tracks';
+import { calcStaffLevel } from '@/app/lib/staff';
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -47,7 +31,9 @@ export default function ManagerPage() {
     car,
     techDirector,
     staffFacilities,
-    reloadUserState
+    reloadUserState,
+    lastImportAt,
+    updatedAt
   } = useGame();
   
   // Estado local
@@ -55,7 +41,9 @@ export default function ManagerPage() {
   const [userEmail, setUserEmail] = useState<string>('Gerente');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [syncError, setSyncError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ✅ Auth
@@ -75,12 +63,8 @@ export default function ManagerPage() {
     getUserId();
   }, []);
 
-  // ✅ Atualiza lastUpdated quando os dados do sync mudarem
-  useEffect(() => {
-    if (menuData || officeData) {
-      setLastUpdated(new Date().toISOString());
-    }
-  }, [menuData, officeData]);
+  // Timestamp real exposto pelo GameContext (updated_at / last_import_at), sem new Date() falso
+  const lastUpdatedReal = lastImportAt || updatedAt || null;
 
   // ✅ Dados do gerente (do sync)
   const manager = {
@@ -225,10 +209,14 @@ export default function ManagerPage() {
         data: { avatar_url: publicUrl }
       });
 
-      await supabase
-        .from('user_state')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', userId);
+      try {
+        await supabase
+          .from('user_state')
+          .update({ avatar_url: publicUrl } as any)
+          .eq('user_id', userId);
+      } catch (e: any) {
+        if (e?.code !== '42703') console.warn('Avatar user_state não salvo:', e?.message);
+      }
 
       setAvatarUrl(publicUrl);
     } catch (err: any) {
@@ -236,6 +224,50 @@ export default function ManagerPage() {
       alert('Erro ao carregar imagem: ' + (err.message || err));
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // ✅ Sincronização real com API (corrige regressão ALFA-003)
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setSyncStatus('loading');
+    setSyncError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id || userId;
+      if (!uid) throw new Error('Sessão expirada. Faça login novamente.');
+      const response = await fetch('/api/gpro/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const msg = payload?.error || `Falha na sincronização (${response.status})`;
+        // Mensagens específicas para token
+        if (response.status === 404 && msg.toLowerCase().includes('token')) {
+          throw new Error('Integração não configurada. Configure seu token GPRO para sincronizar os dados.');
+        }
+        if (response.status === 401) throw new Error('Sessão expirada. Faça login novamente.');
+        if (response.status === 403) throw new Error('Acesso negado. Verifique suas permissões.');
+        if (msg.toLowerCase().includes('inválido') || msg.toLowerCase().includes('expirou')) {
+          throw new Error('O token GPRO é inválido ou expirou. Atualize a integração.');
+        }
+        throw new Error(msg);
+      }
+      if (!payload.success) throw new Error(payload.error || 'Erro na sincronização');
+      await reloadUserState();
+      setSyncStatus('success');
+    } catch (err: any) {
+      const message = err?.message || 'Erro ao sincronizar. Tente novamente.';
+      // Nunca expor gpro_token
+      const safe = message.toLowerCase().includes('gpro_token') ? 'Erro na integração. Verifique o token.' : message;
+      setSyncError(safe);
+      setSyncStatus('error');
+      console.error('Erro sync:', err);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -247,13 +279,17 @@ export default function ManagerPage() {
   };
 
   const formatTimeAgo = (date: string | null) => {
-    if (!date) return 'Nunca';
-    const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    if (!date) return 'Sincronização não identificada';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'Sincronização não identificada';
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
     if (diff < 60) return 'Agora mesmo';
     if (diff < 3600) return `${Math.floor(diff / 60)}min`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
     return `${Math.floor(diff / 86400)}d`;
   };
+
+
 
   const decodeText = (text: string | null | undefined): string => {
     if (!text) return '';
@@ -273,43 +309,25 @@ export default function ManagerPage() {
     );
   }
 
-  // ✅ Sem dados do sync
-  if (!menuData || !officeData) {
-    return (
-      <div className="flex flex-col h-screen items-center justify-center bg-[#eef2f6] text-slate-800 p-6 relative overflow-hidden font-mono">
-        <div className="fixed inset-0 pointer-events-none z-0">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px]" />
-          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px]" />
-        </div>
-        <div className="relative z-10 max-w-lg w-full bg-white/90 backdrop-blur-xl border border-slate-200 rounded-3xl p-8 shadow-2xl text-center">
-          <div className="mx-auto w-16 h-16 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
-            <Zap size={24} className="text-emerald-500 animate-pulse" />
-          </div>
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider mb-2">Aguardando Sincronização</h2>
-          <p className="text-xs text-slate-500 font-bold leading-relaxed mb-8 px-4">
-            Os dados do GPRO estão sendo sincronizados. <br/>
-            Aguarde ou force a sincronização manual.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => reloadUserState()}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-200 flex items-center justify-center gap-3 shadow-md hover:shadow-lg active:scale-95 group"
-            >
-              <Zap size={14} className="group-hover:rotate-180 transition-transform duration-500" />
-              Sincronizar Agora
-            </button>
-            <a
-              href="/dashboard/configuracoes/integracao"
-              className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-200 flex items-center justify-center gap-3 shadow-sm hover:shadow-md active:scale-95"
-            >
-              <Settings size={14} />
-              Configurar Integração
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Helpers para mensagens específicas por estado (sem expor token)
+  const getMenuEmptyState = () => {
+    if (syncStatus === 'error' && syncError) {
+      if (syncError.toLowerCase().includes('token não encontrado') || syncError.toLowerCase().includes('integração não configurada')) return { title: 'Configure sua integração GPRO para carregar os dados da equipe.', action: 'Configurar Integração', href: '/dashboard/configuracoes/integracao' };
+      if (syncError.toLowerCase().includes('inválido') || syncError.toLowerCase().includes('expirou')) return { title: 'Não foi possível autenticar na GPRO. Revise seu token.', action: 'Revisar token', href: '/dashboard/configuracoes/integracao' };
+      return { title: 'Não foi possível atualizar este bloco agora.', action: 'Tentar novamente' };
+    }
+    if (isSyncing) return { title: 'Sincronizando dados da equipe...', action: null };
+    return { title: 'Este módulo ainda não recebeu dados da GPRO.', action: 'Sincronizar Agora' };
+  };
+  const getOfficeEmptyState = () => {
+    if (syncStatus === 'error' && syncError) {
+      if (syncError.toLowerCase().includes('token não encontrado') || syncError.toLowerCase().includes('integração não configurada')) return { title: 'Configure sua integração GPRO para carregar a próxima corrida.', action: 'Configurar Integração', href: '/dashboard/configuracoes/integracao' };
+      if (syncError.toLowerCase().includes('inválido') || syncError.toLowerCase().includes('expirou')) return { title: 'Não foi possível autenticar na GPRO. Revise seu token.', action: 'Revisar token', href: '/dashboard/configuracoes/integracao' };
+      return { title: 'Não foi possível atualizar este bloco agora.', action: 'Tentar novamente' };
+    }
+    if (isSyncing) return { title: 'Sincronizando dados de corrida...', action: null };
+    return { title: 'Este módulo ainda não recebeu dados da GPRO.', action: 'Sincronizar Agora' };
+  };
 
   // ✅ Decode nomes
   const decodedFirstName = decodeText(manager.firstName);
@@ -356,8 +374,8 @@ export default function ManagerPage() {
               
               <div className="text-right border-l border-slate-200 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
                 <p className="text-[7px] sm:text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5 sm:mb-1">Última Sinc.</p>
-                <p className="text-xs sm:text-sm font-black text-emerald-600 leading-none">
-                  {formatTimeAgo(lastUpdated)}
+                <p className="text-xs sm:text-sm font-black text-emerald-600 leading-none" aria-live="polite" aria-atomic="true">
+                  {formatTimeAgo(lastUpdatedReal)}
                 </p>
               </div>
             </div>
@@ -365,7 +383,24 @@ export default function ManagerPage() {
         </div>
       </header>
 
-      <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10">
+      <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10" aria-busy={isSyncing}>
+        {/* Status global sincronização - aria-live */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {isSyncing ? 'Sincronizando dados com GPRO' : syncStatus === 'success' ? 'Sincronização concluída' : syncStatus === 'error' && syncError ? `Erro: ${syncError}` : ''}
+        </div>
+        {/* Banner integrado quando ambos ausentes - diferencia estados */}
+        {(!menuData && !officeData) && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center" role="status" aria-live="polite">
+            <p className="text-sm font-black text-amber-800">{syncStatus === 'error' && syncError ? syncError : isSyncing ? 'Sincronizando dados da GPRO...' : 'Este módulo ainda não recebeu dados da GPRO. Configure sua integração e sincronize.'}</p>
+            <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-center">
+              <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar dados da GPRO" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                {isSyncing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Zap size={14} aria-hidden />} {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
+              </button>
+              <a href="/dashboard/configuracoes/integracao" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Configurar Integração</a>
+            </div>
+            {(!menuData || !officeData) && <p className="mt-2 text-xs font-bold text-amber-700">Algumas informações estão disponíveis. Tente atualizar os módulos pendentes.</p>}
+          </div>
+        )}
         
         {/* ROW 0: GERENTE + PILOTO (lado a lado no desktop) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -387,6 +422,18 @@ export default function ManagerPage() {
             </div>
 
             <div className="relative p-4 md:p-6 bg-white">
+              {!menuData ? (
+                <div role="status" aria-live="polite" className="py-6 text-center">
+                  <p className="text-sm font-bold text-slate-600">{getMenuEmptyState().title}</p>
+                  <div className="mt-3 flex justify-center">
+                    {getMenuEmptyState().href ? (
+                      <a href={getMenuEmptyState().href!} className="inline-flex h-11 items-center justify-center rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"> {getMenuEmptyState().action}</a>
+                    ) : (
+                      <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar bloco Gerente" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">{isSyncing ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Zap size={12} aria-hidden />} Tentar novamente</button>
+                    )}
+                  </div>
+                </div>
+              ) : (
               <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                 
                 {/* Avatar */}
@@ -394,7 +441,8 @@ export default function ManagerPage() {
                   <button
                     onClick={() => !isUploading && fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 hover:border-emerald-400 flex items-center justify-center text-2xl font-black text-emerald-600 overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg"
+                    aria-label="Alterar avatar do gerente"
+                    className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 hover:border-emerald-400 flex items-center justify-center text-2xl font-black text-emerald-600 overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                   >
                     {isUploading ? (
                       <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
@@ -444,9 +492,10 @@ export default function ManagerPage() {
                     <p className="text-sm font-black text-amber-500 mt-0.5">{manager.credits || 0}</p>
                   </div>
                 </div>
+                </div>
+              )}
               </div>
             </div>
-          </div>
 
           {/* PERFIL DO PILOTO - COM BANDEIRA E EFEITOS */}
           <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
@@ -559,6 +608,14 @@ export default function ManagerPage() {
               </span>
             </div>
 
+            {!officeData ? (
+              <div className="relative p-6 bg-white text-center" role="status" aria-live="polite">
+                <p className="text-sm font-bold text-slate-600">{getOfficeEmptyState().title}</p>
+                <div className="mt-3 flex justify-center">
+                  {getOfficeEmptyState().href ? <a href={getOfficeEmptyState().href!} className="inline-flex h-11 items-center justify-center rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">{getOfficeEmptyState().action}</a> : <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar bloco Campeonato" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-amber-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">{isSyncing ? <Loader2 size={12} className="animate-spin" aria-hidden /> : null} Tentar novamente</button>}
+                </div>
+              </div>
+            ) : (
             <div className="relative p-4 bg-white grid grid-cols-3 gap-3">
               <div className="space-y-0.5 text-center">
                 <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Posição</span>
@@ -573,6 +630,7 @@ export default function ManagerPage() {
                 <p className="text-sm font-black text-slate-700">{championship.average}</p>
               </div>
             </div>
+            )}
           </div>
 
           {/* PRÓXIMA CORRIDA */}
@@ -591,6 +649,14 @@ export default function ManagerPage() {
               </span>
             </div>
 
+            {!officeData ? (
+              <div className="relative p-6 bg-white text-center" role="status" aria-live="polite">
+                <p className="text-sm font-bold text-slate-600">{getOfficeEmptyState().title}</p>
+                <div className="mt-3 flex justify-center">
+                  {getOfficeEmptyState().href ? <a href={getOfficeEmptyState().href!} className="inline-flex h-11 items-center justify-center rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">{getOfficeEmptyState().action}</a> : <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar próxima corrida" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-amber-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">{isSyncing ? <Loader2 size={12} className="animate-spin" aria-hidden /> : null} Tentar novamente</button>}
+                </div>
+              </div>
+            ) : (
             <div className="relative p-4 bg-white">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -638,6 +704,7 @@ export default function ManagerPage() {
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
 
@@ -761,7 +828,7 @@ export default function ManagerPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-black text-slate-800">Nível</span>
                 <span className="text-xs font-black text-emerald-600">
-                  {Math.round((staffFacilities?.toleranciaPressao || 0 + staffFacilities?.concentracao || 0) / 2)}
+                  {calcStaffLevel(staffFacilities?.toleranciaPressao, staffFacilities?.concentracao)}
                 </span>
               </div>
               <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-500">
@@ -773,8 +840,8 @@ export default function ManagerPage() {
         </div>
 
         {/* FOOTER */}
-        <div className="text-center text-[9px] font-mono text-slate-400 space-y-1 pt-4 border-t border-slate-200/50">
-          <p>ÚLTIMA SINCRONIZAÇÃO EM {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'N/A'}</p>
+        <div className="text-center text-[9px] font-mono text-slate-400 space-y-1 pt-4 border-t border-slate-200/50" role="contentinfo" aria-live="polite">
+          <p>ÚLTIMA SINCRONIZAÇÃO EM {lastUpdatedReal ? new Date(lastUpdatedReal).toLocaleString() : 'Sincronização não identificada'}</p>
           <p className="tracking-widest font-black">SISTEMA INTEGRADO v2.1.0</p>
         </div>
 

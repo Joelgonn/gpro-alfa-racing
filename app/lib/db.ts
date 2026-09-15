@@ -1,25 +1,27 @@
-import { createClient } from '@supabase/supabase-js';
 import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData, MenuData, OfficeData } from '@/app/context/GameContext';
 import { EnergyCoefficients, DEFAULT_COEFFS } from '@/app/services/engine/regressionEngine';
+import { DEFAULT_TYRE_SUPPLIERS as CENTRAL_DEFAULT_TYRE_SUPPLIERS } from '@/app/lib/tracks';
+import { supabase as browserSupabase } from '@/app/lib/supabase';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Helper para obter client correto sem vazar service_role ao bundle cliente
+// Usa dynamic import com eval para evitar static analysis do `server-only`
+async function getSupabaseClient() {
+  if (typeof window === 'undefined') {
+    // Server: cria client service_role diretamente (evita importar supabase-admin que tem 'server-only')
+    const { createClient } = await import('@supabase/supabase-js');
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    if (!url || !key) throw new Error('Service role não configurado no servidor');
+    return createClient(url, key, { auth: { persistSession: false } });
+  }
+  return browserSupabase;
+}
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Export para compatibilidade (browser)
+export const supabase = browserSupabase;
 
-// ============================================
-// CONSTANTES - FORNECEDORES DE PNEUS
-// ============================================
-
-export const DEFAULT_TYRE_SUPPLIERS = [
-  "Pipirelli",
-  "Hantook",
-  "Dunlop",
-  "Michelin",
-  "Pirelli",
-  "Goodyear",
-  "Bridgestone"
-];
+// Re-export da fonte única para compatibilidade
+export const DEFAULT_TYRE_SUPPLIERS = CENTRAL_DEFAULT_TYRE_SUPPLIERS;
 
 // ============================================
 // INTERFACE DO ESTADO DO USUÁRIO
@@ -77,9 +79,18 @@ export interface UserState {
   office_data: OfficeData | null;
   last_import_snapshot?: any | null;
   last_import_at?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
   
   // ✅ FORNECEDORES DE PNEUS (ADICIONADO)
   tyre_suppliers: string[];
+
+  // ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 1)
+  car_totals?: {
+    power: number;
+    handling: number;
+    accel: number;
+  };
 }
 
 // ============================================
@@ -126,9 +137,12 @@ const DEFAULT_DRIVER_EDITABLE = {
 export async function getUserState(userId: string): Promise<UserState> {
   if (!userId) throw new Error("UserID é obrigatório");
 
-  const { data, error } = await supabase
+  const client = await getSupabaseClient();
+  // Seleção explícita sem gpro_token (Fase 3.1 — nunca selecionar token em consultas gerais)
+  // Colunas verificadas existentes em produção (check_columns.js 14/09/2026)
+  const { data, error } = await client
     .from('user_state')
-    .select('*')
+    .select('user_id, role, track, driver_json, car_json, tech_director_json, staff_facilities_json, test_points_json, race_options_json, weather_data, sponsors_database_json, energy_coeffs_json, menu_data, office_data, desgaste_modifier, last_import_snapshot, last_import_at, created_at, updated_at, car_development_json, driver_info, driver_editable, driver_static, car_totals')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -153,6 +167,7 @@ export async function getUserState(userId: string): Promise<UserState> {
       last_import_snapshot: null,
       last_import_at: null,
       tyre_suppliers: [...DEFAULT_TYRE_SUPPLIERS], // ✅ PADRÃO
+      car_totals: { power: 0, handling: 0, accel: 0 }, // ✅ PADRÃO
     };
   }
 
@@ -162,11 +177,14 @@ export async function getUserState(userId: string): Promise<UserState> {
   // ✅ DADOS EDITÁVEIS - apenas ler, nunca mesclar
   const driverEditable = data.driver_editable || { ...DEFAULT_DRIVER_EDITABLE };
 
-  // ✅ FORNECEDORES DE PNEUS - garantir que seja um array
-  let tyreSuppliers = data.tyre_suppliers;
+  // ✅ FORNECEDORES DE PNEUS - coluna não existe em produção, sempre fallback para DEFAULT
+  let tyreSuppliers = (data as any).tyre_suppliers;
   if (!tyreSuppliers || !Array.isArray(tyreSuppliers) || tyreSuppliers.length === 0) {
     tyreSuppliers = [...DEFAULT_TYRE_SUPPLIERS];
   }
+
+  // ✅ TOTAIS DO CARRO - garantir que exista
+  const carTotals = data.car_totals || { power: 0, handling: 0, accel: 0 };
 
   console.log('🔍 [db.ts] Driver Static (imutável):', {
     name: driverStatic.name,
@@ -180,6 +198,7 @@ export async function getUserState(userId: string): Promise<UserState> {
   });
 
   console.log('🔍 [db.ts] Tyre Suppliers:', tyreSuppliers);
+  console.log('🔍 [db.ts] Car Totals:', carTotals);
 
   return {
     role: data.role || 'user',
@@ -199,7 +218,10 @@ export async function getUserState(userId: string): Promise<UserState> {
     office_data: data.office_data || null,
     last_import_snapshot: data.last_import_snapshot || null,
     last_import_at: data.last_import_at || null,
+    updated_at: (data as any).updated_at || null,
+    created_at: (data as any).created_at || null,
     tyre_suppliers: tyreSuppliers, // ✅ ADICIONADO
+    car_totals: carTotals, // ✅ ADICIONADO - PASSO 1
   };
 }
 
@@ -230,12 +252,27 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
   
   // ✅ SALVAR FORNECEDORES DE PNEUS
   if (data.tyre_suppliers && Array.isArray(data.tyre_suppliers)) {
+    // Coluna pode não existir em instâncias antigas — tenta salvar, ignora erro de coluna inexistente
     payload.tyre_suppliers = data.tyre_suppliers;
   }
 
-  const { error } = await supabase
+  // ✅ SALVAR TOTAIS DO CARRO (ADICIONADO - PASSO 1)
+  if (data.car_totals) {
+    payload.car_totals = data.car_totals;
+  }
+
+  const client = await getSupabaseClient();
+  let { error } = await client
     .from('user_state')
     .upsert(payload, { onConflict: 'user_id' });
+
+  // Fallback para instâncias sem coluna tyre_suppliers (42703)
+  if (error && (error as any).code === '42703' && payload.tyre_suppliers) {
+    console.warn('Coluna tyre_suppliers não existe, salvando sem ela');
+    const { tyre_suppliers: _omit, ...payloadWithoutTyre } = payload;
+    const retry = await client.from('user_state').upsert(payloadWithoutTyre, { onConflict: 'user_id' });
+    error = retry.error;
+  }
 
   if (error) {
     console.error("Erro ao salvar no Supabase:", error.message);
@@ -263,4 +300,13 @@ export async function updateTyreSuppliers(userId: string, suppliers: string[]) {
 export async function getTyreSuppliers(userId: string): Promise<string[]> {
   const state = await getUserState(userId);
   return state.tyre_suppliers || [...DEFAULT_TYRE_SUPPLIERS];
+}
+
+// ============================================
+// FUNÇÃO PARA BUSCAR APENAS OS TOTAIS DO CARRO
+// ============================================
+
+export async function getCarTotals(userId: string): Promise<{ power: number; handling: number; accel: number }> {
+  const state = await getUserState(userId);
+  return state.car_totals || { power: 0, handling: 0, accel: 0 };
 }
