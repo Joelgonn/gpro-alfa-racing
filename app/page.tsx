@@ -25,6 +25,8 @@ import {
   Check,
   Trophy,
   Users,
+  Download,
+  Smartphone,
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -151,6 +153,22 @@ export default function LandingPage() {
                 >
                   Ver recursos
                 </a>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2">
+                <a
+                  href="https://github.com/Joelgonn/gpro-alfa-racing/releases/download/v1.0.0/app-release.apk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-7 text-sm font-bold text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
+                >
+                  <Download size={18} aria-hidden />
+                  BAIXAR APK ANDROID
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-black tracking-wider">v1.0.0</span>
+                </a>
+                <p className="flex items-center gap-1.5 text-xs text-zinc-400">
+                  <Smartphone size={12} aria-hidden /> Android • Instalação manual • Também disponível via acesso web
+                </p>
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-zinc-400">
