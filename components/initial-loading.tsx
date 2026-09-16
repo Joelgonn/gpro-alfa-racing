@@ -39,12 +39,23 @@ export default function InitialLoading() {
       } catch {}
     };
 
-    // 1. Esconder splash nativa IMEDIATAMENTE após montar (não esperar 600ms, não esperar window.load)
-    hideNativeSplash();
+    // 1. Garantir que o HTML está visível antes de esconder a splash nativa
+    // Dois rAF garantem que o primeiro paint do InitialLoading ocorreu
+    // Depois 500ms para transição suave nativa (solid #030712) → HTML (mesmo #030712) sem flash preto/branco
+    // Não esconder em 0ms (causava tela preta enquanto WebView remoto ainda buscava https://gpro-alfa-racing.vercel.app)
+    let nativeDelayTimer: any;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        nativeDelayTimer = window.setTimeout(() => {
+          hideNativeSplash();
+        }, 500);
+        (window as any)._nativeDelayTimer = nativeDelayTimer;
+      });
+    });
 
     // 2. Controle central único: 2800ms
     const duration = 2800;
-    let raf: number;
+    let raf: any;
     const tick = () => {
       const elapsed = Date.now() - startTime;
       const pct = Math.min((elapsed / duration) * 100, 100);
@@ -58,17 +69,19 @@ export default function InitialLoading() {
     raf = requestAnimationFrame(tick);
 
     // 3. Três frames
-    const t2 = window.setTimeout(() => {
+    let t2: any;
+    let t3: any;
+    t2 = window.setTimeout(() => {
       setFrame(2);
       log('FRAME_2');
     }, 900);
-    const t3 = window.setTimeout(() => {
+    t3 = window.setTimeout(() => {
       setFrame(3);
       log('FRAME_3');
     }, 1800);
 
     // 4. Após 2800ms, completa e esconde com fade 500ms => 3300ms total
-    const mainTimer = window.setTimeout(() => {
+    const mainTimer: any = window.setTimeout(() => {
       setProgress(100);
       log('PROGRESS_100');
       const completeTimer = window.setTimeout(() => {
@@ -81,7 +94,7 @@ export default function InitialLoading() {
     }, duration);
 
     // 5. Safety fallback 4000ms (não interfere no fluxo normal)
-    const safetyTimer = window.setTimeout(() => {
+    const safetyTimer: any = window.setTimeout(() => {
       log('SAFETY_TIMEOUT');
       setProgress(100);
       log('PROGRESS_100');
@@ -94,10 +107,13 @@ export default function InitialLoading() {
       cancelAnimationFrame(raf);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(nativeDelayTimer);
       clearTimeout(mainTimer);
       clearTimeout(safetyTimer);
       const ct = (window as any)._completeTimer;
       if (ct) clearTimeout(ct);
+      const ndt = (window as any)._nativeDelayTimer;
+      if (ndt) clearTimeout(ndt);
     };
   }, []);
 

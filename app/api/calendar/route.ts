@@ -1,29 +1,11 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
 import * as XLSX from 'xlsx';
-import fs from 'fs';
-import { createClient } from '@supabase/supabase-js';
+import { readFile } from 'node:fs/promises';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
+import { requireAuth, resolveUserId } from '@/app/lib/auth';
 
-// Mapa de bandeiras (adicionei variações comuns para garantir)
-const MAPA_BANDEIRAS: Record<string, string> = {
-  "adelaide": "au", "ahvenisto": "fi", "anderstorp": "se", "austin": "us", "avus": "de", 
-  "a1-ring": "at", "a1 ring": "at", "a1ring": "at", // Variações do A1-Ring
-  "baku city": "az", "baku": "az", "barcelona": "es", "brands hatch": "gb", "brasilia": "br", "bremgarten": "ch", 
-  "brno": "cz", "bucharest ring": "ro", "buenos aires": "ar",
-  "catalunya": "es", "dijon-prenois": "fr", "donington": "gb", "estoril": "pt", "fiorano": "it", "fuji": "jp", 
-  "grobnik": "hr", "hockenheim": "de", "hungaroring": "hu", "imola": "sm", 
-  "indianapolis oval": "us", "indianapolis": "us", "interlagos": "br", "istanbul": "tr", "irungattukottai": "in", 
-  "jarama": "es", "jeddah": "sa", "jerez": "es", "kyalami": "za", "jyllands-ringen": "dk", "kaunas": "lt", 
-  "laguna seca": "us", "las vegas": "us", "le mans": "fr", "long beach": "us", "losail": "qa", 
-  "magny cours": "fr", "magny-cours": "fr", "melbourne": "au", "mexico city": "mx", "miami": "us", 
-  "misano": "it", "monte carlo": "mc", "monaco": "mc", "montreal": "ca", "monza": "it", "mugello": "it", 
-  "nurburgring": "de", "oschersleben": "de", "new delhi": "in", 
-  "oesterreichring": "at", "osterreichring": "at", "paul ricard": "fr", "portimao": "pt", "poznan": "pl", 
-  "red bull ring": "at", "rio de janeiro": "br", "rafaela oval": "ar", 
-  "sakhir": "bh", "sepang": "my", "shanghai": "cn", "silverstone": "gb", "singapore": "sg", "sochi": "ru", 
-  "spa": "be", "suzuka": "jp", "serres": "gr", "slovakiaring": "sk", 
-  "valencia": "es", "vallelunga": "it", "yas marina": "ae", "yeongam": "kr", "zandvoort": "nl", "zolder": "be"
-};
+import { getTrackFlag } from '@/app/lib/tracks';
 
 const GPRO_LANG = 'br';
 const GPRO_API_BASE = 'https://gpro.net';
@@ -59,15 +41,17 @@ async function fetchGproJson(path: string, token: string): Promise<GproJson> {
 }
 
 /**
- * Lê e processa a planilha de pistas do Excel
+ * Lê e processa a planilha de pistas do Excel — async para não bloquear event loop (WebView/Capacitor compatível)
  */
-function loadTracksFromExcel() {
+async function loadTracksFromExcel() {
   const filePath = path.join(process.cwd(), 'data', 'calculadora.xlsx');
-  if (!fs.existsSync(filePath)) {
-    throw new Error('Planilha não encontrada');
+  let fileBuffer: Buffer;
+  try {
+    fileBuffer = await readFile(filePath);
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') throw new Error('Planilha não encontrada');
+    throw new Error('Erro ao ler planilha: ' + (err?.message || err));
   }
-
-  const fileBuffer = fs.readFileSync(filePath);
   const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
   const worksheet = workbook.Sheets['Tracks'];
   const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
@@ -76,8 +60,7 @@ function loadTracksFromExcel() {
 
   const tracks = rows.filter(row => row[0]).map(row => {
     const trackName = String(row[0]).trim();
-    const nomeParaBusca = trackName.toLowerCase();
-    const flagCode = MAPA_BANDEIRAS[nomeParaBusca] || 'xx';
+    const flagCode = getTrackFlag(trackName) || 'xx';
 
     return {
       name: trackName,
@@ -104,25 +87,11 @@ function loadTracksFromExcel() {
 }
 
 /**
- * Busca o token GPRO do usuário no Supabase
+ * Busca o token GPRO do usuário no Supabase (server only, descriptografado)
  */
 async function getUserToken(userId: string): Promise<string | null> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const { data: userState, error: userError } = await supabase
-    .from('user_state')
-    .select('gpro_token')
-    .eq('user_id', userId)
-    .single();
-
-  if (userError || !userState?.gpro_token) {
-    return null;
-  }
-
-  return userState.gpro_token;
+  const { getGproToken } = await import('@/app/lib/gpro-token');
+  return getGproToken(userId);
 }
 
 /**
@@ -278,14 +247,23 @@ function mergeCalendarWithTracks(calendar: any[] | null, tracks: any[]): any[] |
 
 export async function GET(request: Request) {
   try {
-    // Extrai userId da URL (query param)
+    // Extrai userId da URL (query param) com validação server-side (previne IDOR)
     const url = new URL(request.url);
-    const userId = url.searchParams.get('userId');
+    const rawUserId = url.searchParams.get('userId');
+    let userId: string | null = null;
+    if (rawUserId) {
+      try {
+        userId = await resolveUserId(rawUserId);
+      } catch (e: any) {
+        const status = e?.status || 403;
+        return NextResponse.json({ sucesso: false, erro: e.message || 'Acesso negado' }, { status });
+      }
+    }
 
-    // 1. Carrega pistas do Excel (sempre necessário)
+    // 1. Carrega pistas do Excel (sempre necessário) — async, valida arquivo e JSON
     let tracks: any[] = [];
     try {
-      tracks = loadTracksFromExcel();
+      tracks = await loadTracksFromExcel();
     } catch (error) {
       console.error('Erro ao carregar planilha:', error);
       return NextResponse.json(

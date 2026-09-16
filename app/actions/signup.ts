@@ -27,7 +27,7 @@ export async function signUpWithInviteCode(formData: FormData) {
     // 1. Verifica se o código existe e NÃO foi usado
     const { data: codeData, error: codeError } = await supabaseAdmin
       .from('invite_codes')
-      .select('*')
+      .select('id, code, is_used, created_at')
       .eq('code', inviteCode)
       .eq('is_used', false)
       .single()

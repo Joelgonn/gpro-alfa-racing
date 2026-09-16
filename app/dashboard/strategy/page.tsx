@@ -26,11 +26,7 @@ type PersonalStintsInput = { [key: string]: string | number | null };
 type InputsState = { race_options: RaceOptions; compound_options: CompoundOptions; boost_laps: BoostLapsInput; personal_stint_voltas: PersonalStintsInput; };
 
 // --- CONSTANTES ---
-const TRACK_FLAGS: { [key: string]: string } = {
-  "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
-  "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
-  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb", "Estoril": "pt", "Fiorano": "it", "Fuji": "jp", "Grobnik": "hr", "Hockenheim": "de", "Hungaroring": "hu", "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in", "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt", "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa", "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it", "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at", "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl", "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar", "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk", "Valencia": "es", "Vallelunga": "it", "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
-};
+import { TRACK_FLAGS, TYRE_SUPPLIERS_LEGACY as TYRE_SUPPLIERS, TYRE_SUPPLIER_IMAGES } from "@/app/lib/tracks";
 
 const TYRE_NAMES: Record<string, string> = {
     "Extra Soft": "X Macio",
@@ -38,22 +34,6 @@ const TYRE_NAMES: Record<string, string> = {
     "Medium": "Médio",
     "Hard": "Duro",
     "Rain": "Chuva"
-};
-
-// ✅ FORNECEDORES CORRETOS (IGUAL DA PÁGINA DE TESTES)
-const TYRE_SUPPLIERS = ["Pipirelli", "Avonn", "Yokomama", "Dunnolop", "Contimental", "Hancock", "Badyear", "Michelini", "Bridgerock"];
-
-// ✅ MAPEAMENTO DE FORNECEDORES PARA IMAGENS
-const TYRE_SUPPLIER_IMAGES: Record<string, string> = {
-    "Pipirelli": "pipirelli.gif",
-    "Avonn": "avonn.gif",
-    "Yokomama": "yokomama.gif",
-    "Dunnolop": "dunnolop.gif",
-    "Contimental": "contimental.gif",
-    "Hancock": "hancock.gif",
-    "Badyear": "badyear.gif",
-    "Michelini": "michelini.gif",
-    "Bridgerock": "bridgerock.gif",
 };
 
 const clampSetupDisplay = (value: unknown): unknown => {
@@ -432,27 +412,28 @@ function SkyViewRainOverlay() {
     let w = window.innerWidth;
     let h = window.innerHeight;
     const handleResize = () => {
-      w = window.innerWidth; h = window.innerHeight;
-      canvas.width = w; canvas.height = h;
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = w;
+      canvas.height = h;
     };
     handleResize();
 
     const dropCount = 180;
-    const rainColor = '14, 165, 233';
-    const speed = 0.02; 
+    const speed = 0.02;
 
     const drops: any[] = [];
     const resetDrop = (d: any) => {
       d.x = (Math.random() - 0.5) * 2;
       d.y = (Math.random() - 0.5) * 2;
-      d.z = 1; 
+      d.z = 1;
       d.size = Math.random() * 3 + 1;
     };
 
     for (let i = 0; i < dropCount; i++) {
       drops.push({});
       resetDrop(drops[i]);
-      drops[i].z = Math.random() * 4 + 1; 
+      drops[i].z = Math.random() * 4 + 1;
     }
 
     const draw = () => {
@@ -462,7 +443,7 @@ function SkyViewRainOverlay() {
 
       for (let i = 0; i < dropCount; i++) {
         const d = drops[i];
-        d.z += speed; 
+        d.z += speed;
 
         if (d.z > 5) resetDrop(d);
 
@@ -474,11 +455,22 @@ function SkyViewRainOverlay() {
         const xPrev = cx + d.x * w * pPrev;
         const yPrev = cy + d.y * h * pPrev;
 
-        const alpha = (5 - d.z) / 4 * 0.15;
+        // ✅ CORES AJUSTADAS PARA FUNDO CLARO - usando azul escuro com transparência
+        const alpha = (5 - d.z) / 4 * 0.25; // Aumentei um pouco a opacidade
 
         if (alpha > 0) {
-          ctx.strokeStyle = `rgba(${rainColor}, ${alpha})`;
-          ctx.lineWidth = d.size * perspective * 1.2;
+          // ✅ AZUL ELÉTRICO com brilho
+          const gradient = ctx.createLinearGradient(xPrev, yPrev, x, y);
+          gradient.addColorStop(0, `rgba(0, 0, 0, ${alpha * 0.8})`); // Preto translúcido no topo
+          gradient.addColorStop(0.2, `rgba(30, 64, 175, ${alpha * 1.6})`); // Azul bem escuro
+          gradient.addColorStop(0.5, `rgba(59, 130, 246, ${alpha * 1.4})`); // Azul primário forte
+          gradient.addColorStop(0.8, `rgba(96, 165, 250, ${alpha * 1.0})`); // Azul médio
+          gradient.addColorStop(1, `rgba(191, 219, 254, ${alpha * 0.6})`); // Azul bem claro
+
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = d.size * perspective * 1.6;
+          ctx.shadowColor = `rgba(37, 99, 235, ${alpha * 0.8})`;
+          ctx.shadowBlur = 12;
           ctx.beginPath();
           ctx.moveTo(xPrev, yPrev);
           ctx.lineTo(x, y);
@@ -498,7 +490,7 @@ function SkyViewRainOverlay() {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
-      <canvas ref={canvasRef} className="block w-full h-full opacity-60" />
+      <canvas ref={canvasRef} className="block w-full h-full opacity-80" />
     </div>
   );
 }

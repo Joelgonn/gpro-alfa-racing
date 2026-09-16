@@ -6,6 +6,8 @@ import { Mutex } from 'async-mutex';
 import { getUserState, saveUserState, UserState } from '@/app/lib/db';
 import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData } from '@/app/context/GameContext';
 import { supabase } from '@/app/lib/supabase';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
+import { requireAuth, resolveUserId } from '@/app/lib/auth';
 
 // --- TIPOS REFATORADOS ---
 interface DriverEditable {
@@ -257,7 +259,25 @@ export async function GET(request: Request, context: any) {
         const { searchParams } = new URL(request.url);
         const params = await context.params;
         let action = searchParams.get('action') || (params?.route ? params.route.join('/') : "");
-        const userId = request.headers.get('user-id');
+        // Autenticação: tracks/tyre_suppliers são públicos; demais exigem sessão válida
+        const isPublicAction = action.includes('tracks') || action.includes('tyre_suppliers');
+        let userId: string | null = null;
+        if (!isPublicAction) {
+            const headerUserId = request.headers.get('user-id');
+            // Validação server-side: qualquer user-id enviado deve coincidir com sessão (previne IDOR)
+            if (headerUserId) {
+                userId = await resolveUserId(headerUserId);
+            } else {
+                const auth = await requireAuth();
+                userId = auth.id;
+            }
+        } else {
+            // Para ações públicas, se houver header, valida mas não exige
+            const headerUserId = request.headers.get('user-id');
+            if (headerUserId) {
+                try { userId = await resolveUserId(headerUserId); } catch { /* ignora, mantém público */ }
+            }
+        }
 
         if (action.includes('tracks')) {
             return await calculationMutex.runExclusive(async () => {
@@ -314,7 +334,7 @@ export async function GET(request: Request, context: any) {
 
         if (action.includes('get_planning')) {
             if (!userId) return NextResponse.json({ sucesso: false, error: "Login necessário" }, { status: 401 });
-            const { data, error } = await supabase
+            const { data, error } = await supabaseAdmin
                 .from('user_planning')
                 .select('data')
                 .eq('user_id', userId)
@@ -350,6 +370,8 @@ export async function GET(request: Request, context: any) {
 
         return NextResponse.json({ sucesso: false, message: "Action not found" }, { status: 404 });
     } catch (e: any) {
+        if (e?.status === 401) return NextResponse.json({ sucesso: false, error: e.message || 'Não autenticado' }, { status: 401 });
+        if (e?.status === 403) return NextResponse.json({ sucesso: false, error: e.message || 'Acesso negado' }, { status: 403 });
         console.error("Erro no GET:", e);
         return NextResponse.json({ sucesso: false, error: e.message });
     }
@@ -357,8 +379,15 @@ export async function GET(request: Request, context: any) {
 
 // --- ROTAS POST ---
 export async function POST(request: Request, context: any) {
-    const userId = request.headers.get('user-id');
-    if (!userId) return NextResponse.json({ sucesso: false, error: "Login necessário" }, { status: 401 });
+    // Autenticação obrigatória para todas as ações POST (previne IDOR)
+    const headerUserId = request.headers.get('user-id');
+    let userId: string;
+    try {
+        userId = headerUserId ? await resolveUserId(headerUserId) : (await requireAuth()).id;
+    } catch (e: any) {
+        const status = e?.status || 401;
+        return NextResponse.json({ sucesso: false, error: e.message || 'Não autenticado' }, { status });
+    }
 
     try {
         const { hf, mainSheetId, sheetIdMap } = await getHyperFormulaInstance();
@@ -391,7 +420,7 @@ export async function POST(request: Request, context: any) {
 
             // AÇÃO PARA SALVAR PLANEJAMENTO NO BANCO (UPSERT)
             if (action.includes('save_planning')) {
-                const { error } = await supabase
+                const { error } = await supabaseAdmin
                     .from('user_planning')
                     .upsert({
                         user_id: userId,
@@ -473,19 +502,6 @@ export async function POST(request: Request, context: any) {
 
                 const diff = (B9 * B11 - 100) - (B10 * B11 - 100);
 
-                let opponentProgress = 0;
-                const tablesSid = sheetIdMap[SPONSOR_CONFIG.TABLES_SHEET];
-                if (tablesSid !== undefined) {
-                    for (let r = 28; r <= 30; r++) {
-                        const mgrs = safeVal(hf.getCellValue({ sheet: tablesSid, col: 28, row: r - 1 }));
-                        const prog = safeVal(hf.getCellValue({ sheet: tablesSid, col: 29, row: r - 1 }));
-                        if (String(mgrs) == String(B11)) {
-                            opponentProgress = Number(prog);
-                            break;
-                        }
-                    }
-                }
-
                 const lookup = (val: number, colIdx: number) => {
                     let idx = Math.round(Number(val));
                     if (idx < 1) idx = 1;
@@ -504,7 +520,7 @@ export async function POST(request: Request, context: any) {
 
                 return NextResponse.json({
                     sucesso: true,
-                    data: { answers, stats: { diff, opponentProgress } }
+                    data: { answers, stats: { diff } }
                 });
             }
 
@@ -1033,7 +1049,10 @@ export async function POST(request: Request, context: any) {
         });
 
     } catch (error: any) {
+        if (error?.status === 401) return NextResponse.json({ sucesso: false, error: error.message || 'Não autenticado' }, { status: 401 });
+        if (error?.status === 403) return NextResponse.json({ sucesso: false, error: error.message || 'Acesso negado' }, { status: 403 });
         console.error("ERRO CRÍTICO NO POST:", error);
-        return NextResponse.json({ sucesso: false, error: error.message, stack: error.stack }, { status: 500 });
+        // Não expor stack em produção
+        return NextResponse.json({ sucesso: false, error: error.message }, { status: 500 });
     }
 }

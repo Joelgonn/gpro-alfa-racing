@@ -1,7 +1,9 @@
 // --- app/api/market/update/route.ts ---
 
 import { NextResponse } from 'next/server';
-import { supabase } from '@/app/lib/supabase'; 
+import { supabase } from '@/app/lib/supabase';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
+import { requireAuth } from '@/app/lib/auth';
 import zlib from 'zlib';
 import { promisify } from 'util';
 
@@ -86,6 +88,8 @@ export async function GET() {
 
 export async function POST() {
     try {
+        // Proteção: apenas usuários autenticados podem sincronizar mercado (previne abuso anônimo)
+        await requireAuth();
         // --- 1. DOWNLOAD E DECOMPRESSÃO ---
         const res = await fetch(GPRO_DOWNLOAD_CSV_URL, { next: { revalidate: 0 } });
         const buffer = Buffer.from(await res.arrayBuffer());
@@ -139,7 +143,7 @@ export async function POST() {
         // --- 3. LIMPEZA E INSERÇÃO NO SUPABASE ---
         
         // Limpa a base antiga para remover pilotos contratados
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await supabaseAdmin
             .from('market_drivers')
             .delete()
             .neq('id', 0);
@@ -150,7 +154,7 @@ export async function POST() {
         const CHUNK_SIZE = 1000;
         for (let i = 0; i < allDrivers.length; i += CHUNK_SIZE) {
             const chunk = allDrivers.slice(i, i + CHUNK_SIZE);
-            const { error: insertError } = await supabase
+            const { error: insertError } = await supabaseAdmin
                 .from('market_drivers')
                 .insert(chunk);
             
@@ -160,6 +164,8 @@ export async function POST() {
         return NextResponse.json({ success: true, count: allDrivers.length });
 
     } catch (error: any) {
+        if (error?.status === 401) return NextResponse.json({ success: false, error: error.message || 'Não autenticado' }, { status: 401 });
+        if (error?.status === 403) return NextResponse.json({ success: false, error: error.message || 'Acesso negado' }, { status: 403 });
         console.error("Erro na sincronização:", error.message);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }

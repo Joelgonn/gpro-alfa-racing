@@ -39,16 +39,16 @@ export default function IntegracaoGPRO() {
       
       setUserId(session.user.id);
       
-      const { data: userState, error: fetchError } = await supabase
-        .from('user_state')
-        .select('gpro_token')
-        .eq('user_id', session.user.id)
-        .single();
-      
-      if (userState?.gpro_token) {
-        setToken(userState.gpro_token);
-        setCharCount(userState.gpro_token.length);
-      }
+      // Verifica apenas se tem token (sem expor valor) via API server-only
+      try {
+        const res = await fetch('/api/gpro/token', { method: 'GET' });
+        const payload = await res.json();
+        if (payload.success && payload.hasToken) {
+          // Não expõe token real; mostra placeholder seguro
+          setToken('••••••••••••••••••••');
+          setCharCount(20);
+        }
+      } catch {}
       
       setLoading(false);
     }
@@ -128,27 +128,32 @@ export default function IntegracaoGPRO() {
   const saveToken = async () => {
     if (!userId) return;
     
-    setSaving(true);
-    setError(null);
-    
-    const { error: upsertError } = await supabase
-      .from('user_state')
-      .upsert({ 
-        user_id: userId, 
-        gpro_token: token 
-      });
-    
-    if (upsertError) {
-      setError(upsertError.message);
-      setSaving(false);
+    // Se o campo mostra placeholder, não salvar placeholder
+    if (token.includes('•')) {
+      setError('Digite um novo token para atualizar');
       return;
     }
     
-    setSaved(true);
-    setSaving(false);
-    setCharCount(token.length);
+    setSaving(true);
+    setError(null);
     
-    setTimeout(() => setSaved(false), 4000);
+    try {
+      const res = await fetch('/api/gpro/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload.error || 'Falha ao salvar token');
+      setSaved(true);
+      setCharCount(token.length);
+      setTimeout(() => setSaved(false), 4000);
+    } catch (e: any) {
+      // Nunca logar token
+      setError(e.message || 'Erro ao salvar token');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -145,7 +145,9 @@ const menuGroups = [
     hoverGlow: 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-transparent hover:border-cyan-300/30 hover:text-cyan-600',
     hoverTextColor: 'group-hover:text-cyan-600',
     items: [
-      { name: 'GPRO API Database', path: '/dashboard/admin/gpro-kb', icon: <Icons.Database /> }
+      { name: 'GPRO API Database', path: '/dashboard/admin/gpro-kb', icon: <Icons.Database /> },
+      { name: 'Tyre Research Lab', path: '/dashboard/admin/research/tyres', icon: <Icons.Beaker /> },
+      { name: 'Driver Energy Lab', path: '/dashboard/admin/research/driver-energy', icon: <Icons.Beaker /> }
     ]
   }
 ];
@@ -258,7 +260,9 @@ function SidebarContent({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 
       {/* Navigation - Itens com Brilho Dourado e Branco Gelo */}
       <nav className="flex-1 px-4 py-6 overflow-y-auto custom-scrollbar">
-        {menuGroups.map((group, idx) => (
+        {menuGroups
+          .filter(group => group.id !== 'administration' || localRole === 'admin')
+          .map((group, idx) => (
           <div key={group.id} className={`${idx > 0 ? 'mt-7' : ''}`}>
             {/* Group Header */}
             <div className="flex items-center gap-3 px-3 mb-3">

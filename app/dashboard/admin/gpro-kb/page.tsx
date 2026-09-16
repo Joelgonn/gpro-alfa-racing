@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/app/lib/supabase';
 import { useGame } from '@/app/context/GameContext';
 import {
@@ -13,20 +14,24 @@ import {
   MATURIDADE_VALIDA,
   autoCategorizar,
   detectarParametro,
-  analisarEstrutura,
-  criarHistorico,
   calcularConfianca,
   calcularMaturidade,
-  calcularHashSchema,
-  compactarExemplo
 } from '@/app/lib/knowledge-base';
 import { endpoints, exploreGproEndpoint } from '@/app/lib/gpro-api';
 import {
   getCatalogo,
   saveCatalogo,
-  deleteCatalogo,
-  saveEndpoint
+  deleteCatalogo
 } from '@/app/lib/knowledge-base-api';
+import { type EndpointInfo } from '@/app/lib/knowledge-base';
+import { processEndpointScan } from '@/app/lib/endpoint-scan-service';
+import { persistEndpointKnowledge } from '@/app/lib/knowledge-persistence-service';
+import { analyzeLegacyEndpoint } from '@/app/lib/legacy-knowledge-adapter';
+import { createKnowledgeScanSession } from '@/app/lib/knowledge-scan-session';
+import { runDiscovery } from '@/app/lib/discovery-service';
+import { runKnowledgeScan } from '@/app/lib/knowledge-scan-service';
+import { runKnowledgeEndpointScan } from '@/app/lib/knowledge-endpoint-scan-service';
+import type { DiscoveryReadModel } from '@/app/lib/discovery-read-model';
 import { Loader2, Database, Sparkles, Crown, Shield, Rocket, Zap, Brain, ChevronRight, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import he from 'he';
@@ -56,6 +61,9 @@ export default function GproKbPage() {
   const cancelScanRef = useRef(false);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, currentEndpoint: '' });
   const [scanLog, setScanLog] = useState<string[]>([]);
+  const [lastDiscovery, setLastDiscovery] = useState<DiscoveryReadModel | null>(null);
+  const [lastScanDurationMs, setLastScanDurationMs] = useState<number | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
   const [expandedEndpoints, setExpandedEndpoints] = useState<Set<string>>(new Set());
   const [compareEndpoint1, setCompareEndpoint1] = useState('');
   const [compareEndpoint2, setCompareEndpoint2] = useState('');
@@ -165,114 +173,19 @@ export default function GproKbPage() {
       return;
     }
 
-    const camposSet = new Set<string>();
-    const tipos: Record<string, string> = {};
-    let totalObjetosAninhados = 0;
-    let totalArrays = 0;
-
-    function analisarObjeto(obj: any, prefixo: string = '') {
-      if (!obj || typeof obj !== 'object') return;
-
-      if (Array.isArray(obj)) {
-        totalArrays++;
-        const sample = obj.find(item => item && typeof item === 'object');
-        if (sample) {
-          analisarObjeto(sample, prefixo);
-        }
-        return;
-      }
-
-      if (prefixo) {
-        totalObjetosAninhados++;
-      }
-
-      Object.keys(obj).forEach(key => {
-        const valor = obj[key];
-        const nomeCompleto = prefixo ? `${prefixo}.${key}` : key;
-
-        if (!camposSet.has(nomeCompleto)) {
-          camposSet.add(nomeCompleto);
-        }
-
-        if (valor !== null && typeof valor === 'object') {
-          if (Array.isArray(valor)) {
-            totalArrays++;
-            if (valor.length > 0) {
-              tipos[nomeCompleto] = `Array[${valor.length}]`;
-              const sample = valor.find(item => item && typeof item === 'object');
-              if (sample) {
-                analisarObjeto(sample, nomeCompleto);
-              }
-            } else {
-              tipos[nomeCompleto] = 'Array(vazio)';
-            }
-          } else {
-            tipos[nomeCompleto] = 'Objeto';
-            analisarObjeto(valor, nomeCompleto);
-          }
-        } else {
-          tipos[nomeCompleto] = typeof valor;
-        }
-      });
+    const result = analyzeLegacyEndpoint(data, endpointName, catalogo);
+    if (!result) {
+      setAnalysis(null);
+      return;
     }
 
-    analisarObjeto(data);
-
-    const hash = calcularHashSchema(tipos);
-    const historico = [{ data: new Date().toISOString(), campos: camposSet.size, hash }];
-    const confianca = calcularConfianca(historico);
-    const maturidade = calcularMaturidade(historico);
-
-    const analysisResult: AnalysisInfo = {
-      endpoint: endpointName,
-      totalCampos: camposSet.size,
-      objetos: totalObjetosAninhados,
-      arrays: totalArrays,
-      campos: [...camposSet],
-      tipos: tipos,
-      hash: hash,
-      status: '🔍 Pendente',
-      maturidade: maturidade,
-      confianca: confianca,
-    };
-
-    setAnalysis(analysisResult);
-
-    const existing = catalogo[endpointName] || {
-      campos: [],
-      parametros: [],
-      totalCampos: 0,
-      ultimoScan: '',
-      historico: [],
-      status: '🔍 Pendente' as const,
-      observacoes: '',
-      exemplo: compactarExemplo(data)
-    };
-
-    const endpointInfo = {
-      campos: [...camposSet],
-      parametros: existing.parametros || [],
-      totalCampos: camposSet.size,
-      ultimoScan: new Date().toISOString(),
-      tipos: tipos,
-      historico: historico,
-      status: existing.status || '🔍 Pendente',
-      maturidade: maturidade,
-      observacoes: existing.observacoes || '',
-      utilidade: existing.utilidade,
-      exemplo: existing.exemplo || compactarExemplo(data),
-      exemploHash: hash,
-      confianca: confianca,
-      scansRealizados: (existing.scansRealizados || 0) + 1,
-      ultimoHash: hash,
-      hashHistory: [...(existing.hashHistory || []), hash].slice(-10)
-    };
+    setAnalysis(result.analysis);
 
     try {
-      await saveEndpoint(endpointName, endpointInfo, userId!);
+      await persistEndpointKnowledge(endpointName, result.endpointInfo, userId!);
       setCatalogo(prev => ({
         ...prev,
-        [endpointName]: endpointInfo
+        [endpointName]: result.endpointInfo
       }));
     } catch (error) {
       console.error('Erro ao salvar endpoint no Supabase:', error);
@@ -292,140 +205,78 @@ export default function GproKbPage() {
     setScanning(true);
     cancelScanRef.current = false;
     const novosLogs: string[] = [];
-    let currentProgress = 0;
     let salvosComSucesso = 0;
     let falhas = 0;
+    const discoverySession = createKnowledgeScanSession();
+    const scanStartedAt = performance.now();
+    await runKnowledgeScan(
+      {
+        userId: userId!,
+        endpoints,
+        catalogo,
+        categorias,
+        cancelRequested: () => cancelScanRef.current,
+      },
+      {
+        onProgress: progress => {
+          setScanProgress(progress);
+        },
+        onEndpoint: async (ep) => {
+          novosLogs.push(`⏳ Escaneando ${ep}...`);
+          const endpointResult = await runKnowledgeEndpointScan({
+            userId: userId!,
+            endpoint: ep,
+            catalogo,
+            categorias,
+            session: discoverySession.build(),
+          });
 
-    for (let i = 0; i < endpoints.length; i++) {
-      if (cancelScanRef.current) {
-        novosLogs.push('⛔ Scan cancelado pelo usuário');
-        break;
-      }
-
-      const ep = endpoints[i];
-      currentProgress = i + 1;
-      setScanProgress({ current: currentProgress, total: endpoints.length, currentEndpoint: ep });
-      novosLogs.push(`⏳ Escaneando ${ep}...`);
-
-      try {
-        const data = await exploreGproEndpoint(ep, undefined, userId);
-
-        if (data) {
-          const camposSet = new Set<string>();
-          const tipos: Record<string, string> = {};
-          analisarEstrutura(data, camposSet, tipos);
-
-          const hash = calcularHashSchema(tipos);
-
-          const existing = catalogo[ep] || {
-            campos: [],
-            parametros: [],
-            totalCampos: 0,
-            ultimoScan: '',
-            historico: [],
-            status: '🔍 Pendente' as const,
-            observacoes: '',
-            exemplo: compactarExemplo(data)
-          };
-
-          const historico = criarHistorico(existing.historico, camposSet.size, hash);
-          const confianca = calcularConfianca(historico, existing.status);
-          const maturidade = calcularMaturidade(historico, existing.status, existing.parametros || []);
-
-          if (!categorias[ep]) {
-            const categoriaSugerida = autoCategorizar(ep);
-            if (categoriaSugerida) {
-              setCategorias(prev => ({ ...prev, [ep]: categoriaSugerida }));
+          if (endpointResult.requiresParameter) {
+            if (endpointResult.saved && endpointResult.endpointInfo) {
+              salvosComSucesso++;
+              setCatalogo(prev => ({
+                ...prev,
+                [ep]: endpointResult.endpointInfo!
+              }));
+              if (!categorias[ep]) {
+                const categoriaSugerida = autoCategorizar(ep);
+                if (categoriaSugerida) {
+                  setCategorias(prev => ({ ...prev, [ep]: categoriaSugerida }));
+                }
+              }
+            } else {
+              falhas++;
             }
-          }
-
-          const endpointInfo = {
-            campos: [...camposSet],
-            parametros: existing.parametros || [],
-            totalCampos: camposSet.size,
-            ultimoScan: new Date().toISOString(),
-            tipos: tipos,
-            historico: historico,
-            status: existing.status || '🔍 Pendente',
-            maturidade: maturidade,
-            observacoes: existing.observacoes || '',
-            utilidade: existing.utilidade,
-            exemplo: existing.exemplo || compactarExemplo(data),
-            exemploHash: hash,
-            confianca: confianca,
-            scansRealizados: (existing.scansRealizados || 0) + 1,
-            ultimoHash: hash,
-            hashHistory: [...(existing.hashHistory || []), hash].slice(-10)
-          };
-
-          try {
-            await saveEndpoint(ep, endpointInfo, userId!);
+          } else if (endpointResult.success && endpointResult.endpointInfo) {
             salvosComSucesso++;
-            
             setCatalogo(prev => ({
               ...prev,
-              [ep]: endpointInfo
+              [ep]: endpointResult.endpointInfo!
             }));
-            
-            novosLogs.push(`✅ ${ep} - ${camposSet.size} campos | ${maturidade} | conf: ${confianca}% (salvo)`);
-          } catch (saveError) {
+            if (!categorias[ep]) {
+              const categoriaSugerida = autoCategorizar(ep);
+              if (categoriaSugerida) {
+                setCategorias(prev => ({ ...prev, [ep]: categoriaSugerida }));
+              }
+            }
+          } else {
             falhas++;
-            novosLogs.push(`❌ ${ep} - Analisado mas falhou ao salvar: ${saveError instanceof Error ? saveError.message : 'Erro desconhecido'}`);
           }
-        } else {
-          novosLogs.push(`⚠️ ${ep} - Resposta vazia`);
-        }
-      } catch (error: any) {
-        console.error(`Erro em ${ep}:`, error);
-        const paramDetectado = detectarParametro(error.message || '');
-        if (paramDetectado) {
-          const existing = catalogo[ep] || {
-            campos: [],
-            parametros: [],
-            totalCampos: 0,
-            ultimoScan: '',
-            historico: [],
-            status: '🔍 Pendente' as const,
-            observacoes: ''
-          };
-          const parametrosSet = new Set([...(existing.parametros || []), paramDetectado]);
-          const historico = criarHistorico(existing.historico, 0);
-          const confianca = calcularConfianca(historico, existing.status);
-          const maturidade = calcularMaturidade(historico, existing.status, [...parametrosSet]);
 
-          const endpointInfo = {
-            ...existing,
-            parametros: [...parametrosSet],
-            ultimoScan: new Date().toISOString(),
-            historico: historico,
-            confianca: confianca,
-            maturidade: maturidade,
-            scansRealizados: (existing.scansRealizados || 0) + 1
-          };
-
-          try {
-            await saveEndpoint(ep, endpointInfo, userId!);
-            setCatalogo(prev => ({
-              ...prev,
-              [ep]: endpointInfo
-            }));
-            salvosComSucesso++;
-            novosLogs.push(`⚠️ ${ep} - Requer parâmetro: ${paramDetectado} | ${maturidade} (salvo)`);
-          } catch (saveError) {
-            falhas++;
-            novosLogs.push(`❌ ${ep} - Parâmetro detectado mas falhou ao salvar: ${saveError instanceof Error ? saveError.message : 'Erro desconhecido'}`);
-          }
-        } else {
-          falhas++;
-          novosLogs.push(`❌ ${ep} - ${error.message || 'Erro desconhecido'}`);
-        }
+          novosLogs.push(endpointResult.logMessage);
+          setScanLog([...novosLogs]);
+          await new Promise(r => setTimeout(r, 300));
+        },
       }
-
-      setScanLog([...novosLogs]);
-      await new Promise(r => setTimeout(r, 300));
-    }
+    );
 
     if (!cancelScanRef.current) {
+      const discoveryReadModel = runDiscovery(discoverySession.build());
+      setLastDiscovery(discoveryReadModel);
+      setLastScanDurationMs(performance.now() - scanStartedAt);
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[DiscoveryEngine][shadow]', discoveryReadModel);
+      }
       novosLogs.push(`✅ Scan concluído! ${salvosComSucesso} salvos, ${falhas} falhas`);
       setScanLog([...novosLogs]);
     }
@@ -436,7 +287,7 @@ export default function GproKbPage() {
 
   function cancelarScan() {
     cancelScanRef.current = true;
-    setScanLog(prev => [...prev, '⛔ Cancelando scan...']);
+      setScanLog(prev => [...prev, '⛔ Cancelando scan...']);
   }
 
   // Funções de Gerenciamento da KB
@@ -464,82 +315,88 @@ export default function GproKbPage() {
     });
   }
 
-  function setStatus(endpointName: string, status: string) {
+  async function persistAndSyncEndpoint(endpointName: string, endpointInfo: EndpointInfo) {
     if (!userId) return;
 
-    setCatalogo(prev => {
-      const existing = prev[endpointName];
-      if (!existing) return prev;
-      const confianca = calcularConfianca(existing.historico, status);
-      const maturidade = calcularMaturidade(existing.historico, status, existing.parametros || []);
-      const novo = { ...prev, [endpointName]: { ...existing, status: status as any, confianca, maturidade } };
-      
-      saveEndpoint(endpointName, novo[endpointName], userId!).catch(err => 
-        console.error('Erro ao salvar status:', err)
-      );
-      
-      if (analysis && analysis.endpoint === endpointName) {
-        setAnalysis(prev => prev ? { ...prev, status: status as any, confianca, maturidade } : null);
-      }
-      return novo;
-    });
+    await persistEndpointKnowledge(endpointName, endpointInfo, userId);
+
+    setCatalogo(prev => ({
+      ...prev,
+      [endpointName]: endpointInfo
+    }));
+
+    if (analysis && analysis.endpoint === endpointName) {
+      setAnalysis(prev => prev ? {
+        ...prev,
+        status: endpointInfo.status ?? prev.status,
+        maturidade: endpointInfo.maturidade ?? prev.maturidade,
+        confianca: endpointInfo.confianca ?? prev.confianca,
+        observacoes: endpointInfo.observacoes ?? prev.observacoes,
+        utilidade: endpointInfo.utilidade ?? prev.utilidade,
+        parametros: endpointInfo.parametros ?? prev.parametros,
+        ultimoHash: endpointInfo.ultimoHash ?? prev.ultimoHash,
+        ultimoScan: endpointInfo.ultimoScan ?? prev.ultimoScan,
+        scansRealizados: endpointInfo.scansRealizados ?? prev.scansRealizados,
+      } : null);
+    }
   }
 
-  function setMaturidade(endpointName: string, maturidade: string) {
+  async function setStatus(endpointName: string, status: string) {
     if (!userId) return;
 
-    setCatalogo(prev => {
-      const existing = prev[endpointName];
-      if (!existing) return prev;
-      const novo = { ...prev, [endpointName]: { ...existing, maturidade: maturidade as any } };
-      
-      saveEndpoint(endpointName, novo[endpointName], userId!).catch(err => 
-        console.error('Erro ao salvar maturidade:', err)
-      );
-      
-      if (analysis && analysis.endpoint === endpointName) {
-        setAnalysis(prev => prev ? { ...prev, maturidade: maturidade as any } : null);
-      }
-      return novo;
-    });
+    const existing = catalogo[endpointName];
+    if (!existing) return;
+
+    const confianca = calcularConfianca(existing.historico, status);
+    const maturidade = calcularMaturidade(existing.historico, status, existing.parametros || []);
+    const novo = { ...existing, status: status as any, confianca, maturidade };
+
+    try {
+      await persistAndSyncEndpoint(endpointName, novo);
+    } catch (err) {
+      console.error('Erro ao salvar status:', err);
+    }
+  }
+
+  async function setMaturidade(endpointName: string, maturidade: string) {
+    if (!userId) return;
+
+    const existing = catalogo[endpointName];
+    if (!existing) return;
+
+    const novo = { ...existing, maturidade: maturidade as any };
+
+    try {
+      await persistAndSyncEndpoint(endpointName, novo);
+    } catch (err) {
+      console.error('Erro ao salvar maturidade:', err);
+    }
   }
 
   function setObservacao(endpointName: string, observacao: string) {
     if (!userId) return;
 
-    setCatalogo(prev => {
-      const existing = prev[endpointName];
-      if (!existing) return prev;
-      const novo = { ...prev, [endpointName]: { ...existing, observacoes: observacao } };
-      
-      saveEndpoint(endpointName, novo[endpointName], userId!).catch(err => 
-        console.error('Erro ao salvar observação:', err)
-      );
-      
-      if (analysis && analysis.endpoint === endpointName) {
-        setAnalysis(prev => prev ? { ...prev, observacoes: observacao } : null);
-      }
-      return novo;
-    });
+    const existing = catalogo[endpointName];
+    if (!existing) return;
+
+    const novo = { ...existing, observacoes: observacao };
+
+    persistAndSyncEndpoint(endpointName, novo).catch(err =>
+      console.error('Erro ao salvar observação:', err)
+    );
   }
 
   function setUtilidade(endpointName: string, utilidade: 1 | 2 | 3 | 4 | 5) {
     if (!userId) return;
 
-    setCatalogo(prev => {
-      const existing = prev[endpointName];
-      if (!existing) return prev;
-      const novo = { ...prev, [endpointName]: { ...existing, utilidade } };
-      
-      saveEndpoint(endpointName, novo[endpointName], userId!).catch(err => 
-        console.error('Erro ao salvar utilidade:', err)
-      );
-      
-      if (analysis && analysis.endpoint === endpointName) {
-        setAnalysis(prev => prev ? { ...prev, utilidade } : null);
-      }
-      return novo;
-    });
+    const existing = catalogo[endpointName];
+    if (!existing) return;
+
+    const novo = { ...existing, utilidade };
+
+    persistAndSyncEndpoint(endpointName, novo).catch(err =>
+      console.error('Erro ao salvar utilidade:', err)
+    );
   }
 
   function toggleExpand(endpointName: string) {
@@ -600,20 +457,20 @@ export default function GproKbPage() {
 
     for (const ep of endpointsOrdenados) {
       const info = catalogo[ep];
-      const categoria = categorias[ep] || '📋 Geral';
-      const status = info.status || '🔍 Pendente';
+      const categoria = categorias[ep] || '?? Geral';
+      const status = info.status || '?? Pendente';
       const maturidade = info.maturidade || 'descoberto';
-      const utilidade = info.utilidade ? `${'★'.repeat(info.utilidade)}${'☆'.repeat(5 - info.utilidade)}` : 'Não avaliado';
+      const utilidade = info.utilidade
+        ? `${'?'.repeat(info.utilidade)}${'?'.repeat(5 - info.utilidade)}`
+        : 'N?o avaliado';
       const confianca = info.confianca || 0;
-
       const labels: Record<string, string> = {
-        descoberto: '🔍 Descoberto',
-        parcial: '⚠️ Parcial',
-        completo: '✅ Completo',
-        instavel: '🔄 Instável',
-        descontinuado: '🚫 Descontinuado'
+        descoberto: '?? Descoberto',
+        parcial: '?? Parcial',
+        completo: '? Completo',
+        instavel: '?? Inst?vel',
+        descontinuado: '?? Descontinuado'
       };
-
       docs += `### ${ep} (${categoria}) - ${status}\n\n`;
       docs += `- **Campos:** ${info.totalCampos}\n`;
       docs += `- **Maturidade:** ${labels[maturidade] || maturidade}\n`;
@@ -634,7 +491,7 @@ export default function GproKbPage() {
       if (info.historico && info.historico.length > 0) {
         docs += '- **Histórico de descoberta:**\n';
         info.historico.slice(-5).forEach(h => {
-          docs += `  - ${h.data}: ${h.campos} campos${h.hash ? ` (${h.hash})` : ''}\n`;
+        docs += `  - ${h.data}: ${h.campos} campos${h.hash ? ` (${h.hash})` : ''}\n`;
         });
         if (info.historico.length >= 50) {
           docs += '  - (últimos 50 registros mostrados)\n';
@@ -692,7 +549,7 @@ export default function GproKbPage() {
       return;
     }
 
-    if (confirm('Tem certeza que deseja limpar toda a Knowledge Base?')) {
+    if (confirm('Tem certeza que deseja limpar toda a Knowledge Base')) {
       try {
         await deleteCatalogo(userId);
         setCatalogo({});
@@ -783,7 +640,7 @@ export default function GproKbPage() {
       .map(([nome, info]) => ({
         nome,
         campos: info.campos.length,
-        parametros: info.parametros?.length || 0,
+        parametros: info.parametros.length || 0,
         confianca: info.confianca || 0,
         maturidade: info.maturidade || 'descoberto'
       }))
@@ -794,7 +651,7 @@ export default function GproKbPage() {
       if (!camposPorCategoria[categoria]) {
         camposPorCategoria[categoria] = 0;
       }
-      camposPorCategoria[categoria] += catalogo[endpoint]?.campos?.length || 0;
+      camposPorCategoria[categoria] += catalogo[endpoint].campos.length || 0;
     });
 
     const endpointsPorStatus: Record<string, number> = {};
@@ -860,832 +717,485 @@ export default function GproKbPage() {
     descontinuado: { label: '🚫 Descontinuado', color: 'bg-rose-50 border-rose-200 text-rose-600' },
   };
 
+  const mappedEndpoints = Object.keys(catalogo).length;
+  const discoverySummary = lastDiscovery?.summary ?? {
+    totalEvents: 0,
+    infoCount: 0,
+    noticeCount: 0,
+    warningCount: 0,
+  };
+  const discoveryTotals = lastDiscovery?.totals ?? {
+    endpointCount: 0,
+    schemaChanges: 0,
+    newEndpoints: 0,
+    newFields: 0,
+  };
+  const discoveryEvents = lastDiscovery?.events ?? [];
+  const selectedEndpointInfo = selectedEndpoint ? catalogo[selectedEndpoint] : null;
+  const selectedEndpointAnalysis =
+    analysis && selectedEndpoint && analysis.endpoint === selectedEndpoint ? analysis : null;
+  const selectedTimelineEvents = discoveryEvents
+    .filter(event => !selectedEndpoint || event.description.includes(selectedEndpoint))
+    .slice(0, 5);
+  const coveragePercent = endpoints.length ? Math.round((mappedEndpoints / endpoints.length) * 100) : 0;
+  const averageConfidence = mappedEndpoints
+    ? Math.round(Object.values(catalogo).reduce((sum, info) => sum + (info.confianca || 0), 0) / mappedEndpoints)
+    : 0;
+  const stableEndpoints = Object.values(catalogo).filter(info => info.maturidade !== 'instavel').length;
+  const schemaStability = mappedEndpoints ? Math.round((stableEndpoints / mappedEndpoints) * 100) : 0;
+  const discoveryRate = endpoints.length ? Math.round((discoveryTotals.newEndpoints / endpoints.length) * 100) : 0;
+  const healthScore = Math.round((coveragePercent + schemaStability + discoveryRate + averageConfidence) / 4);
+  const progressPercent = scanProgress.total ? Math.round((scanProgress.current / scanProgress.total) * 100) : 0;
+  const endpointsPorCategoria = useMemo(() => {
+    const grupos: Record<string, string[]> = {};
+
+    endpoints.forEach(endpointName => {
+      const categoria = categorias[endpointName] || autoCategorizar(endpointName) || '📋 Geral';
+      if (!grupos[categoria]) {
+        grupos[categoria] = [];
+      }
+      grupos[categoria].push(endpointName);
+    });
+
+    return grupos;
+  }, [categorias]);
+
   const isAuthenticated = !!userId;
   const isReady = !isLoadingAuth && !isLoadingCatalog && !isGlobalLoading;
 
   if (isLoadingAuth || isLoadingCatalog || isGlobalLoading) {
     return (
-      <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#eef2f6] text-emerald-600 font-mono text-xs gap-4">
-        <div className="w-12 h-12 border-2 border-emerald-500/10 rounded-full flex items-center justify-center relative">
-          <div className="w-12 h-12 border-2 border-t-emerald-600 rounded-full animate-spin absolute" />
-          <Loader2 className="animate-spin text-emerald-600 h-8 w-8" />
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#f7fbf9,_#edf3f0_40%,_#e4ebe7_100%)] text-slate-800">
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm font-black text-slate-600 shadow-sm">
+          Carregando Knowledge Center...
         </div>
-        <p className="text-slate-400 font-bold text-xs uppercase">Carregando API Database...</p>
       </div>
     );
   }
 
-  const progressPercent = scanProgress.total > 0 ? (scanProgress.current / scanProgress.total) * 100 : 0;
-
-  const endpointsPorCategoria: Record<string, string[]> = {};
-  endpoints.forEach(ep => {
-    const cat = autoCategorizar(ep) || '📋 Geral';
-    if (!endpointsPorCategoria[cat]) {
-      endpointsPorCategoria[cat] = [];
-    }
-    endpointsPorCategoria[cat].push(ep);
-  });
-
-  return (
-    <div className="space-y-6 max-w-7xl mx-auto font-mono text-slate-700 pb-24 relative overflow-hidden">
-      
-      {/* GLOWS AMBIENTAIS */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
-      </div>
-
-      {/* HEADER BAR (LIGHT GELO) */}
-      <div className="bg-white/90 border border-slate-200 p-4 md:p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center sticky top-4 z-50 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/[0.01] blur-2xl rounded-full pointer-events-none" />
-        <div className="text-left w-full md:w-auto">
-          <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-1 flex items-center gap-2">
-            GPRO API Database
-            <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">KB</span>
-            <Sparkles size={14} className="text-amber-400" />
-          </h1>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
-            Explore, analise e catalogue a estrutura da API GPRO
-          </p>
+  const knowledgeCenter = (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f7fbf9,_#edf3f0_40%,_#e4ebe7_100%)] text-slate-800">
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8 pb-24">
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-[-20%] left-[-10%] w-[650px] h-[650px] bg-emerald-500/[0.05] blur-[140px] rounded-full" />
+          <div className="absolute bottom-[-20%] right-[-12%] w-[520px] h-[520px] bg-sky-500/[0.04] blur-[140px] rounded-full" />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] px-3 py-1 bg-emerald-50 border-emerald-200 text-emerald-600 rounded-full font-black shadow-sm">
-            ⚡ Explorer V2
-          </span>
-          <span className="text-[10px] px-3 py-1 bg-slate-50 border-slate-200 text-slate-600 rounded-full font-black shadow-sm">
-            {endpoints.length} endpoints
-          </span>
-          {isAuthenticated && (
-            <span className="text-[10px] px-3 py-1 bg-emerald-50 border-emerald-250 text-emerald-600 rounded-full font-black shadow-sm flex items-center gap-1">
-              <Shield size={10} /> Autenticado
-            </span>
-          )}
-          {Object.keys(catalogo).length > 0 && (
-            <span className="text-[10px] px-3 py-1 bg-indigo-50 border-indigo-200 text-indigo-600 rounded-full font-black shadow-sm">
-              📚 {Object.keys(catalogo).length} mapeados
-            </span>
-          )}
-        </div>
-      </div>
 
-      {/* STATUS DO TOKEN */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm relative z-10">
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
-          <span className="text-xs text-slate-700 font-bold">
-            {isAuthenticated
-              ? '🔑 Token GPRO carregado automaticamente da sua conta'
-              : '❌ Usuário não autenticado'}
-          </span>
-        </div>
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-2">
-          {isAuthenticated
-            ? 'O token é obtido automaticamente do seu perfil. Para alterar, vá em Integração GPRO.'
-            : 'Faça login para acessar a Knowledge Base.'}
-        </p>
-      </div>
+        <header className="relative z-10 overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 backdrop-blur-xl shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+          <div className="flex flex-col gap-6 p-6 md:p-8 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.35em] text-emerald-700">
+                <Sparkles size={12} />
+                Knowledge Center
+              </div>
+              <h1 className="mt-3 text-4xl md:text-5xl font-black tracking-tight text-slate-950">
+                Knowledge Platform
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm md:text-base text-slate-600 leading-relaxed">
+                O Explorer agora lê o conhecimento, a saúde da base e o que a plataforma descobriu hoje.
+              </p>
+            </div>
 
-      {/* CONTROLES PRINCIPAIS */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4 relative z-10">
-        <div className="flex gap-2.5 flex-wrap">
-          <select
-            className="flex-1 min-w-[200px] bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-slate-800 outline-none focus:border-emerald-500 shadow-inner"
-            value={endpoint}
-            onChange={(e) => setEndpoint(e.target.value)}
-            disabled={loading || scanning || !isAuthenticated}
-          >
-            {Object.entries(endpointsPorCategoria).map(([categoria, eps]) => (
-              <optgroup key={categoria} label={categoria}>
-                {eps.map((e) => (
-                  <option key={e} value={e}>{e}</option>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Último scan</p>
+                <p className="mt-2 text-sm font-black text-slate-900">{lastScanDurationMs ? `${Math.round(lastScanDurationMs / 1000)}s` : ''}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Endpoints</p>
+                <p className="mt-2 text-sm font-black text-slate-900">{mappedEndpoints}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Duração</p>
+                <p className="mt-2 text-sm font-black text-slate-900">{lastScanDurationMs ? `${Math.round(lastScanDurationMs)}ms` : ''}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status geral</p>
+                <p className="mt-2 text-sm font-black text-emerald-700">{scanning ? 'Scanning' : 'Ready'}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="relative z-10 mt-6 grid gap-6 md:grid-cols-2">
+          <Link href="/dashboard/admin/research/tyres" className="group rounded-[1.75rem] border border-emerald-200 bg-white/90 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.06)] backdrop-blur transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.35em] text-emerald-700">
+              <Brain size={12} />
+              Research Center
+            </div>
+            <h2 className="mt-3 text-xl font-black text-slate-950">Tyre Research Lab</h2>
+            <p className="mt-2 text-sm text-slate-600">Acesse a primeira ?rea funcional de pesquisa da Knowledge Platform.</p>
+            <div className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-700">
+              Abrir laborat?rio <ChevronRight size={14} className="transition group-hover:translate-x-0.5" />
+            </div>
+          </Link>
+        </section>
+
+        <main className="relative z-10 mt-6 grid gap-6">
+          <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+            <div className="rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.06)] backdrop-blur">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-500">Knowledge Insights</p>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">O que a plataforma descobriu</h2>
+                </div>
+                <button
+                  onClick={scanAllEndpoints}
+                  className="rounded-full bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition hover:bg-slate-800 disabled:opacity-50"
+                  disabled={scanning || loading || !isAuthenticated}
+                >
+                  {scanning ? 'Escaneando...' : 'Rodar scan'}
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {[
+                  { label: 'Novos endpoints', value: discoveryTotals.newEndpoints, tone: 'text-emerald-700', bg: 'bg-emerald-50' },
+                  { label: 'Novos campos', value: discoveryTotals.newFields, tone: 'text-amber-700', bg: 'bg-amber-50' },
+                  { label: 'Mudanças estruturais', value: discoveryTotals.schemaChanges, tone: 'text-rose-700', bg: 'bg-rose-50' },
+                  { label: 'Eventos totais', value: discoverySummary.totalEvents, tone: 'text-slate-900', bg: 'bg-slate-50' },
+                  { label: 'INFO', value: discoverySummary.infoCount, tone: 'text-sky-700', bg: 'bg-sky-50' },
+                  { label: 'WARNING', value: discoverySummary.warningCount, tone: 'text-orange-700', bg: 'bg-orange-50' },
+                ].map(card => (
+                  <div key={card.label} className={`rounded-2xl border border-slate-200 ${card.bg} p-4`}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{card.label}</p>
+                    <p className={`mt-2 text-3xl font-black ${card.tone}`}>{card.value}</p>
+                  </div>
                 ))}
-              </optgroup>
-            ))}
-          </select>
+              </div>
+            </div>
 
-          <button
-            onClick={executar}
-            className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all border border-emerald-500 active:scale-[0.98] disabled:opacity-50"
-            disabled={loading || scanning || !isAuthenticated}
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="animate-spin h-3 w-3" /> Executando...
+            <div className="rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.06)] backdrop-blur">
+              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-500">Knowledge Health</p>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-black text-slate-950">Saúde da base</h2>
+                  <p className="mt-1 text-sm text-slate-500">Coverage, estabilidade, discovery rate e confidence.</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Score geral</p>
+                  <p className="text-4xl font-black text-emerald-700">{healthScore}%</p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-4">
+                {[
+                  { label: 'Coverage', value: coveragePercent },
+                  { label: 'Schema Stability', value: schemaStability },
+                  { label: 'Discovery Rate', value: discoveryRate },
+                  { label: 'Confidence', value: averageConfidence },
+                ].map(metric => (
+                  <div key={metric.label}>
+                    <div className="mb-1 flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-500">
+                      <span>{metric.label}</span>
+                      <span>{metric.value}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100">
+                      <div className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 transition-all" style={{ width: `${metric.value}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.06)] backdrop-blur">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-500">Activity</p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">Timeline da plataforma</h2>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                {discoveryEvents.length} eventos
               </span>
-            ) : (
-              '▶️ Executar'
-            )}
-          </button>
-
-          <button
-            onClick={scanAllEndpoints}
-            className="bg-[#f8fafc] hover:bg-slate-50 border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-            disabled={scanning || loading || !isAuthenticated}
-          >
-            {scanning ? `⏳ ${scanProgress.current}/${scanProgress.total}` : '🔍 Scan Todos'}
-          </button>
-
-          {scanning && (
-            <button
-              onClick={cancelarScan}
-              className="bg-rose-50 border border-rose-300 text-rose-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all hover:bg-rose-100"
-            >
-              ⛔ Cancelar
-            </button>
-          )}
-
-          <button
-            onClick={limparResposta}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-            disabled={!response && !error}
-          >
-            ✕ Limpar
-          </button>
-        </div>
-
-        {/* Parâmetros */}
-        <div className="flex items-center gap-4 flex-wrap border-t border-slate-100 pt-3">
-          <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
-            <input
-              type="checkbox"
-              checked={hasParams}
-              onChange={(e) => setHasParams(e.target.checked)}
-              className="accent-emerald-500"
-              disabled={!isAuthenticated}
-            />
-            Parâmetros
-          </label>
-          {hasParams && (
-            <div className="flex gap-2 flex-1 animate-fadeIn">
-              <input
-                className="flex-1 min-w-[120px] bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 shadow-inner"
-                placeholder="Ex: driverId"
-                value={paramKey}
-                onChange={(e) => setParamKey(e.target.value)}
-                disabled={!isAuthenticated}
-              />
-              <input
-                className="flex-1 min-w-[120px] bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 shadow-inner"
-                placeholder="Valor"
-                value={paramValue}
-                onChange={(e) => setParamValue(e.target.value)}
-                disabled={!isAuthenticated}
-              />
-              {detectedParams.length > 0 && (
-                <span className="text-[10px] text-amber-600 font-bold flex items-center">
-                  ⚠️ Parâmetros sugeridos: {detectedParams.join(', ')}
-                </span>
-              )}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* BOTÕES DE AÇÃO */}
-      <div className="flex flex-wrap gap-2.5 relative z-10">
-        <button
-          onClick={copiarJSON}
-          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-          disabled={!response || loading}
-        >
-          📋 Copiar JSON
-        </button>
-        <button
-          onClick={baixarJSON}
-          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-          disabled={!response || loading}
-        >
-          💾 Baixar JSON
-        </button>
-        <button
-          onClick={copiarCampos}
-          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-          disabled={!analysis || loading}
-        >
-          📋 Copiar Campos
-        </button>
-        <button
-          onClick={exportarCatalogo}
-          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-          disabled={Object.keys(catalogo).length === 0 || scanning}
-        >
-          📦 Exportar KB
-        </button>
-        <button
-          onClick={gerarDocumentacao}
-          className="bg-white border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-          disabled={Object.keys(catalogo).length === 0 || scanning}
-        >
-          📄 Gerar Docs
-        </button>
-        <button
-          onClick={limparKnowledgeBase}
-          className="bg-rose-50 border border-rose-300 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-          disabled={Object.keys(catalogo).length === 0}
-        >
-          🗑️ Limpar KB
-        </button>
-      </div>
-
-      {/* ERRO */}
-      {error && (
-        <div className="bg-rose-50 border border-rose-250 rounded-xl p-4 text-rose-600 relative z-10 font-bold">
-          <p className="text-xs">❌ {error}</p>
-        </div>
-      )}
-
-      {/* SCAN PROGRESS */}
-      {scanning && (
-        <div className="border border-amber-200 rounded-xl p-4 bg-amber-50 relative z-10 shadow-sm animate-pulse">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <div className="flex justify-between text-xs font-black">
-                <span className="text-amber-700">Escaneando: {scanProgress.currentEndpoint}</span>
-                <span className="text-amber-600">{scanProgress.current}/{scanProgress.total}</span>
-              </div>
-              <div className="w-full bg-slate-200 h-2 mt-2 rounded-full overflow-hidden border border-slate-300/30">
-                <div
-                  className="bg-amber-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SCAN LOG (atualizado em tempo real) */}
-      {scanLog.length > 0 && (
-        <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm max-h-60 overflow-y-auto relative z-10">
-          <strong className="block mb-2 text-xs font-black text-slate-800 uppercase flex items-center gap-2">
-            <Database size={14} className="text-emerald-600" />
-            📋 Log do Scan: {scanning ? '🔄 Em andamento...' : '✅ Concluído'}
-          </strong>
-          <div className="space-y-1">
-            {scanLog.map((log, index) => (
-              <div key={index} className="text-xs font-mono text-slate-500">
-                {log}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ESTATÍSTICAS */}
-      {Object.keys(catalogo).length > 0 && (
-        <div className="border border-emerald-250 rounded-xl p-6 bg-emerald-50/20 backdrop-blur-sm relative z-10 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Crown size={16} className="text-amber-500" />
-            <h2 className="font-black text-xs text-emerald-800 uppercase tracking-widest">📊 ESTATÍSTICAS DO KNOWLEDGE BASE</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Endpoints mapeados</span>
-              <div className="text-xl font-black text-slate-800">{estatisticas.totalEndpoints}</div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Campos únicos</span>
-              <div className="text-xl font-black text-slate-800">{estatisticas.totalCampos}</div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Maior endpoint</span>
-              <div className="text-xs font-black text-emerald-600 leading-tight">
-                {estatisticas.maiorEndpoint.nome} <br/><span className="text-[10px] text-slate-400">({estatisticas.maiorEndpoint.campos} campos)</span>
-              </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-              <span className="text-slate-400 text-[10px] font-black uppercase block mb-1">Menor endpoint</span>
-              <div className="text-xs font-black text-emerald-600 leading-tight">
-                {estatisticas.menorEndpoint.nome} <br/><span className="text-[10px] text-slate-400">({estatisticas.menorEndpoint.campos} campos)</span>
-              </div>
-            </div>
-          </div>
-
-          {Object.keys(estatisticas.camposPorCategoria).length > 0 && (
-            <div className="mt-4 pt-3 border-t border-emerald-100">
-              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">📂 Campos por Categoria</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
-                {Object.entries(estatisticas.camposPorCategoria).map(([categoria, total]) => (
-                  <div key={categoria} className="text-xs font-bold text-slate-600">
-                    <span className="text-emerald-600">{categoria}:</span> {total} campos
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(estatisticas.endpointsPorStatus).length > 0 && (
-            <div className="mt-4 pt-3 border-t border-emerald-100">
-              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">📌 Status dos Endpoints</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
-                {Object.entries(estatisticas.endpointsPorStatus).map(([status, total]) => (
-                  <div key={status} className="text-xs font-bold text-slate-600">
-                    <span className="text-emerald-600">{status}:</span> {total}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(estatisticas.endpointsPorMaturidade).length > 0 && (
-            <div className="mt-4 pt-3 border-t border-emerald-100">
-              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">🧬 Maturidade dos Endpoints</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-1">
-                {Object.entries(estatisticas.endpointsPorMaturidade).map(([maturidade, total]) => {
-                  const labels: Record<string, string> = {
-                    descoberto: '🔍 Descoberto',
-                    parcial: '⚠️ Parcial',
-                    completo: '✅ Completo',
-                    instavel: '🔄 Instável',
-                    descontinuado: '🚫 Descontinuado'
-                  };
-                  return (
-                    <div key={maturidade} className="text-xs font-bold text-slate-600">
-                      <span className="text-emerald-600">{labels[maturidade] || maturidade}:</span> {total}
+            <div className="mt-5 grid gap-3">
+              {(discoveryEvents.length > 0 ? discoveryEvents : [{ severity: 'INFO', title: 'Sem descobertas ainda', description: 'Execute um scan para gerar eventos.' }]).map((event, index) => (
+                <div key={index} className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                  <div className={`mt-0.5 h-3 w-3 rounded-full ${event.severity === 'WARNING' ? 'bg-rose-500' : event.severity === 'NOTICE' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{event.severity}</span>
+                      <span className="text-sm font-black text-slate-950">{event.title}</span>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {estatisticas.ranking.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-emerald-100">
-              <h3 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">🏆 TOP ENDPOINTS</h3>
-              <ol className="list-decimal pl-5 mt-1 space-y-0.5">
-                {estatisticas.ranking.slice(0, 5).map((item, index) => {
-                  const labels: Record<string, string> = {
-                    descoberto: '🔍',
-                    parcial: '⚠️',
-                    completo: '✅',
-                    instavel: '🔄',
-                    descontinuado: '🚫'
-                  };
-                  return (
-                    <li key={item.nome} className="text-xs font-bold text-slate-600">
-                      <span className="text-emerald-600">{item.nome}</span> - {item.campos} campos
-                      {item.parametros > 0 && ` (${item.parametros} params)`}
-                      {item.confianca > 0 && ` | conf: ${item.confianca}%`}
-                      {item.maturidade && ` | ${labels[item.maturidade] || ''}`}
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* COMPARADOR DE ENDPOINTS */}
-      {Object.keys(catalogo).length >= 2 && (
-        <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-sm relative z-10">
-          <h2 className="font-black text-xs text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2 flex items-center gap-2">
-            <Rocket size={14} className="text-amber-500" />
-            🔄 Comparador de Endpoints
-          </h2>
-          <div className="flex gap-4 mt-4 flex-wrap">
-            <select
-              className="border border-slate-200 rounded-xl px-4 py-2 bg-[#f8fafc] text-xs font-black text-slate-800 focus:outline-none focus:border-emerald-500 shadow-inner"
-              value={compareEndpoint1}
-              onChange={(e) => setCompareEndpoint1(e.target.value)}
-            >
-              <option value="">Selecione endpoint 1</option>
-              {Object.keys(catalogo).map((ep) => (
-                <option key={ep} value={ep}>{ep} {categorias[ep] ? categorias[ep] : ''}</option>
-              ))}
-            </select>
-            <select
-              className="border border-slate-200 rounded-xl px-4 py-2 bg-[#f8fafc] text-xs font-black text-slate-800 focus:outline-none focus:border-emerald-500 shadow-inner"
-              value={compareEndpoint2}
-              onChange={(e) => setCompareEndpoint2(e.target.value)}
-            >
-              <option value="">Selecione endpoint 2</option>
-              {Object.keys(catalogo).map((ep) => (
-                <option key={ep} value={ep}>{ep} {categorias[ep] ? categorias[ep] : ''}</option>
-              ))}
-            </select>
-          </div>
-
-          {comparacao && (
-            <div className="mt-4 space-y-3 animate-fadeIn">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50/50 shadow-sm">
-                  <span className="text-slate-400 text-[10px] font-black uppercase">Em comum</span>
-                  <div className="text-2xl font-black text-emerald-600">{comparacao.totalComum}</div>
-                </div>
-                <div className="border border-slate-200 rounded-xl p-3 bg-[#f8fafc] shadow-sm">
-                  <span className="text-slate-400 text-[10px] font-black uppercase">Somente {compareEndpoint1}</span>
-                  <div className="text-2xl font-black text-slate-700">{comparacao.totalSomente1}</div>
-                </div>
-                <div className="border border-slate-200 rounded-xl p-3 bg-[#f8fafc] shadow-sm">
-                  <span className="text-slate-400 text-[10px] font-black uppercase">Somente {compareEndpoint2}</span>
-                  <div className="text-2xl font-black text-slate-700">{comparacao.totalSomente2}</div>
-                </div>
-              </div>
-
-              <details className="text-xs">
-                <summary className="cursor-pointer font-bold text-slate-400 hover:text-slate-800 transition-colors flex items-center gap-1">
-                  <ChevronRight size={12} className="text-emerald-500" />
-                  Ver detalhes
-                </summary>
-                <div className="grid grid-cols-3 gap-4 mt-3 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl p-3 shadow-inner">
-                  <div>
-                    <strong className="text-slate-800 text-[10px] font-black uppercase">Em comum:</strong>
-                    <ul className="list-disc pl-4 text-slate-500 mt-1 font-bold space-y-0.5">
-                      {comparacao.emComum.slice(0, 10).map(c => (
-                        <li key={c}>{c}</li>
-                      ))}
-                      {comparacao.emComum.length > 10 && (
-                        <li className="text-slate-400">+ {comparacao.emComum.length - 10} mais</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div>
-                    <strong className="text-slate-800 text-[10px] font-black uppercase">Somente {compareEndpoint1}:</strong>
-                    <ul className="list-disc pl-4 text-slate-500 mt-1 font-bold space-y-0.5">
-                      {comparacao.somente1.slice(0, 10).map(c => (
-                        <li key={c}>{c}</li>
-                      ))}
-                      {comparacao.somente1.length > 10 && (
-                        <li className="text-slate-400">+ {comparacao.somente1.length - 10} mais</li>
-                      )}
-                    </ul>
-                  </div>
-                  <div>
-                    <strong className="text-slate-800 text-[10px] font-black uppercase">Somente {compareEndpoint2}:</strong>
-                    <ul className="list-disc pl-4 text-slate-500 mt-1 font-bold space-y-0.5">
-                      {comparacao.somente2.slice(0, 10).map(c => (
-                        <li key={c}>{c}</li>
-                      ))}
-                      {comparacao.somente2.length > 10 && (
-                        <li className="text-slate-400">+ {comparacao.somente2.length - 10} mais</li>
-                      )}
-                    </ul>
+                    <p className="mt-1 text-sm text-slate-600">{event.description}</p>
                   </div>
                 </div>
-              </details>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ANÁLISE DO ENDPOINT ATUAL */}
-      {analysis && (
-        <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-sm relative z-10">
-          <div className="flex justify-between items-center flex-wrap gap-2.5 border-b border-slate-200 pb-3">
-            <h2 className="font-black text-xs text-slate-800 uppercase flex items-center gap-2">
-              <Brain size={14} className="text-amber-500" />
-              🔍 ANÁLISE: {analysis.endpoint}
-            </h2>
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => toggleFavorito(analysis.endpoint)}
-                className="text-2xl active:scale-95 transition-transform"
-                title="Favorito"
-              >
-                {categorias[analysis.endpoint] === '⭐ Favorito' ? '⭐' : '☆'}
-              </button>
-              <select
-                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
-                value={categorias[analysis.endpoint] || '📋 Geral'}
-                onChange={(e) => setCategoria(analysis.endpoint, e.target.value as CategoriaEndpoint)}
-              >
-                {CATEGORIAS_VALIDAS.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <select
-                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
-                value={analysis.status || '🔍 Pendente'}
-                onChange={(e) => setStatus(analysis.endpoint, e.target.value)}
-              >
-                {STATUS_VALIDOS.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-              <select
-                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
-                value={analysis.maturidade || 'descoberto'}
-                onChange={(e) => setMaturidade(analysis.endpoint, e.target.value)}
-              >
-                {MATURIDADE_VALIDA.map(m => {
-                  const labels: Record<string, string> = {
-                    descoberto: '🔍 Descoberto',
-                    parcial: '⚠️ Parcial',
-                    completo: '✅ Completo',
-                    instavel: '🔄 Instável',
-                    descontinuado: '🚫 Descontinuado'
-                  };
-                  return (
-                    <option key={m} value={m}>{labels[m] || m}</option>
-                  );
-                })}
-              </select>
-              <select
-                className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-slate-800 bg-[#f8fafc] outline-none shadow-sm focus:border-emerald-500"
-                value={analysis.utilidade || 0}
-                onChange={(e) => setUtilidade(analysis.endpoint, Number(e.target.value) as 1 | 2 | 3 | 4 | 5)}
-              >
-                <option value={0}>⭐ Utilidade</option>
-                {[1, 2, 3, 4, 5].map(n => (
-                  <option key={n} value={n}>{'★'.repeat(n)}{'☆'.repeat(5 - n)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
-              <span className="text-slate-400 text-[9px] font-black uppercase">Campos</span>
-              <p className="text-slate-800 text-sm font-black">{analysis.totalCampos}</p>
-            </div>
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
-              <span className="text-slate-400 text-[9px] font-black uppercase">Objetos</span>
-              <p className="text-slate-800 text-sm font-black">{analysis.objetos}</p>
-            </div>
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
-              <span className="text-slate-400 text-[9px] font-black uppercase">Arrays</span>
-              <p className="text-slate-800 text-sm font-black">{analysis.arrays}</p>
-            </div>
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
-              <span className="text-slate-400 text-[9px] font-black uppercase">Status</span>
-              <p className="text-emerald-600 text-sm font-black">{analysis.status || '🔍 Pendente'}</p>
-            </div>
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
-              <span className="text-slate-400 text-[9px] font-black uppercase">Maturidade</span>
-              <p className="text-emerald-600 text-sm font-black truncate">{maturidadeLabels[analysis.maturidade || 'descoberto']?.label || '🔍 Descoberto'}</p>
-            </div>
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
-              <span className="text-slate-400 text-[9px] font-black uppercase">Confiança</span>
-              <p className="text-slate-800 text-sm font-black">{analysis.confianca || 0}%</p>
-            </div>
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center">
-              <span className="text-slate-400 text-[9px] font-black uppercase">Scans</span>
-              <p className="text-slate-800 text-sm font-black">{analysis.scansRealizados || 0}</p>
-            </div>
-            <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 shadow-inner text-center flex flex-col justify-center">
-              <span className="text-slate-400 text-[8px] font-black uppercase mb-0.5">Hash</span>
-              <p className="font-mono text-[10px] text-emerald-600 font-bold truncate">{analysis.ultimoHash || 'N/A'}</p>
-            </div>
-            {analysis.parametros && analysis.parametros.length > 0 && (
-              <div className="col-span-2 md:col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-                <span className="text-amber-700 text-[9px] font-black uppercase">Parâmetros requeridos</span>
-                <p className="text-amber-700 font-black text-xs mt-1">{analysis.parametros.join(', ')}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Busca de Campos */}
-          <div className="mt-6">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-black text-slate-800 uppercase">Campos detectados ({analysis.campos.length})</span>
-              <input
-                className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-1 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 shadow-inner w-48"
-                placeholder="Buscar campo..."
-                value={buscaCampos}
-                onChange={(e) => setBuscaCampos(e.target.value)}
-              />
-            </div>
-            <ul className="list-disc pl-5 mt-3 max-h-40 overflow-y-auto text-slate-600 font-bold space-y-0.5 bg-slate-50 border border-slate-150 p-3 rounded-xl shadow-inner">
-              {camposFiltrados.slice(0, 30).map((campo: string) => (
-                <li key={campo} className="text-xs">
-                  <span className="font-black text-slate-800">{campo}</span>
-                  <span className="text-slate-400 text-[10px] ml-2 font-bold">
-                    ({analysis.tipos?.[campo] || 'desconhecido'})
-                  </span>
-                </li>
               ))}
-              {camposFiltrados.length > 30 && (
-                <li className="text-slate-400">... e mais {camposFiltrados.length - 30} campos</li>
-              )}
-              {buscaCampos && camposFiltrados.length === 0 && (
-                <li className="text-slate-400">Nenhum campo encontrado</li>
-              )}
-            </ul>
-          </div>
+            </div>
+          </section>
 
-          {/* Observações */}
-          <div className="mt-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-slate-800 uppercase">Observações</span>
-              {observacaoEditando === analysis.endpoint ? (
-                <div className="flex-1 flex gap-2">
-                  <input
-                    className="flex-1 bg-[#f8fafc] border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-inner"
-                    value={analysis.observacoes || ''}
-                    onChange={(e) => setObservacao(analysis.endpoint, e.target.value)}
-                    placeholder="Adicione observações sobre este endpoint..."
-                  />
-                  <button
-                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg transition-colors font-black uppercase shadow-sm"
-                    onClick={() => setObservacaoEditando(null)}
+          <section className="rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.06)] backdrop-blur">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-500">Controls</p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">Scan, filtros e ações</h2>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{endpoints.length} endpoints</span>
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-[1.3fr_0.7fr]">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap gap-2.5">
+                  <select
+                    className="flex-1 min-w-[200px] rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-800 outline-none focus:border-emerald-500"
+                    value={endpoint}
+                    onChange={(e) => setEndpoint(e.target.value)}
+                    disabled={loading || scanning || !isAuthenticated}
                   >
-                    Salvar
+                    {Object.entries(endpointsPorCategoria).map(([categoria, eps]) => (
+                      <optgroup key={categoria} label={categoria}>
+                        {eps.map((e) => (
+                          <option key={e} value={e}>{e}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={executar}
+                    className="rounded-xl border border-emerald-500 bg-emerald-600 px-5 py-2 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-500 disabled:opacity-50"
+                    disabled={loading || scanning || !isAuthenticated}
+                  >
+                    {loading ? <span className="flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Executando...</span> : 'Executar'}
+                  </button>
+
+                  <button
+                    onClick={scanAllEndpoints}
+                    className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-black uppercase tracking-widest text-slate-700 transition hover:border-slate-300 disabled:opacity-50"
+                    disabled={scanning || loading || !isAuthenticated}
+                  >
+                    {scanning ? `? ${scanProgress.current}/${scanProgress.total}` : 'Scan Todos'}
+                  </button>
+
+                  {scanning && (
+                    <button
+                      onClick={cancelarScan}
+                      className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-xs font-black uppercase tracking-widest text-rose-600 transition hover:bg-rose-100"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+
+                  <button
+                    onClick={limparResposta}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-600 transition hover:border-slate-300"
+                    disabled={!response && !error}
+                  >
+                    Limpar
                   </button>
                 </div>
-              ) : (
-                <div className="flex-1 flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-bold">
-                    {analysis.observacoes || 'Clique para adicionar observações'}
-                  </span>
-                  <button
-                    className="text-xs text-emerald-600 hover:text-emerald-500 transition-colors"
-                    onClick={() => setObservacaoEditando(analysis.endpoint)}
-                  >
-                    ✏️
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Histórico */}
-          {analysis.historico && analysis.historico.length > 0 && (
-            <details className="mt-4">
-              <summary className="cursor-pointer font-bold text-xs text-slate-700 hover:text-slate-900 transition-colors flex items-center gap-1">
-                <ChevronRight size={12} className="text-emerald-500" />
-                📜 Histórico de Descoberta ({analysis.historico.length} registros)
-              </summary>
-              <div className="text-[10px] mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg max-h-40 overflow-y-auto">
-                {analysis.historico.map((h, idx) => (
-                  <div key={idx} className="font-mono text-slate-600 font-bold leading-normal">
-                    {new Date(h.data).toLocaleString()}: {h.campos} campos
-                    {h.hash && ` [${h.hash}]`}
-                    {idx > 0 && h.hash !== analysis.historico?.[idx - 1]?.hash && (
-                      <span className="text-amber-500 ml-2 font-black">⚠️ schema mudou</span>
-                    )}
-                  </div>
-                ))}
-                {analysis.historico.length === 50 && (
-                  <div className="text-slate-400 italic mt-1 font-bold">(últimos 50 registros)</div>
-                )}
-              </div>
-            </details>
-          )}
-
-          {/* Schema */}
-          {analysis.tipos && (
-            <details className="mt-4">
-              <summary className="cursor-pointer font-bold text-sm text-slate-700 hover:text-slate-800 transition-colors flex items-center gap-1">
-                <ChevronRight size={12} className="text-emerald-500" />
-                📑 Ver Schema
-              </summary>
-              <pre className="text-[11px] mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg overflow-auto max-h-40 text-slate-700 font-mono font-bold leading-relaxed shadow-inner">
-                {JSON.stringify(analysis.tipos, null, 2)}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
-
-      {/* KNOWLEDGE BASE CATALOGUE - LIGHT GELO */}
-      {Object.keys(catalogo).length > 0 && (
-        <section className="relative bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm z-10">
-          <div className="bg-zinc-50 p-4 border-b border-slate-200 flex justify-between items-center">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-              <Database size={14} className="text-emerald-600 animate-pulse" />
-              Catálogo API GPRO
-            </h2>
-            <div className="flex gap-2.5">
-              <button onClick={gerarDocumentacao} className="text-[9px] font-black text-slate-500 uppercase hover:text-emerald-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl transition-all shadow-sm">Gerar .MD</button>
-              <button onClick={exportarCatalogo} className="text-[9px] font-black text-slate-500 uppercase hover:text-emerald-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl transition-all shadow-sm">Exportar .JSON</button>
-              <button onClick={limparKnowledgeBase} className="text-[9px] font-black text-slate-500 uppercase hover:text-rose-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl transition-all shadow-sm">Limpar Catálogo</button>
-            </div>
-          </div>
-
-          <div className="p-4 md:p-6 bg-white space-y-4">
-            {/* Barra de Progresso do Scan se estiver rodando */}
-            {scanning && (
-              <div className="border border-amber-250 rounded-xl p-4 bg-amber-50 shadow-sm animate-pulse mb-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex justify-between text-xs font-black">
-                      <span className="text-amber-700">Scan Completo: {scanProgress.currentEndpoint}</span>
-                      <span className="text-amber-600">{scanProgress.current}/{scanProgress.total}</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-2 mt-2 rounded-full overflow-hidden border border-slate-300/30">
-                      <div
-                        className="bg-amber-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${progressPercent}%` }}
+                <div className="mt-4 flex items-center gap-4 flex-wrap border-t border-slate-200 pt-3">
+                  <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={hasParams}
+                      onChange={(e) => setHasParams(e.target.checked)}
+                      className="accent-emerald-500"
+                      disabled={!isAuthenticated}
+                    />
+                    Parâmetros
+                  </label>
+                  {hasParams && (
+                    <div className="flex gap-2 flex-1 animate-fadeIn">
+                      <input
+                        className="flex-1 min-w-[120px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-emerald-500"
+                        placeholder="Ex: driverId"
+                        value={paramKey}
+                        onChange={(e) => setParamKey(e.target.value)}
+                        disabled={!isAuthenticated}
                       />
+                      <input
+                        className="flex-1 min-w-[120px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-emerald-500"
+                        placeholder="Valor"
+                        value={paramValue}
+                        onChange={(e) => setParamValue(e.target.value)}
+                        disabled={!isAuthenticated}
+                      />
+                      {detectedParams.length > 0 && (
+                        <span className="flex items-center text-[10px] font-bold text-amber-600">⚠️ Parâmetros sugeridos: {detectedParams.join(', ')}</span>
+                      )}
                     </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Knowledge Status</p>
+                <div className="mt-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"><span>Total endpoints</span><strong>{mappedEndpoints}</strong></div>
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"><span>Scanning</span><strong>{scanning ? 'Yes' : 'No'}</strong></div>
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"><span>Discovery events</span><strong>{discoverySummary.totalEvents}</strong></div>
+                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"><span>Coverage</span><strong>{coveragePercent}%</strong></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {error && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 relative z-10">
+              ⚠️ {error}
+            </div>
+          )}
+
+          {scanProgress.total > 0 && scanning && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm animate-pulse">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="flex justify-between text-xs font-black">
+                    <span className="text-amber-700">Escaneando: {scanProgress.currentEndpoint}</span>
+                    <span className="text-amber-600">{scanProgress.current}/{scanProgress.total}</span>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full border border-slate-300/30 bg-slate-200">
+                    <div className="h-2 rounded-full bg-amber-500 transition-all duration-300" style={{ width: `${progressPercent}%` }} />
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Tabela de endpoints mapeados */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 bg-white max-h-96 overflow-y-auto custom-scrollbar p-1">
+          {scanLog.length > 0 && (
+            <div className="max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <strong className="mb-2 block text-xs font-black uppercase flex items-center gap-2 text-slate-800">
+                <Database size={14} className="text-emerald-600" />
+                ?? Log do Scan: {scanning ? '? Em andamento...' : 'Conclu?do'}
+              </strong>
+              <div className="space-y-1">
+                {scanLog.map((log, index) => <div key={index} className="text-xs font-mono text-slate-500">{log}</div>)}
+              </div>
+            </div>
+          )}
+
+          <section className="rounded-[1.75rem] border border-white/70 bg-white/85 p-5 shadow-[0_16px_50px_rgba(15,23,42,0.06)] backdrop-blur">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-500">Endpoints</p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">Cards da base</h2>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                {mappedEndpoints} cards
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
               {Object.entries(catalogo)
-                .sort((a, b) => {
-                  const catA = categorias[a[0]] || '📋 Geral';
-                  const catB = categorias[b[0]] || '📋 Geral';
-                  return catA.localeCompare(catB);
-                })
+                .sort(([, a], [, b]) => (b.totalCampos || 0) - (a.totalCampos || 0))
                 .map(([endpointName, info]) => {
                   const categoria = categorias[endpointName] || '📋 Geral';
-                  const isExpanded = expandedEndpoints.has(endpointName);
-                  const isFavorito = categoria === '⭐ Favorito';
-                  const status = info.status || '🔍 Pendente';
-                  const maturidade = info.maturidade || 'descoberto';
-                  const utilidade = info.utilidade || 0;
-                  const confianca = info.confianca || 0;
-
-                  const statusColors: Record<string, string> = {
-                    '✔ Validado': 'bg-emerald-50 text-emerald-700 border-emerald-250',
-                    '⚠️ Em análise': 'bg-amber-50 text-amber-700 border-amber-250',
-                    '❌ Inativo': 'bg-rose-50 text-rose-700 border-rose-250',
-                    '🔍 Pendente': 'bg-slate-50 text-slate-700 border-slate-250',
-                  };
-
+                  const maturityLabel = maturidadeLabels[info.maturidade || 'descoberto'].label || '🔍 Descoberto';
                   return (
-                    <div
+                    <button
                       key={endpointName}
-                      className={`border rounded-xl p-3.5 transition-colors shadow-sm bg-white ${
-                        isFavorito ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200 hover:border-slate-300'
-                      }`}
+                      onClick={() => setSelectedEndpoint(endpointName)}
+                      className="group rounded-[1.5rem] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
                     >
-                      <div className="flex justify-between items-start cursor-pointer" onClick={() => toggleExpand(endpointName)}>
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <strong className="text-xs font-black text-slate-800 truncate">{endpointName}</strong>
-                            {isFavorito && <span className="text-amber-500">⭐</span>}
-                            {utilidade > 0 && (
-                              <span className="text-[10px] text-amber-500">
-                                {'★'.repeat(utilidade)}{'☆'.repeat(5 - utilidade)}
-                              </span>
-                            )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-black text-slate-950">{endpointName}</h3>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-500">{categoria}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[9px] flex-wrap mt-1">
-                            <span className="text-slate-400 font-bold">{categoria}</span>
-                            <span className={`px-2 py-0.5 rounded-full border text-[8px] font-black ${statusColors[status] || 'bg-slate-50 text-slate-700 border-slate-250'}`}>
-                              {status}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded-full border text-[8px] font-black ${maturidadeLabels[maturidade]?.color || 'bg-slate-50 text-slate-600'}`}>
-                              {maturidadeLabels[maturidade]?.label || maturidade}
-                            </span>
-                            <span className="text-slate-400 font-bold">{confianca}%</span>
-                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{maturityLabel}</p>
                         </div>
-                        <span className="text-slate-400 text-xs ml-2">{isExpanded ? '▼' : '▶'}</span>
+                        <ChevronRight size={16} className="text-slate-300 transition group-hover:text-emerald-600" />
                       </div>
-
-                      {isExpanded && (
-                        <div className="mt-3 pt-3 border-t border-slate-100 animate-fadeIn text-left">
-                          <ul className="text-[10px] font-bold list-disc pl-4 text-slate-500 max-h-32 overflow-y-auto custom-scrollbar space-y-0.5">
-                            {info.campos.slice(0, 10).map(campo => (
-                              <li key={campo} className="text-slate-600">{campo}</li>
-                            ))}
-                            {info.campos.length > 10 && (
-                              <li className="text-slate-400 font-bold">+ {info.campos.length - 10} mais</li>
-                            )}
-                            {info.parametros && info.parametros.length > 0 && (
-                              <li className="text-amber-600 mt-1 list-none font-black">📌 {info.parametros.join(', ')}</li>
-                            )}
-                          </ul>
-                          {info.observacoes && (
-                            <div className="text-[10px] text-slate-500 mt-2 italic font-bold truncate">
-                              💭 {info.observacoes}
-                            </div>
-                          )}
+                      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Campos</p>
+                          <p className="mt-1 text-sm font-black text-slate-900">{info.totalCampos}</p>
                         </div>
-                      )}
-                    </div>
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Confiança</p>
+                          <p className="mt-1 text-sm font-black text-slate-900">{info.confianca || 0}%</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fingerprint</p>
+                          <p className="mt-1 truncate font-mono text-[10px] font-bold text-slate-700">{info.ultimoHash || 'N/A'}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Última mudança</p>
+                          <p className="mt-1 text-sm font-black text-slate-900">{info.ultimoScan ? new Date(info.ultimoScan).toLocaleTimeString('pt-BR') : 'N/A'}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-emerald-700">Open →</p>
+                    </button>
                   );
                 })}
             </div>
+          </section>
+        </main>
+
+        <aside className={`fixed right-0 top-0 z-50 h-full w-full max-w-[460px] border-l border-slate-200 bg-white/95 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-transform duration-300 ${selectedEndpoint ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className="flex h-full flex-col">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-slate-500">Drawer</p>
+                <h2 className="mt-2 text-xl font-black text-slate-950">Detalhes do endpoint</h2>
+              </div>
+              <button onClick={() => setSelectedEndpoint(null)} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-black uppercase tracking-widest text-slate-500">Fechar</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-5">
+              {selectedEndpointInfo ? (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">{selectedEndpoint}</p>
+                    <p className="mt-1 text-sm text-slate-600">{selectedEndpointAnalysis?.status || selectedEndpointInfo.status || 'Dispon?vel em pr?xima fase'}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Schema</p>
+                      <p className="mt-1 text-sm font-black text-slate-900">{selectedEndpointAnalysis?.totalCampos ?? selectedEndpointInfo.totalCampos}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fingerprint</p>
+                      <p className="mt-1 truncate font-mono text-[10px] font-bold text-slate-700">{selectedEndpointInfo.ultimoHash || 'Dispon?vel em pr?xima fase'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Campos</p>
+                      <p className="mt-1 text-sm font-black text-slate-900">{selectedEndpointAnalysis?.campos.length ?? selectedEndpointInfo.campos.length}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tipos</p>
+                      <p className="mt-1 text-sm font-black text-slate-900">{selectedEndpointAnalysis?.tipos ? Object.keys(selectedEndpointAnalysis.tipos).length : 'N/A'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Observações</p>
+                      <p className="mt-1 text-sm font-black text-slate-900">{selectedEndpointAnalysis?.observacoes || selectedEndpointInfo.observacoes || 'Dispon?vel em pr?xima fase'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Confiança</p>
+                      <p className="mt-1 text-sm font-black text-slate-900">{selectedEndpointInfo.confianca || 0}%</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Timeline disponível</p>
+                    <div className="mt-3 space-y-2">
+                      {selectedTimelineEvents.length > 0 ? selectedTimelineEvents.map((event, index) => (
+                        <div key={index} className="rounded-xl bg-slate-50 p-3 text-xs">
+                          <p className="font-black text-slate-900">{event.title}</p>
+                          <p className="mt-1 text-slate-600">{event.description}</p>
+                        </div>
+                      )) : (
+                        <p className="text-sm text-slate-500">Disponível em próxima fase</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Observation, Evidence e detalhes de histórico temporal estão prontos para a próxima fase.
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-5 text-sm text-slate-500">Selecione um card para abrir o painel lateral.</p>
+              )}
+            </div>
           </div>
-        </section>
-      )}
-
-      {/* RESPOSTA JSON */}
-      {response && (
-        <div className="border border-slate-200 rounded-[2rem] p-6 bg-white shadow-sm relative z-10 text-left">
-          <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest border-b border-slate-200 pb-2 mb-4 flex items-center gap-2">
-            <Zap size={14} className="text-emerald-500" />
-            📄 Resposta JSON
-          </h3>
-          <pre className="border border-slate-200 rounded-xl p-4 overflow-auto max-h-96 bg-[#0f0f13] text-slate-300 text-xs font-mono font-bold leading-relaxed shadow-inner">
-            {JSON.stringify(response, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      {/* ESTADO VAZIO */}
-      {!response && !loading && !error && !scanning && (
-        <div className="border border-slate-200 rounded-[2rem] p-12 bg-white text-center shadow-sm relative z-10">
-          <div className="text-6xl mb-4">🔬</div>
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider mb-2">
-            {isAuthenticated ? 'Pronto para explorar a API GPRO' : 'Faça login para acessar'}
-          </h2>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider max-w-md mx-auto leading-relaxed">
-            {isAuthenticated
-              ? 'Selecione um endpoint e clique em Executar para analisar a estrutura da resposta. Use "Scan Todos" para mapear toda a API de uma vez.'
-              : 'Você precisa estar autenticado para usar a Knowledge Base. Faça login no Alfa Racing.'}
-          </p>
-        </div>
-      )}
-
+        </aside>
+      </div>
     </div>
   );
+  return knowledgeCenter;
 }

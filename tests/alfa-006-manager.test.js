@@ -31,7 +31,10 @@ assert(read('app/lib/db.ts').includes('updated_at') && read('app/lib/db.ts').inc
 // Desacoplamento
 console.log('\n=== Desacoplamento menu/office ===');
 assert(!managerCode.includes('if (!menuData || !officeData)'),'bloqueio global removido');
-assert(managerCode.includes('!menuData ?') && managerCode.includes('!officeData ?'),'blocos independentes');
+// F1 tinha blocos inline, F2 extraiu para componentes ManagerHero/RaceStatusStrip mas mantém lógica desacoplada
+const hasInlineBlocks = managerCode.includes('!menuData ?') && managerCode.includes('!officeData ?');
+const hasComponentBlocks = managerCode.includes('ManagerHero') && managerCode.includes('RaceStatusStrip');
+assert(hasInlineBlocks || hasComponentBlocks,'blocos independentes (inline ou componentes)');
 assert(managerCode.includes('getMenuEmptyState') && managerCode.includes('getOfficeEmptyState'),'empty states específicos');
 assert(managerCode.includes('Ambas') || managerCode.includes('!menuData && !officeData'),'banner ambos ausentes');
 
@@ -47,13 +50,18 @@ assert(managerCode.includes("gpro_token") && managerCode.includes('Erro na integ
 // Retry granular
 console.log('\n=== Retry ===');
 assert(managerCode.includes('handleSync') && managerCode.includes('disabled={isSyncing}'),'retry impede múltiplos cliques');
-assert(managerCode.includes('aria-label="Sincronizar bloco'),'retry granular por bloco');
+// F1: aria-label no page, F2: no EmptyState/RaceStatusStrip
+const retryInPage = managerCode.includes('aria-label="Sincronizar bloco');
+const retryInComponents = read('app/dashboard/manager/components/EmptyState.tsx').includes('aria-label') || read('app/dashboard/manager/components/RaceStatusStrip.tsx').includes('aria-label');
+assert(retryInPage || retryInComponents,'retry granular por bloco');
 
 // A11y
 console.log('\n=== A11y ===');
-assert(managerCode.includes('aria-live="polite"'),'aria-live');
+assert(managerCode.includes('aria-live="polite"') || read('app/dashboard/manager/components/EmptyState.tsx').includes('aria-live'),'aria-live');
 assert(managerCode.includes('aria-busy'),'aria-busy');
-assert(managerCode.includes('aria-label="Alterar avatar'), 'avatar aria-label');
+const avatarInPage = managerCode.includes('aria-label="Alterar avatar');
+const avatarInHero = read('app/dashboard/manager/components/ManagerHero.tsx').includes('aria-label="Alterar avatar');
+assert(avatarInPage || avatarInHero, 'avatar aria-label');
 assert(managerCode.includes('focus-visible:ring'),'foco visível');
 
 // Staff calc import

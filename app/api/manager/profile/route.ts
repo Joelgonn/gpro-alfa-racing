@@ -8,16 +8,15 @@
 // 3. Se 'refresh=true' ou se faltarem dados essenciais, buscar da GPRO (fallback/force)
 // ============================================
 
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
+import { requireAuth, resolveUserId } from '@/app/lib/auth';
+import { getGproToken } from '@/app/lib/gpro-token';
 
 const GPRO_LANG = 'br';
 const GPRO_API_BASE = 'https://gpro.net';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = supabaseAdmin;
 
 // ============================================
 // FETCH DA GPRO CORRIGIDO COM USER-AGENT DE NAVEGADOR
@@ -112,12 +111,13 @@ const CACHE_TTL = 300000; // 5 minutos
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('user-id');
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      );
+    const headerUserId = request.headers.get('user-id');
+    let userId: string;
+    try {
+      userId = headerUserId ? await resolveUserId(headerUserId) : (await requireAuth()).id;
+    } catch (e: any) {
+      const status = e?.status || 401;
+      return NextResponse.json({ error: e.message || 'Não autenticado' }, { status });
     }
 
     const refresh = request.nextUrl.searchParams.get('refresh') === 'true';
@@ -129,10 +129,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Buscar dados gravados no user_state do Supabase
+    // Buscar dados gravados no user_state (sem gpro_token — token lido via helper server-only)
     const { data: userState, error: userStateError } = await supabase
       .from('user_state')
-      .select('menu_data, office_data, driver_json, car_json, weather_data, gpro_token, last_import_at')
+      .select('menu_data, office_data, driver_json, car_json, weather_data, last_import_at')
       .eq('user_id', userId)
       .single();
 
@@ -163,15 +163,16 @@ export async function GET(request: NextRequest) {
     // Força a busca da GPRO caso faltem campos críticos no BD ou se o usuário clicou em 'Sincronizar'
     const shouldFetchFromGpro = refresh || !hasMenuData || !hasDriverData || !hasCarData;
 
-    if (shouldFetchFromGpro && userState?.gpro_token) {
+    const gproTokenForProfile = shouldFetchFromGpro ? await getGproToken(userId) : null;
+    if (shouldFetchFromGpro && gproTokenForProfile) {
       console.log('📡 Buscando dados atualizados diretamente da API GPRO...');
       try {
         const [freshMenu, freshOffice, freshDriver, freshCar, freshQualify] = await Promise.all([
-          fetchGproJson('Menu', userState.gpro_token),
-          fetchGproJson('Office', userState.gpro_token),
-          fetchGproJson('DriProfile', userState.gpro_token),
-          fetchGproJson('UpdateCar', userState.gpro_token),
-          fetchGproJson('Qualify2', userState.gpro_token),
+          fetchGproJson('Menu', gproTokenForProfile),
+          fetchGproJson('Office', gproTokenForProfile),
+          fetchGproJson('DriProfile', gproTokenForProfile),
+          fetchGproJson('UpdateCar', gproTokenForProfile),
+          fetchGproJson('Qualify2', gproTokenForProfile),
         ]);
 
         const menuInfo = {
@@ -328,6 +329,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error: any) {
+    if (error?.status === 401) return NextResponse.json({ success: false, error: error.message || 'Não autenticado' }, { status: 401 });
+    if (error?.status === 403) return NextResponse.json({ success: false, error: error.message || 'Acesso negado' }, { status: 403 });
     console.error('❌ Erro crítico no endpoint do gerente:', error);
     return NextResponse.json(
       { 

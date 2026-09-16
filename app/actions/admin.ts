@@ -21,10 +21,11 @@ export async function generateNewInvite(userId: string) {
     return { success: false, message: 'Acesso negado. Você não é admin.' }
   }
 
-  // 2. Gera um código aleatório (Ex: VIP-A1B2-C3D4)
-  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + 
-                     Math.random().toString(36).substring(2, 6).toUpperCase();
-  const code = `ALFA-${randomPart}`;
+  // 2. Gera um código aleatório seguro (Ex: ALFA-A1B2-C3D4) usando crypto
+  const uuid = crypto.randomUUID().replace(/-/g, '').toUpperCase();
+  const part1 = uuid.slice(0, 4);
+  const part2 = uuid.slice(4, 8);
+  const code = `ALFA-${part1}-${part2}`;
 
   // 3. Salva no banco
   const { error } = await supabaseAdmin

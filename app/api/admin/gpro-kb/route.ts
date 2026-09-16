@@ -9,7 +9,6 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import {
   getKnowledgeBase,
   upsertEndpoint,
@@ -19,28 +18,19 @@ import {
 import { endpoints } from '@/app/lib/gpro-api';
 
 // ============================================
-// CLIENTE SUPABASE (Service Role - mesmo padrão do sync)
+// HELPERS DE AUTENTICAÇÃO — SOMENTE ADMIN
 // ============================================
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// ============================================
-// HELPERS DE AUTENTICAÇÃO
-// ============================================
+import { requireAdmin, resolveUserId } from '@/app/lib/auth';
 
 async function getAuthenticatedUserId(request: NextRequest): Promise<string> {
-  // ✅ PADRÃO DO ALFA: userId via header 'user-id'
-  const userId = request.headers.get('user-id');
-  
-  if (!userId) {
-    console.error('❌ Header user-id não encontrado');
-    throw new Error('Usuário não autenticado');
+  // Validação server-side: header user-id só é aceito se coincidir com sessão; exige admin
+  const headerUserId = request.headers.get('user-id');
+  const adminUser = await requireAdmin();
+  if (headerUserId && headerUserId !== adminUser.id) {
+    // Tenta resolver para gerar erro 403 padronizado (IDOR)
+    await resolveUserId(headerUserId);
   }
-
-  console.log(`✅ Usuário autenticado via header: ${userId}`);
-  return userId;
+  return adminUser.id;
 }
 
 // ============================================
@@ -63,13 +53,13 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('❌ Erro ao buscar knowledge base:', error);
+    const status = error?.status || (error.message === 'Usuário não autenticado' || error.message?.includes('Não autenticado') ? 401 : error.message?.includes('admin') ? 403 : 500);
     return NextResponse.json(
       { 
         success: false,
         error: error.message || 'Erro ao buscar knowledge base' 
       },
-      { status: error.message === 'Usuário não autenticado' ? 401 : 500 }
+      { status }
     );
   }
 }
@@ -141,13 +131,13 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('❌ Erro ao salvar endpoint:', error);
+    const status = error?.status || (error.message?.includes('Não autenticado') ? 401 : error.message?.includes('admin') ? 403 : 500);
     return NextResponse.json(
       { 
         success: false,
         error: error.message || 'Erro ao salvar endpoint' 
       },
-      { status: error.message === 'Usuário não autenticado' ? 401 : 500 }
+      { status }
     );
   }
 }
@@ -181,13 +171,13 @@ export async function DELETE(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('❌ Erro ao remover knowledge base:', error);
+    const status = error?.status || (error.message?.includes('Não autenticado') ? 401 : error.message?.includes('admin') ? 403 : 500);
     return NextResponse.json(
       { 
         success: false,
         error: error.message || 'Erro ao remover knowledge base' 
       },
-      { status: error.message === 'Usuário não autenticado' ? 401 : 500 }
+      { status }
     );
   }
 }

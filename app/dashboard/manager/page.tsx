@@ -15,6 +15,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { TRACK_FLAGS } from '@/app/lib/tracks';
 import { calcStaffLevel } from '@/app/lib/staff';
+import { ManagerHero } from './components/ManagerHero';
+import { RaceStatusStrip } from './components/RaceStatusStrip';
+import { DriverSummary } from './components/DriverSummary';
+import { CarHealthCard } from './components/CarHealth';
+import { TechDirectorCard } from './components/TechDirectorCard';
+import { StaffCard } from './components/StaffCard';
+import { EmptyState } from './components/EmptyState';
+import { SyncBanner } from './components/SyncBanner';
 
 // ============================================
 // COMPONENTE PRINCIPAL
@@ -299,12 +307,12 @@ export default function ManagerPage() {
   // ✅ Loading
   if (isGlobalLoading) {
     return (
-      <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#eef2f6] text-emerald-600 font-mono text-xs gap-4">
+      <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#030712] text-emerald-400 font-sans text-xs gap-4">
         <div className="relative">
-          <div className="w-16 h-16 border-2 border-emerald-500/10 rounded-full absolute"></div>
-          <Loader2 className="animate-spin w-8 h-8 text-emerald-600" />
+          <div className="w-16 h-16 border-2 border-emerald-500/20 rounded-full absolute"></div>
+          <Loader2 className="animate-spin w-8 h-8 text-emerald-400" />
         </div>
-        <span className="animate-pulse tracking-widest text-emerald-700 font-bold">CARREGANDO PERFIL...</span>
+        <span className="animate-pulse tracking-widest text-emerald-300 font-bold">CARREGANDO PERFIL...</span>
       </div>
     );
   }
@@ -336,17 +344,16 @@ export default function ManagerPage() {
   const decodedNationalityName = decodeText(driver.nationalityName);
 
   return (
-    <div className="min-h-screen bg-[#eef2f6] text-slate-700 font-mono pb-24 md:pb-12 selection:bg-emerald-500/20 relative overflow-hidden">
+    <div className="min-h-screen bg-[#030712] text-zinc-100 font-sans pb-24 md:pb-12 selection:bg-yellow-500/20 selection:text-yellow-900 relative overflow-x-hidden">
       
-      {/* GLOWS */}
+      {/* GLOWS - reduzido para performance WebView */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/[0.01] blur-[120px] rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/[0.01] blur-[150px] rounded-full" />
+        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.06] blur-[80px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-600/[0.04] blur-[80px] rounded-full" />
       </div>
 
       {/* HEADER - SEM SELETOR DE PISTA */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3 sm:p-4 relative shadow-sm hover:shadow-md transition-shadow duration-300">
+      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/10 bg-[#0a0f1f]/80 p-3 sm:p-4 relative shadow-sm transition-shadow duration-300">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 lg:gap-4 relative z-10">
           
@@ -355,9 +362,9 @@ export default function ManagerPage() {
               <User size={14} className="sm:w-4 sm:h-4 text-white" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-[10px] sm:text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+              <h1 className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
                 Perfil do Manager
-                <span className="text-[7px] sm:text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
+                <span className="text-[10px] sm:text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
               </h1>
               <p className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase truncate max-w-[100px] sm:max-w-[120px]">{userEmail}</p>
             </div>
@@ -372,8 +379,8 @@ export default function ManagerPage() {
                 <span className="text-[8px] sm:text-[10px] font-bold text-emerald-600">CONECTADO</span>
               </div>
               
-              <div className="text-right border-l border-slate-200 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
-                <p className="text-[7px] sm:text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5 sm:mb-1">Última Sinc.</p>
+              <div className="text-right border-l border-white/10 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
+                <p className="text-[10px] sm:text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5 sm:mb-1">Última Sinc.</p>
                 <p className="text-xs sm:text-sm font-black text-emerald-600 leading-none" aria-live="polite" aria-atomic="true">
                   {formatTimeAgo(lastUpdatedReal)}
                 </p>
@@ -396,451 +403,54 @@ export default function ManagerPage() {
               <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar dados da GPRO" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                 {isSyncing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Zap size={14} aria-hidden />} {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
               </button>
-              <a href="/dashboard/configuracoes/integracao" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Configurar Integração</a>
+              <a href="/dashboard/configuracoes/integracao" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white border border-white/10 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Configurar Integração</a>
             </div>
             {(!menuData || !officeData) && <p className="mt-2 text-xs font-bold text-amber-700">Algumas informações estão disponíveis. Tente atualizar os módulos pendentes.</p>}
           </div>
         )}
         
-        {/* ROW 0: GERENTE + PILOTO (lado a lado no desktop) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          
-          {/* PERFIL DO GERENTE - COM EFEITOS */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
-                  <User size={14} className="text-white" />
-                </div>
-                <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Gerente</h2>
-              </div>
-              <span className="text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border text-emerald-600 bg-emerald-50 border-emerald-200">
-                CONECTADO
-              </span>
-            </div>
+        {/* HERO - Gerente + Piloto */}
+        <ManagerHero
+          manager={manager}
+          driver={driver}
+          decodedFirstName={decodedFirstName}
+          decodedLastName={decodedLastName}
+          decodedDriverName={decodedDriverName}
+          decodedNationalityName={decodedNationalityName}
+          avatarUrl={avatarUrl}
+          isUploading={isUploading}
+          onAvatarClick={() => !isUploading && fileInputRef.current?.click()}
+          getFlagUrl={getFlagUrl}
+          formatCash={formatCash}
+        />
+        <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} accept="image/*" className="hidden" aria-hidden />
 
-            <div className="relative p-4 md:p-6 bg-white">
-              {!menuData ? (
-                <div role="status" aria-live="polite" className="py-6 text-center">
-                  <p className="text-sm font-bold text-slate-600">{getMenuEmptyState().title}</p>
-                  <div className="mt-3 flex justify-center">
-                    {getMenuEmptyState().href ? (
-                      <a href={getMenuEmptyState().href!} className="inline-flex h-11 items-center justify-center rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"> {getMenuEmptyState().action}</a>
-                    ) : (
-                      <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar bloco Gerente" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">{isSyncing ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Zap size={12} aria-hidden />} Tentar novamente</button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-              <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                
-                {/* Avatar */}
-                <div className="relative group/avatar shrink-0">
-                  <button
-                    onClick={() => !isUploading && fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    aria-label="Alterar avatar do gerente"
-                    className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-200 hover:border-emerald-400 flex items-center justify-center text-2xl font-black text-emerald-600 overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                  >
-                    {isUploading ? (
-                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-                        <Loader2 className="animate-spin text-emerald-600" size={24} />
-                      </div>
-                    ) : (
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center transition-opacity text-[8px] font-black text-white gap-1 z-10 rounded-2xl">
-                        <Camera size={18} />
-                        <span>EDITAR</span>
-                      </div>
-                    )}
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt={decodedFirstName} className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{decodedFirstName.charAt(0)}{decodedLastName.charAt(0)}</span>
-                    )}
-                  </button>
-                  <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} accept="image/*" className="hidden" />
-                </div>
+                {/* RACE STATUS STRIP - Campeonato | Próxima | Clima */}
+        <RaceStatusStrip
+          championship={championship}
+          nextRace={nextRace}
+          weather={weather}
+          getFlagUrlTrack={(n)=> TRACK_FLAGS[n] ? "/flags/"+TRACK_FLAGS[n]+".png" : null}
+          officeData={officeData}
+          getOfficeEmptyState={getOfficeEmptyState}
+          isSyncing={isSyncing}
+          onSync={handleSync}
+        />
 
-                <div className="flex-1 text-center md:text-left">
-                  <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                    {decodedFirstName} <span className="text-emerald-600">{decodedLastName}</span>
-                  </h2>
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1 text-sm text-slate-500">
-                    <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-                      <Globe size={13} className="text-emerald-500" />
-                      {manager.group}
-                    </span>
-                    <span className="text-slate-300">•</span>
-                    <span className="font-bold text-amber-600">{manager.champs || 0} 🏆</span>
-                    <span className="text-slate-300">•</span>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${manager.status === 'Activated' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {manager.status}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Finanças */}
-                <div className="grid grid-cols-2 gap-2.5 w-full md:w-auto">
-                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
-                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Saldo</span>
-                    <p className="text-sm font-black text-emerald-600 mt-0.5">${formatCash(manager.cash || 0)}</p>
-                  </div>
-                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-emerald-300 transition-all">
-                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Créditos</span>
-                    <p className="text-sm font-black text-amber-500 mt-0.5">{manager.credits || 0}</p>
-                  </div>
-                </div>
-                </div>
-              )}
-              </div>
-            </div>
-
-          {/* PERFIL DO PILOTO - COM BANDEIRA E EFEITOS */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
-                  <ShieldCheck size={14} className="text-white" />
-                </div>
-                <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Piloto</h2>
-              </div>
-              <span className="text-[10px] font-mono font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
-                OA {driver.overall}
-              </span>
-            </div>
-
-            <div className="relative p-4 md:p-6 bg-white">
-              <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                
-                {/* Avatar do Piloto com Bandeira */}
-                <div className="relative shrink-0">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-3xl font-black text-white shadow-md relative">
-                    {decodedDriverName.charAt(0).toUpperCase() || '?'}
-                    {/* ✅ Bandeira do país sobreposta no canto inferior direito */}
-                    {driver.nationality && getFlagUrl(driver.nationality) && (
-                      <div className="absolute -bottom-1 -right-1 w-7 h-5 rounded-full border-2 border-white shadow-sm overflow-hidden">
-                        <img 
-                          src={getFlagUrl(driver.nationality)!} 
-                          alt={driver.nationality}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex-1 text-center md:text-left">
-                  <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                    {decodedDriverName}
-                  </h2>
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1 text-sm text-slate-500">
-                    {/* ✅ Bandeira do país + nome (igual ao Dashboard) */}
-                    {driver.nationality && getFlagUrl(driver.nationality) ? (
-                      <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-                        <img 
-                          src={getFlagUrl(driver.nationality)!} 
-                          alt={driver.nationality} 
-                          className="w-4 h-3 object-cover rounded-sm border border-slate-200"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                        {decodedNationalityName || driver.nationality}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-                        <Globe size={13} className="text-emerald-500" />
-                        {decodedNationalityName || driver.nationality || 'N/A'}
-                      </span>
-                    )}
-                    <span className="text-slate-300">•</span>
-                    <span className="font-bold">{driver.racesLeft} corridas</span>
-                    <span className="text-slate-300">•</span>
-                    <span className={`font-bold ${driver.energia >= 80 ? 'text-emerald-500' : driver.energia >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
-                      🔋 {driver.energia}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Stats Rápidas */}
-                <div className="grid grid-cols-3 gap-1.5 w-full md:w-auto">
-                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-2 py-1.5 text-center shadow-sm hover:border-emerald-300 transition-all">
-                    <span className="text-[7px] text-slate-400 font-black uppercase block">Vitórias</span>
-                    <p className="text-sm font-black text-emerald-600">{driver.wins}</p>
-                  </div>
-                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-2 py-1.5 text-center shadow-sm hover:border-emerald-300 transition-all">
-                    <span className="text-[7px] text-slate-400 font-black uppercase block">Pódios</span>
-                    <p className="text-sm font-black text-amber-500">{driver.podiums}</p>
-                  </div>
-                  <div className="bg-[#f8fafc] border border-slate-200 rounded-xl px-2 py-1.5 text-center shadow-sm hover:border-emerald-300 transition-all">
-                    <span className="text-[7px] text-slate-400 font-black uppercase block">Corridas</span>
-                    <p className="text-sm font-black text-slate-700">{driver.races}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ROW 1: CAMPEONATO + PRÓXIMA CORRIDA (lado a lado no desktop) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          
-          {/* CAMPEONATO - Última corrida */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-600 rounded-lg shadow-sm">
-                  <Trophy size={14} className="text-white" />
-                </div>
-                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Campeonato</h3>
-              </div>
-              <span className="text-[10px] font-mono font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
-                S{championship.season} • R{championship.race}
-              </span>
-            </div>
-
-            {!officeData ? (
-              <div className="relative p-6 bg-white text-center" role="status" aria-live="polite">
-                <p className="text-sm font-bold text-slate-600">{getOfficeEmptyState().title}</p>
-                <div className="mt-3 flex justify-center">
-                  {getOfficeEmptyState().href ? <a href={getOfficeEmptyState().href!} className="inline-flex h-11 items-center justify-center rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">{getOfficeEmptyState().action}</a> : <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar bloco Campeonato" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-amber-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">{isSyncing ? <Loader2 size={12} className="animate-spin" aria-hidden /> : null} Tentar novamente</button>}
-                </div>
-              </div>
-            ) : (
-            <div className="relative p-4 bg-white grid grid-cols-3 gap-3">
-              <div className="space-y-0.5 text-center">
-                <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Posição</span>
-                <p className="text-lg font-black text-emerald-600">{championship.position}</p>
-              </div>
-              <div className="space-y-0.5 text-center">
-                <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Pontos</span>
-                <p className="text-lg font-black text-amber-500">{championship.points}</p>
-              </div>
-              <div className="space-y-0.5 text-center">
-                <span className="text-[7px] text-slate-400 font-black uppercase tracking-wider">Média</span>
-                <p className="text-sm font-black text-slate-700">{championship.average}</p>
-              </div>
-            </div>
-            )}
-          </div>
-
-          {/* PRÓXIMA CORRIDA */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            
-            <div className="relative bg-zinc-50 p-3.5 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-amber-600 rounded-lg shadow-sm">
-                  <Calendar size={14} className="text-white" />
-                </div>
-                <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Próxima Corrida</h3>
-              </div>
-              <span className="text-[10px] font-mono font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md">
-                S{nextRace.season} • R{nextRace.race}
-              </span>
-            </div>
-
-            {!officeData ? (
-              <div className="relative p-6 bg-white text-center" role="status" aria-live="polite">
-                <p className="text-sm font-bold text-slate-600">{getOfficeEmptyState().title}</p>
-                <div className="mt-3 flex justify-center">
-                  {getOfficeEmptyState().href ? <a href={getOfficeEmptyState().href!} className="inline-flex h-11 items-center justify-center rounded-xl bg-white border border-slate-200 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">{getOfficeEmptyState().action}</a> : <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar próxima corrida" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-amber-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500">{isSyncing ? <Loader2 size={12} className="animate-spin" aria-hidden /> : null} Tentar novamente</button>}
-                </div>
-              </div>
-            ) : (
-            <div className="relative p-4 bg-white">
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  {/* Bandeira do país da pista */}
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-xl shadow-sm overflow-hidden">
-                    {nextRace.track && TRACK_FLAGS[nextRace.track] ? (
-                      <img 
-                        src={`/flags/${TRACK_FLAGS[nextRace.track]}.png`} 
-                        alt={nextRace.track} 
-                        className="w-8 h-6 object-cover rounded-sm" 
-                      />
-                    ) : (
-                      <span className="text-2xl">🏁</span>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-slate-800">{nextRace.track}</p>                    
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm hover:border-amber-300 transition-all">
-                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Treinos</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[10px] font-black ${nextRace.donePractice === '1' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {nextRace.donePractice === '1' ? '✅' : '⏳'}
-                      </span>
-                      <span className={`text-[10px] font-black ${nextRace.donePractice === '1' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                        {nextRace.donePractice === '1' ? 'Feito' : 'Pendente'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 md:flex-none bg-[#f8fafc] rounded-xl px-3 py-2 border border-slate-200 shadow-sm hover:border-amber-300 transition-all">
-                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Qualificação</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[10px] font-black ${nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? 'text-emerald-500' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? 'text-amber-500' : 'text-slate-400'}`}>
-                        {nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? '✅' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? '⏳' : '❌'}
-                      </span>
-                      <span className={`text-[10px] font-black ${nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? 'text-emerald-500' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? 'text-amber-500' : 'text-slate-400'}`}>
-                        {nextRace.doneQ1 === '1' && nextRace.doneQ2 === '1' ? 'Completa' : nextRace.doneQ1 === '1' || nextRace.doneQ2 === '1' ? 'Parcial' : 'Pendente'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            )}
-          </div>
-        </div>
-
-        {/* INFO RÁPIDA: RESUMO PILOTO + CLIMA + CARRO */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          
-          {/* Resumo Piloto */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
-              <Target size={14} className="text-emerald-600" />
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Resumo Piloto</h4>
-            </div>
-            <div className="relative p-3 bg-white grid grid-cols-2 gap-1.5">
-              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
-                <span className="text-[7px] text-slate-400 font-black uppercase block">Talento</span>
-                <p className="text-sm font-black text-slate-800">{driver.talento}</p>
-              </div>
-              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
-                <span className="text-[7px] text-slate-400 font-black uppercase block">Concentração</span>
-                <p className="text-sm font-black text-slate-800">{driver.concentracao}</p>
-              </div>
-              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
-                <span className="text-[7px] text-slate-400 font-black uppercase block">Experiência</span>
-                <p className="text-sm font-black text-slate-800">{driver.experiencia}</p>
-              </div>
-              <div className="bg-[#f8fafc] rounded-lg p-1.5 text-center border border-slate-100 hover:border-emerald-300 transition-all">
-                <span className="text-[7px] text-slate-400 font-black uppercase block">Energia</span>
-                <p className={`text-sm font-black ${driver.energia >= 80 ? 'text-emerald-500' : driver.energia >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>{driver.energia}%</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Clima */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
-              <Activity size={14} className="text-amber-600" />
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Clima</h4>
-            </div>
-            <div className="relative p-3 bg-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{weather?.weatherRace === 'Wet' ? '🌧️' : '☀️'}</span>
-                  <span className="text-sm font-black text-slate-800">{weather?.weatherRace === 'Wet' ? 'Chuva' : 'Seca'}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs font-black text-emerald-600">{weather?.tempQ2 || 0}°C</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
-                <span>Q1: {weather?.tempQ1 || 0}°C</span>
-                <span>•</span>
-                <span>Q2: {weather?.tempQ2 || 0}°C</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Carro - Resumo */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
-              <Car size={14} className="text-indigo-600" />
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Carro</h4>
-            </div>
-            <div className="relative p-3 bg-white">
-              {car && car.length > 0 && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-800">
-                      {(car.reduce((acc, part) => acc + part.lvl, 0) / car.length).toFixed(1)}
-                    </span>
-                    <span className="text-xs text-slate-500">Nível Médio</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
-                    <span>Peças: {car.length}</span>
-                    <span>•</span>
-                    <span className="text-emerald-600 font-black">
-                      {Math.round(100 - car.reduce((acc, part) => acc + part.wear, 0) / car.length)}% saúde
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* STAFF & TECH DIRECTOR - RESUMO */}
+                {/* RESUMO PILOTO + CARRO */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* Tech Director */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
-              <Briefcase size={14} className="text-cyan-600" />
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Diretor Técnico</h4>
-            </div>
-            <div className="relative p-3 bg-white">
-              <p className="text-sm font-black text-slate-800 truncate">{techDirector?.name || 'Nenhum'}</p>
-              <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                <span className="bg-cyan-50 px-2 py-0.5 rounded text-cyan-600 font-black">OA {techDirector?.overall || '0'}</span>
-                <span>•</span>
-                <span>{techDirector?.racesLeft || '0'} corridas</span>
-              </div>
-              <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-500">
-                <span>🔧 {techDirector?.rdMecanico || 0}</span>
-                <span>⚡ {techDirector?.rdEletronico || 0}</span>
-                <span>🌀 {techDirector?.rdAerodinamico || 0}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Staff */}
-          <div className="relative bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-md rounded-2xl overflow-hidden group transition-all duration-300 hover:border-slate-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.01] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative bg-zinc-50 p-3 border-b border-slate-200 flex items-center gap-2">
-              <Users size={14} className="text-purple-600" />
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Equipe (Staff)</h4>
-            </div>
-            <div className="relative p-3 bg-white">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-black text-slate-800">Nível</span>
-                <span className="text-xs font-black text-emerald-600">
-                  {calcStaffLevel(staffFacilities?.toleranciaPressao, staffFacilities?.concentracao)}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-500">
-                <span>🔄 Tolerância: {staffFacilities?.toleranciaPressao || 0}</span>
-                <span>🧠 Concentração: {staffFacilities?.concentracao || 0}</span>
-              </div>
-            </div>
-          </div>
+          <DriverSummary driver={driver} />
+          <CarHealthCard car={car} />
         </div>
 
-        {/* FOOTER */}
-        <div className="text-center text-[9px] font-mono text-slate-400 space-y-1 pt-4 border-t border-slate-200/50" role="contentinfo" aria-live="polite">
+                {/* TECH DIRECTOR + STAFF */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TechDirectorCard techDirector={techDirector} />
+          <StaffCard staffFacilities={staffFacilities} />
+        </div>
+
+                {/* FOOTER */}
+        <div className="text-center text-[9px] font-mono text-slate-400 space-y-1 pt-4 border-t border-white/10/50" role="contentinfo" aria-live="polite">
           <p>ÚLTIMA SINCRONIZAÇÃO EM {lastUpdatedReal ? new Date(lastUpdatedReal).toLocaleString() : 'Sincronização não identificada'}</p>
           <p className="tracking-widest font-black">SISTEMA INTEGRADO v2.1.0</p>
         </div>

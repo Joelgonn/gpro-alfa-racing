@@ -89,6 +89,12 @@ export interface CarTotals {
   accel: number;
 }
 
+export interface CarCharacteristic {
+  power: number;
+  handling: number;
+  accel: number;
+}
+
 export interface WeatherData {
   tempQ1: number;
   weatherQ1: "Dry" | "Wet";
@@ -249,6 +255,12 @@ const defaultCarTotals: CarTotals = {
   accel: 0,
 };
 
+const defaultCarCharacteristic: CarCharacteristic = {
+  power: 0,
+  handling: 0,
+  accel: 0,
+};
+
 const defaultWeather: WeatherData = {
   tempQ1: 0,
   weatherQ1: "Dry",
@@ -362,6 +374,7 @@ interface GameContextType {
   
   // ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 3)
   carTotals: CarTotals;
+  carCharacteristic: CarCharacteristic;
   
   isGlobalLoading: boolean;
   menuData: MenuData | null;
@@ -425,6 +438,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   
   // ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 3)
   const [carTotals, setCarTotals] = useState<CarTotals>(defaultCarTotals);
+  const [carCharacteristic, setCarCharacteristic] = useState<CarCharacteristic>(defaultCarCharacteristic);
   
   const [menuData, setMenuData] = useState<MenuData | null>(null);
   const [officeData, setOfficeData] = useState<OfficeData | null>(null);
@@ -536,6 +550,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       } else {
         setCarTotals(defaultCarTotals);
         console.log('⚠️ Car Totals não encontrados, usando padrão:', defaultCarTotals);
+      }
+      if ((loaded as any).car_characteristic) {
+        setCarCharacteristic((loaded as any).car_characteristic);
+        console.log('✅ Car Characteristic carregada:', (loaded as any).car_characteristic);
+      } else {
+        setCarCharacteristic(defaultCarCharacteristic);
       }
 
       // ✅ Expor timestamps reais (updated_at / last_import_at) sem inventar
@@ -701,6 +721,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     
     // ✅ TOTAIS DO CARRO (ADICIONADO - PASSO 3)
     carTotals,
+    carCharacteristic,
     
     isGlobalLoading,
     menuData,

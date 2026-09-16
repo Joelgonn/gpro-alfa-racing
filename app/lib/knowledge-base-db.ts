@@ -42,7 +42,7 @@ const supabase = createClient(
 export async function getKnowledgeBase(userId: string): Promise<CatalogoType> {
   const { data, error } = await supabase
     .from('api_knowledge_base')
-    .select('*')
+    .select('id, user_id, endpoint, campos, tipos, parametros, total_campos, status, maturidade, confianca, ultimo_hash, historico, hash_history, observacoes, utilidade, scans_realizados, ultimo_scan, created_at, updated_at')
     .eq('user_id', userId);
 
   if (error) {
@@ -70,7 +70,7 @@ export async function loadEndpoint(
 ): Promise<EndpointInfo | null> {
   const { data, error } = await supabase
     .from('api_knowledge_base')
-    .select('*')
+    .select('id, user_id, endpoint, campos, tipos, parametros, total_campos, status, maturidade, confianca, ultimo_hash, historico, hash_history, observacoes, utilidade, scans_realizados, ultimo_scan, created_at, updated_at')
     .eq('user_id', userId)
     .eq('endpoint', endpoint)
     .single();

@@ -91,6 +91,11 @@ export interface UserState {
     handling: number;
     accel: number;
   };
+  car_characteristic?: {
+    power: number;
+    handling: number;
+    accel: number;
+  };
 }
 
 // ============================================
@@ -142,7 +147,7 @@ export async function getUserState(userId: string): Promise<UserState> {
   // Colunas verificadas existentes em produção (check_columns.js 14/09/2026)
   const { data, error } = await client
     .from('user_state')
-    .select('user_id, role, track, driver_json, car_json, tech_director_json, staff_facilities_json, test_points_json, race_options_json, weather_data, sponsors_database_json, energy_coeffs_json, menu_data, office_data, desgaste_modifier, last_import_snapshot, last_import_at, created_at, updated_at, car_development_json, driver_info, driver_editable, driver_static, car_totals')
+    .select('user_id, role, track, driver_json, car_json, tech_director_json, staff_facilities_json, test_points_json, race_options_json, weather_data, sponsors_database_json, energy_coeffs_json, menu_data, office_data, desgaste_modifier, last_import_snapshot, last_import_at, created_at, updated_at, car_development_json, driver_info, driver_editable, driver_static, car_totals, car_characteristic')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -168,6 +173,7 @@ export async function getUserState(userId: string): Promise<UserState> {
       last_import_at: null,
       tyre_suppliers: [...DEFAULT_TYRE_SUPPLIERS], // ✅ PADRÃO
       car_totals: { power: 0, handling: 0, accel: 0 }, // ✅ PADRÃO
+      car_characteristic: { power: 0, handling: 0, accel: 0 },
     };
   }
 
@@ -184,7 +190,8 @@ export async function getUserState(userId: string): Promise<UserState> {
   }
 
   // ✅ TOTAIS DO CARRO - garantir que exista
-  const carTotals = data.car_totals || { power: 0, handling: 0, accel: 0 };
+  const carTotals = (data as any).car_totals || { power: 0, handling: 0, accel: 0 };
+  const carCharacteristic = (data as any).car_characteristic || { power: 0, handling: 0, accel: 0 };
 
   console.log('🔍 [db.ts] Driver Static (imutável):', {
     name: driverStatic.name,
@@ -199,6 +206,7 @@ export async function getUserState(userId: string): Promise<UserState> {
 
   console.log('🔍 [db.ts] Tyre Suppliers:', tyreSuppliers);
   console.log('🔍 [db.ts] Car Totals:', carTotals);
+  console.log('🔍 [db.ts] Car Characteristic:', carCharacteristic);
 
   return {
     role: data.role || 'user',
@@ -222,6 +230,7 @@ export async function getUserState(userId: string): Promise<UserState> {
     created_at: (data as any).created_at || null,
     tyre_suppliers: tyreSuppliers, // ✅ ADICIONADO
     car_totals: carTotals, // ✅ ADICIONADO - PASSO 1
+    car_characteristic: carCharacteristic,
   };
 }
 
@@ -260,6 +269,9 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
   if (data.car_totals) {
     payload.car_totals = data.car_totals;
   }
+  if ((data as any).car_characteristic) {
+    payload.car_characteristic = (data as any).car_characteristic;
+  }
 
   const client = await getSupabaseClient();
   let { error } = await client
@@ -272,6 +284,18 @@ export async function saveUserState(userId: string, data: Partial<UserState>) {
     const { tyre_suppliers: _omit, ...payloadWithoutTyre } = payload;
     const retry = await client.from('user_state').upsert(payloadWithoutTyre, { onConflict: 'user_id' });
     error = retry.error;
+  }
+  if (error && (error as any).code === '42703' && (payload as any).car_characteristic) {
+    console.warn('Coluna car_characteristic não existe, salvando sem ela');
+    const { car_characteristic: _omit2, ...payloadWithoutCarChar } = payload as any;
+    const retry2 = await client.from('user_state').upsert(payloadWithoutCarChar, { onConflict: 'user_id' });
+    error = retry2.error;
+  }
+  if (error && (error as any).code === '42703' && (payload as any).car_totals) {
+    console.warn('Coluna car_totals não existe, salvando sem ela');
+    const { car_totals: _omit3, ...payloadWithoutTotals } = payload as any;
+    const retry3 = await client.from('user_state').upsert(payloadWithoutTotals, { onConflict: 'user_id' });
+    error = retry3.error;
   }
 
   if (error) {

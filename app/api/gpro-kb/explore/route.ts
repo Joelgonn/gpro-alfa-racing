@@ -1,16 +1,9 @@
 // app/api/gpro-kb/explore/route.ts
 
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { endpoints } from '@/app/lib/gpro-api';
-
-// ============================================
-// CLIENTE SUPABASE (Service Role - mesmo padrão do sync)
-// ============================================
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { requireAdmin, resolveUserId } from '@/app/lib/auth';
+import { getGproToken } from '@/app/lib/gpro-token';
 
 // ============================================
 // FUNÇÃO PARA CHAMAR API GPRO
@@ -74,38 +67,30 @@ async function fetchGproEndpoint(endpoint: string, token: string, params?: Recor
 // ============================================
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 KB Explore: Iniciando requisição');
+    // 1. Autenticação admin obrigatória (Explorer é somente admin)
+    const adminUser = await requireAdmin();
 
-    // 1. Ler body UMA ÚNICA VEZ
+    // 2. Ler body UMA ÚNICA VEZ
     let body: any;
     
     try {
       body = await request.json();
-      console.log('🔍 Body lido com sucesso:', Object.keys(body));
     } catch (error) {
-      console.error('❌ Erro ao ler body:', error);
       return NextResponse.json(
         { error: 'Corpo da requisição inválido. Envie um JSON válido.' },
         { status: 400 }
       );
     }
 
-    // 2. Extrair todos os dados do body
-    const userId = body.userId || body.user_id;
+    // 3. Extrair dados e validar IDOR
+    const requestedUserId = body.userId || body.user_id || null;
+    const userId = requestedUserId ? await resolveUserId(requestedUserId) : adminUser.id;
     const endpoint = body.endpoint;
     const params = body.params;
 
-    console.log(`🔍 userId: ${userId}`);
-    console.log(`🔍 endpoint: ${endpoint}`);
-    console.log(`🔍 params:`, params);
-
-    // 3. Validar userId
-    if (!userId) {
-      console.error('❌ userId não fornecido');
-      return NextResponse.json(
-        { error: 'userId é obrigatório. Envie { userId: "..." } no corpo da requisição.' },
-        { status: 400 }
-      );
+    // Valida que userId corresponde à sessão admin (previne IDOR mesmo para admin)
+    if (requestedUserId && requestedUserId !== adminUser.id) {
+      return NextResponse.json({ error: 'Acesso negado: ID não corresponde à sessão' }, { status: 403 });
     }
 
     // 4. Validar endpoint
@@ -117,34 +102,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Buscar token GPRO do usuário
-    console.log(`🔍 Buscando token para userId: ${userId}`);
-    
-    const { data: userState, error: userError } = await supabase
-      .from('user_state')
-      .select('gpro_token')
-      .eq('user_id', userId)
-      .single();
+    // 5. Buscar token GPRO do usuário (server-only, descriptografado)
+    const token = await getGproToken(userId);
 
-    if (userError) {
-      console.error('❌ Erro ao buscar user_state:', userError);
-      return NextResponse.json(
-        { error: 'Erro ao buscar token GPRO. Configure o token na página de integração.' },
-        { status: 500 }
-      );
-    }
-
-    if (!userState?.gpro_token) {
-      console.error('❌ Token GPRO não encontrado para userId:', userId);
+    if (!token) {
       return NextResponse.json(
         { error: 'Token GPRO não encontrado. Configure o token na página de integração.' },
         { status: 404 }
       );
     }
-
-    console.log('✅ Token GPRO encontrado');
-
-    const token = userState.gpro_token;
 
     // 6. Chamar API GPRO com validação
     let data: any;
@@ -175,6 +141,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
+    if (error?.status === 401) return NextResponse.json({ success: false, error: error.message || 'Não autenticado' }, { status: 401 });
+    if (error?.status === 403) return NextResponse.json({ success: false, error: error.message || 'Acesso negado' }, { status: 403 });
     console.error('❌ Erro geral na KB Explore:', error);
     return NextResponse.json(
       { 

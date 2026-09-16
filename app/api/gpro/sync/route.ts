@@ -1,6 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { saveSnapshots } from '@/app/lib/gpro-snapshot';
+import type { Capture } from '@/app/lib/capture';
+import { requireAuth, resolveUserId } from '@/app/lib/auth';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
+import { getGproToken } from '@/app/lib/gpro-token';
 
 const GPRO_LANG = 'br';
 const GPRO_API_BASE = 'https://gpro.net';
@@ -225,6 +228,15 @@ function mapCar(data: GproJson) {
   ];
 }
 
+// ========== CARACTERÍSTICA (UpdateCar tPower/tHandl/tAccel) ==========
+function mapCarCharacteristic(data: GproJson) {
+  return {
+    power: Number(data.tPower ?? 0),
+    handling: Number(data.tHandl ?? 0),
+    accel: Number(data.tAccel ?? 0),
+  };
+}
+
 // ========== WEATHER (Qualify2) ==========
 function mapWeather(data: GproJson | null) {
   if (!data?.weather) return null;
@@ -364,55 +376,28 @@ function getTrackName(data: GproJson): string {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validação da requisição
-    let userId: string | null = null;
-
+    // 1. Autenticação server-side (não confia em userId do cliente)
+    let requestedUserId: string | null = null;
     try {
-      const body = await request.json();
-      userId = body.userId || body.user_id;
+      const body = await request.clone().json();
+      requestedUserId = body.userId || body.user_id || null;
     } catch {
-      return NextResponse.json(
-        { error: 'Corpo da requisição inválido. Envie { userId: "..." }' },
-        { status: 400 }
-      );
+      // body vazio será tratado como sem ID solicitado
     }
+    const userId = await resolveUserId(requestedUserId);
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId é obrigatório. Envie { userId: "..." } no corpo da requisição.' },
-        { status: 400 }
-      );
-    }
+    // 2. Conexão com Supabase (service role isolado)
+    const supabase = supabaseAdmin;
 
-    // 2. Conexão com Supabase
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    // 3. Buscar token do usuário (server-only, descriptografado, nunca exposto ao cliente)
+    const token = await getGproToken(userId);
 
-    // 3. Buscar token do usuário
-    const { data: userState, error: userError } = await supabase
-      .from('user_state')
-      .select('gpro_token')
-      .eq('user_id', userId)
-      .single();
-
-    if (userError) {
-      console.error('Erro ao buscar user_state:', userError);
-      return NextResponse.json(
-        { error: 'Erro ao buscar token GPRO. Configure o token na página de integração.' },
-        { status: 500 }
-      );
-    }
-
-    if (!userState?.gpro_token) {
+    if (!token) {
       return NextResponse.json(
         { error: 'Token GPRO não encontrado. Configure o token na página de integração.' },
         { status: 404 }
       );
     }
-
-    const token = userState.gpro_token;
 
     // 4. Buscar dados da GPRO em paralelo
     const [
@@ -425,6 +410,7 @@ export async function POST(request: NextRequest) {
       tdData,
       qualifyData,
       testingData,
+      practiceData, // ✅ ADICIONADO - Buscar Practice para os totais
     ] = await Promise.all([
       fetchGproJson('Menu', token),
       fetchGproJson('Office', token),
@@ -436,6 +422,10 @@ export async function POST(request: NextRequest) {
       fetchGproJson('Qualify2', token),
       fetchGproJson('Testing', token).catch((error) => {
         console.warn('⚠️ Endpoint Testing indisponível, continuando sem dados de testes:', error.message);
+        return null;
+      }),
+      fetchGproJson('Practice', token).catch((error) => {
+        console.warn('⚠️ Endpoint Practice indisponível, continuando sem dados de totais:', error.message);
         return null;
       }),
     ]);
@@ -459,19 +449,23 @@ export async function POST(request: NextRequest) {
     // SPRINT 3A - SALVAR SNAPSHOTS (NÃO BLOQUEANTE)
     // ============================================
 
-    const snapshots = [
-      { userId, endpoint: 'Menu', payload: menuData },
-      { userId, endpoint: 'Office', payload: officeData },
-      { userId, endpoint: 'TrackProfile', payload: trackData },
-      { userId, endpoint: 'DriProfile', payload: driverData },
-      { userId, endpoint: 'UpdateCar', payload: carData },
-      { userId, endpoint: 'StaffAndFacilities', payload: staffData },
-      { userId, endpoint: 'TDProfile', payload: tdData },
-      { userId, endpoint: 'Qualify2', payload: qualifyData },
+    const snapshots: Capture[] = [
+      { userId, endpoint: 'Menu', source: 'manager_sync', payload: menuData },
+      { userId, endpoint: 'Office', source: 'manager_sync', payload: officeData },
+      { userId, endpoint: 'TrackProfile', source: 'manager_sync', payload: trackData },
+      { userId, endpoint: 'DriProfile', source: 'manager_sync', payload: driverData },
+      { userId, endpoint: 'UpdateCar', source: 'manager_sync', payload: carData },
+      { userId, endpoint: 'StaffAndFacilities', source: 'manager_sync', payload: staffData },
+      { userId, endpoint: 'TDProfile', source: 'manager_sync', payload: tdData },
+      { userId, endpoint: 'Qualify2', source: 'manager_sync', payload: qualifyData },
     ];
 
     if (testingData) {
-      snapshots.push({ userId, endpoint: 'Testing', payload: testingData });
+      snapshots.push({ userId, endpoint: 'Testing', source: 'manager_sync', payload: testingData });
+    }
+
+    if (practiceData) {
+      snapshots.push({ userId, endpoint: 'Practice', source: 'manager_sync', payload: practiceData });
     }
 
     try {
@@ -493,6 +487,83 @@ export async function POST(request: NextRequest) {
       }
     } catch (snapshotError) {
       console.error('⚠️ Erro ao salvar snapshots (continuando):', snapshotError);
+    }
+
+    // ============================================
+    // ALFA-008.14 - SINCRONIZAÇÃO CATÁLOGO PATROCINADORES (NÃO BLOQUEANTE, IDEMPOTENTE)
+    // ============================================
+    try {
+      const availData = await fetchGproJson('AvailSponsors', token).catch((e) => {
+        console.warn('⚠️ AvailSponsors indisponível:', e.message);
+        return null;
+      });
+      const sponsorsList: any[] = Array.isArray(availData?.sponsors) ? availData.sponsors : [];
+      if (sponsorsList.length > 0) {
+        console.log(`📦 AvailSponsors: ${sponsorsList.length} patrocinadores encontrados`);
+        // Enriquecer com NegotiateSponsor quando necessário (categoria/país detalhado) — limitado a 10 para não sobrecarregar
+        const enriched = await Promise.all(
+          sponsorsList.slice(0, 20).map(async (s: any) => {
+            try {
+              const detail = await fetchGproJson(`NegotiateSponsor?id=${s.sponsorId}`, token).catch(() => null);
+              if (detail && detail.category) {
+                return {
+                  sponsor_id: Number(s.sponsorId),
+                  name: String(s.name || detail.name || ''),
+                  country: detail.country || s.natCode || null,
+                  category: detail.category || null,
+                  finances: Number(s.finances ?? detail.finances ?? 0),
+                  expectations: Number(s.expectations ?? detail.expectations ?? 0),
+                  patience: Number(s.patience ?? detail.patience ?? 0),
+                  reputation: Number(s.reputation ?? detail.reputation ?? 0),
+                  image: Number(s.image ?? detail.image ?? 0),
+                  negotiation: Number(s.negotiation ?? detail.negotiation ?? 0),
+                  raw_data: s,
+                  last_sync_at: new Date().toISOString(),
+                };
+              }
+            } catch {}
+            return {
+              sponsor_id: Number(s.sponsorId),
+              name: String(s.name || ''),
+              country: s.natCode || null,
+              category: null,
+              finances: Number(s.finances ?? 0),
+              expectations: Number(s.expectations ?? 0),
+              patience: Number(s.patience ?? 0),
+              reputation: Number(s.reputation ?? 0),
+              image: Number(s.image ?? 0),
+              negotiation: Number(s.negotiation ?? 0),
+              raw_data: s,
+              last_sync_at: new Date().toISOString(),
+            };
+          })
+        );
+        // Fallback para demais sem detalhe
+        const remaining = sponsorsList.slice(20).map((s: any) => ({
+          sponsor_id: Number(s.sponsorId),
+          name: String(s.name || ''),
+          country: s.natCode || null,
+          category: null,
+          finances: Number(s.finances ?? 0),
+          expectations: Number(s.expectations ?? 0),
+          patience: Number(s.patience ?? 0),
+          reputation: Number(s.reputation ?? 0),
+          image: Number(s.image ?? 0),
+          negotiation: Number(s.negotiation ?? 0),
+          raw_data: s,
+          last_sync_at: new Date().toISOString(),
+        }));
+        const allSponsors = [...enriched.filter(Boolean), ...remaining].filter((x) => x && x.sponsor_id);
+        if (allSponsors.length > 0) {
+          const { error: upsertError } = await supabase.from('gpro_sponsors').upsert(allSponsors, { onConflict: 'sponsor_id' });
+          if (upsertError) console.warn('⚠️ Erro ao upsert gpro_sponsors:', upsertError.message);
+          else console.log(`✅ gpro_sponsors upsert ${allSponsors.length} registros`);
+        }
+      } else {
+        console.log('ℹ️ AvailSponsors vazio ou indisponível');
+      }
+    } catch (e: any) {
+      console.warn('⚠️ Falha sincronização patrocinadores (não bloqueante):', e?.message);
     }
 
     // ============================================
@@ -540,11 +611,28 @@ export async function POST(request: NextRequest) {
     const officeDataEnriched = mapOffice(officeData);
     const trackName = getTrackName(trackData);
     const carDataMapped = mapCar(carData);
+    const carCharacteristicMapped = mapCarCharacteristic(carData);
     const weatherDataMapped = mapWeather(qualifyData);
     const testPointsDataMapped = mapTestPoints(testingData);
     const testingDataMapped = mapTesting(testingData);
     const staffDataMapped = mapStaff(staffData);
     const lastSyncAt = new Date().toISOString();
+
+    // ============================================
+    // EXTRAIR TOTAIS DO CARRO - DO PRACTICE (CORRIGIDO)
+    // ============================================
+
+    // ✅ Buscar do Practice, não do Office
+    const carTotals = {
+      power: Number(practiceData?.carPower ?? 0),
+      handling: Number(practiceData?.carHandl ?? 0),
+      accel: Number(practiceData?.carAccel ?? 0),
+    };
+
+    console.log('📊 Practice Data - carPower:', practiceData?.carPower);
+    console.log('📊 Practice Data - carHandl:', practiceData?.carHandl);
+    console.log('📊 Practice Data - carAccel:', practiceData?.carAccel);
+    console.log('📊 Car Totals extraídos do Practice:', carTotals);
 
     // ============================================
     // SALVAR NO user_state - SEPARADO
@@ -565,10 +653,14 @@ export async function POST(request: NextRequest) {
           menu_data: menuDataEnriched,
           office_data: officeDataEnriched,
           car_json: carDataMapped,
+          car_characteristic: carCharacteristicMapped,
           test_points_json: testPointsDataMapped,
           weather_data: weatherDataMapped,
           staff_facilities_json: staffDataMapped,
           track: trackName,
+          
+          // ✅ TOTAIS DO CARRO (AGORA DO PRACTICE)
+          car_totals: carTotals,
         })
         .eq('user_id', userId);
 
@@ -583,6 +675,8 @@ export async function POST(request: NextRequest) {
       console.log(`📊 Tech Director: ${techDirectorDataEnriched.name || 'Nenhum'}`);
       console.log(`📊 Track: ${trackName}`);
       console.log(`📊 Office: Season ${officeDataEnriched.season}, Race ${officeDataEnriched.race}`);
+      console.log(`📊 Car Characteristic (tPower/tHandl/tAccel): ${JSON.stringify(carCharacteristicMapped)}`);
+      console.log(`📊 Car Totals salvos (do Practice): ${JSON.stringify(carTotals)}`);
 
     } catch (updateError) {
       console.error('Erro ao salvar no user_state:', updateError);
@@ -601,6 +695,7 @@ export async function POST(request: NextRequest) {
       driver_static: driverStatic,
       driver_editable: driverEditable,
       car: carDataMapped,
+      car_characteristic: carCharacteristicMapped,
       weather: weatherDataMapped,
       tech_director: techDirectorDataEnriched,
       staff: staffDataMapped,
@@ -612,7 +707,13 @@ export async function POST(request: NextRequest) {
       last_sync_at: lastSyncAt,
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.status === 401) {
+      return NextResponse.json({ error: error.message || 'Não autenticado' }, { status: 401 });
+    }
+    if (error?.status === 403) {
+      return NextResponse.json({ error: error.message || 'Acesso negado' }, { status: 403 });
+    }
     console.error('Erro no sync com GPRO:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro interno ao sincronizar com GPRO. Tente novamente mais tarde.' },

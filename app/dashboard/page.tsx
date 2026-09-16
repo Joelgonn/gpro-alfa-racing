@@ -13,26 +13,8 @@ import {
   Gauge, Flame, Target, Star, Trophy, Medal, Award, Calendar, DollarSign, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// --- MAPEAMENTO DE BANDEIRAS ---
-const TRACK_FLAGS: { [key: string]: string } = {
-  "Adelaide": "au", "Ahvenisto": "fi", "Anderstorp": "se", "Austin": "us", "Avus": "de", "A1-Ring": "at",
-  "Baku City": "az", "Barcelona": "es", "Brands Hatch": "gb", "Brasilia": "br", "Bremgarten": "ch", "Brno": "cz", "Bucharest Ring": "ro", "Buenos Aires": "ar",
-  "Catalunya": "es", "Dijon-Prenois": "fr", "Donington": "gb",
-  "Estoril": "pt", "Fiorano": "it", "Fuji": "jp",
-  "Grobnik": "hr",
-  "Hockenheim": "de", "Hungaroring": "hu",
-  "Imola": "sm", "Indianapolis oval": "us", "Indianapolis": "us", "Interlagos": "br", "Istanbul": "tr", "Irungattukottai": "in",
-  "Jarama": "es", "Jeddah": "sa", "Jerez": "es", "Kyalami": "za", "Jyllands-Ringen": "dk", "Kaunas": "lt",
-  "Laguna Seca": "us", "Las Vegas": "us", "Le Mans": "fr", "Long Beach": "us", "Losail": "qa",
-  "Magny Cours": "fr", "Melbourne": "au", "Mexico City": "mx", "Miami": "us", "Misano": "it", "Monte Carlo": "mc", "Montreal": "ca", "Monza": "it", "Mugello": "it",
-  "Nurburgring": "de", "Oschersleben": "de", "New Delhi": "in", "Oesterreichring": "at",
-  "Paul Ricard": "fr", "Portimao": "pt", "Poznan": "pl",
-  "Red Bull Ring": "at", "Rio de Janeiro": "br", "Rafaela Oval": "ar",
-  "Sakhir": "bh", "Sepang": "my", "Shanghai": "cn", "Silverstone": "gb", "Singapore": "sg", "Sochi": "ru", "Spa": "be", "Suzuka": "jp", "Serres": "gr", "Slovakiaring": "sk",
-  "Valencia": "es", "Vallelunga": "it",
-  "Yas Marina": "ae", "Yeongam": "kr", "Zandvoort": "nl", "Zolder": "be"
-};
+import { TRACK_FLAGS } from '@/app/lib/tracks';
+import { calculateSetupService } from '@/services/setupService';
 
 // ============================================
 // COMPONENTES DE CARDS DE INFORMAÇÃO
@@ -527,12 +509,24 @@ function CarRow({ part, finalWear, onLvl, onWear, disabled }: any) {
   )
 }
 
+// ============================================
+// PERFORMANCE METRIC - REFATORADO (PASSO 4)
+// ============================================
 function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
-  const diff = (data?.carro || 0) - (data?.pista || 0);
+  // data agora vem do Python com: part, test, carro, pista
+  const part = data?.part || 0;
+  const pista = data?.pista || 0;
+  const testValue = test || 0;
+  const totalCaract = part + testValue;
+  
+  // diff = total (PEÇAS+CARACT.) - exigência da pista (PISTA independente)
+  const diff = totalCaract - pista;
   const isOk = diff >= 0;
-  const pctPista = Math.min(100, ((data?.pista || 0) / 200) * 100);
-  const pctPeça = Math.min(100, ((data?.part || 0) / 200) * 100);
-  const pctTeste = Math.min(100 - pctPeça, (test / 200) * 100);
+  
+  // Percentuais para a barra
+  const pctPista = Math.min(100, (pista / 200) * 100);
+  const pctPart = Math.min(100, (part / 200) * 100);
+  const pctTest = Math.min(100 - pctPart, (testValue / 200) * 100);
 
   const gradientColors = {
     power: "from-emerald-50 to-slate-50/20",
@@ -555,32 +549,56 @@ function PerformanceMetric({ label, data, test, onTest, disabled }: any) {
 
   return (
     <div className={`space-y-2 bg-gradient-to-br ${gradientColors[label as keyof typeof gradientColors] || 'from-slate-50 to-transparent'} p-3 rounded-xl border border-slate-200 ${disabled ? 'opacity-60' : 'hover:border-emerald-200 transition-all duration-300'}`}>
+      
+      {/* HEADER */}
       <div className="flex justify-between items-center text-[10px] font-black uppercase">
         <span className="text-slate-700 flex items-center gap-1.5">
           <Icon size={10} className={iconColor} />
           {label}
-          <span className={isOk ? 'text-emerald-600 ml-2 font-black' : 'text-rose-500 ml-2 font-black'}>{diff > 0 ? `+${diff}` : diff}</span>
+          <span className={isOk ? 'text-emerald-600 ml-2 font-black' : 'text-rose-500 ml-2 font-black'}>
+            {diff > 0 ? `+${diff}` : diff}
+          </span>
         </span>
+        
         <div className="flex items-center gap-1.5">
           <div className="text-center flex flex-col items-center">
-            <span className="text-[6px] text-slate-400 mb-0.5 font-bold">ESTIMADO</span>
-            <input disabled={disabled} type="number" value={test} onChange={(e) => onTest(Number(e.target.value))} className="w-12 h-6 bg-[#f8fafc] border border-slate-200 rounded text-center text-[10px] font-mono font-black text-emerald-600 focus:border-emerald-500 focus:bg-white outline-none" />
+            <span className="text-[6px] text-slate-400 mb-0.5 font-bold">CARACT.</span>
+            <div className="w-12 h-6 bg-slate-100 border border-slate-200 rounded flex items-center justify-center text-[10px] font-mono font-black text-slate-700">
+              {testValue}
+            </div>
           </div>
           <div className="text-center bg-slate-100 px-2 py-0.5 rounded min-w-[32px] ml-1 border border-slate-200">
-            <p className="text-[6px] text-slate-500 mb-0.5 font-bold">ALVO</p>
-            <p className="text-[10px] text-slate-800 font-mono font-black">{data?.pista || 0}</p>
+            <p className="text-[6px] text-slate-500 mb-0.5 font-bold">PISTA</p>
+            <p className="text-[10px] text-slate-800 font-mono font-black">{pista}</p>
           </div>
         </div>
       </div>
 
+      {/* BARRA DE COMPOSIÇÃO */}
       <div className="h-1.5 w-full bg-[#f8fafc] rounded-full relative overflow-visible border border-slate-200/50 p-[1px]">
-        <div className="h-full bg-slate-300 rounded-l-full" style={{ width: `${pctPeça}%` }} />
-        <div className="h-full absolute top-0 bg-gradient-to-r from-emerald-500 to-teal-400" style={{ left: `${pctPeça}%`, width: `${pctTeste}%` }} />
+        {/* Parte das peças (verde escuro) */}
+        <div className="h-full bg-emerald-600 rounded-l-full" style={{ width: `${pctPart}%` }} />
+        
+        {/* Parte dos testes (verde claro) */}
+        <div 
+          className="h-full absolute top-0 bg-gradient-to-r from-emerald-400 to-teal-400" 
+          style={{ left: `${pctPart}%`, width: `${pctTest}%` }} 
+        />
 
+        {/* Marcador da exigência da pista */}
         <div
           className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3.5 bg-slate-800 shadow-sm z-10 rounded-sm transition-all duration-500"
           style={{ left: `${pctPista}%` }}
         />
+      </div>
+
+      {/* DETALHES DOS VALORES */}
+      <div className="flex justify-between text-[7px] font-bold text-slate-500 uppercase tracking-wider pt-0.5">
+        <span>Peças: {part}</span>
+        <span>Caract: +{testValue}</span>
+        <span className={isOk ? 'text-emerald-600' : 'text-rose-500'}>
+          Total: {part + testValue}
+        </span>
       </div>
     </div>
   );
@@ -608,7 +626,9 @@ export default function DashboardHome() {
     menuData,
     officeData,
     reloadUserState,
-  } = useGame();
+    carTotals, // ✅ ADICIONADO - PASSO 4
+    carCharacteristic,
+  } = useGame() as any;
 
   // ✅ ESTADO LOCAL PARA PISTAS
   const [localTracks, setLocalTracks] = useState<string[]>([]);
@@ -628,6 +648,10 @@ export default function DashboardHome() {
   });
   const [calculatedWear, setCalculatedWear] = useState<number[]>([]);
   const [isPerformanceLoading, setIsPerformanceLoading] = useState(false);
+  // CTR simulação isolada (não persiste, não altera car/GameContext)
+  const [simCtr, setSimCtr] = useState<string>('0');
+  const [simCalculatedWear, setSimCalculatedWear] = useState<number[] | null>(null);
+  const [isSimLoading, setIsSimLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -679,19 +703,10 @@ export default function DashboardHome() {
     async function loadAvatar() {
       if (!userId) return;
       try {
-        const { data: userState } = await supabase
-          .from('user_state')
-          .select('avatar_url')
-          .eq('user_id', userId)
-          .single();
-        
-        if (userState?.avatar_url) {
-          setAvatarUrl(userState.avatar_url);
-        } else {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user?.user_metadata?.avatar_url) {
-            setAvatarUrl(user.user_metadata.avatar_url);
-          }
+        // avatar_url coluna não existe em produção (check_columns.js 42703) — usa apenas auth metadata com fallback
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.user_metadata?.avatar_url) {
+          setAvatarUrl(user.user_metadata.avatar_url);
         }
       } catch (error) {
         console.error('Erro ao carregar avatar:', error);
@@ -775,7 +790,8 @@ export default function DashboardHome() {
           car,
           test_points: testPoints,
           tech_director: techDirector,
-          staff_facilities: staffFacilities
+          staff_facilities: staffFacilities,
+          car_totals: carTotals, // ✅ ENVIAR TOTAIS DO CARRO (PASSO 4)
         })
       });
       const dataPerf = await resPerf.json();
@@ -812,7 +828,7 @@ export default function DashboardHome() {
       }
     } catch (e) { console.error("Calc error:", e); }
     finally { setIsPerformanceLoading(false); }
-  }, [track, driverStatic, driverEditable, car, testPoints, desgasteModifier, techDirector, staffFacilities, userId, isGlobalLoading]);
+  }, [track, driverStatic, driverEditable, car, testPoints, desgasteModifier, techDirector, staffFacilities, userId, isGlobalLoading, carTotals]);
 
   useEffect(() => {
     if (track && track !== "Selecionar Pista" && !isGlobalLoading && userId) {
@@ -821,6 +837,72 @@ export default function DashboardHome() {
     }
     return () => { if (calcTimerRef.current) clearTimeout(calcTimerRef.current); };
   }, [track, driverStatic, driverEditable, car, testPoints, desgasteModifier, fetchCalculations, isGlobalLoading, userId]);
+
+  // CTR simulação isolada — debounce, não persiste, não altera car/GameContext
+  const simTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    const raw = simCtr.trim();
+    if (raw === '' || raw === '0') {
+      setSimCalculatedWear(null);
+      setIsSimLoading(false);
+      return;
+    }
+    let v = Number(raw);
+    if (!Number.isFinite(v)) {
+      setSimCalculatedWear(null);
+      return;
+    }
+    v = Math.max(0, Math.min(100, Math.round(v)));
+    if (v === 0) {
+      setSimCalculatedWear(null);
+      return;
+    }
+    if (!track || track === 'Selecionar Pista' || !userId || isGlobalLoading) return;
+    if (simTimerRef.current) clearTimeout(simTimerRef.current);
+    simTimerRef.current = setTimeout(async () => {
+      setIsSimLoading(true);
+      try {
+        const data = await calculateSetupService(
+          {
+            pista: track,
+            driver: driverEditable,
+            car,
+            tech_director: techDirector,
+            staff_facilities: staffFacilities,
+            tempQ1: weather.tempQ1,
+            tempQ2: weather.tempQ2,
+            weatherQ1: weather.weatherQ1,
+            weatherQ2: weather.weatherQ2,
+            weatherRace: weather.weatherRace,
+            raceAvgTemp: (weather.r1_temp_min + weather.r1_temp_max) / 2 || 20,
+            desgasteModifier: v,
+          },
+          userId
+        );
+        if (data.sucesso && data.data) {
+          const wears = [
+            data.data.chassi.wear.desgasteFinal,
+            data.data.motor.wear.desgasteFinal,
+            data.data.asaDianteira.wear.desgasteFinal,
+            data.data.asaTraseira.wear.desgasteFinal,
+            data.data.assoalho.wear.desgasteFinal,
+            data.data.laterais.wear.desgasteFinal,
+            data.data.radiador.wear.desgasteFinal,
+            data.data.cambio.wear.desgasteFinal,
+            data.data.freios.wear.desgasteFinal,
+            data.data.suspensao.wear.desgasteFinal,
+            data.data.eletronicos.wear.desgasteFinal,
+          ].map((x) => Math.round(Number(x) || 0));
+          setSimCalculatedWear(wears);
+        }
+      } catch (e) {
+        console.error('Sim CTR error:', e);
+      } finally {
+        setIsSimLoading(false);
+      }
+    }, 500);
+    return () => { if (simTimerRef.current) clearTimeout(simTimerRef.current); };
+  }, [simCtr, track, driverEditable, car, techDirector, staffFacilities, weather, userId, isGlobalLoading]);
 
   // ============================================
   // UPLOAD DE AVATAR
@@ -854,10 +936,15 @@ export default function DashboardHome() {
         data: { avatar_url: publicUrl }
       });
 
-      await supabase
-        .from('user_state')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', userId);
+      // avatar_url coluna não existe em produção — tenta salvar mas ignora 42703
+      try {
+        await supabase
+          .from('user_state')
+          .update({ avatar_url: publicUrl } as any)
+          .eq('user_id', userId);
+      } catch (e: any) {
+        if (e?.code !== '42703') console.warn('Avatar user_state não salvo:', e?.message);
+      }
 
       setAvatarUrl(publicUrl);
     } catch (err: any) {
@@ -936,23 +1023,6 @@ export default function DashboardHome() {
         throw new Error('Usuário não autenticado. Faça login novamente.');
       }
 
-      const { data: userState, error: fetchError } = await supabase
-        .from('user_state')
-        .select('gpro_token')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (fetchError) {
-        throw new Error('Erro ao buscar token GPRO: ' + fetchError.message);
-      }
-
-      const token = userState?.gpro_token;
-
-      if (!token) {
-        alert('Configure o token GPRO em Configurações → Integração GPRO primeiro');
-        return;
-      }
-
       const response = await fetch('/api/gpro/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -987,7 +1057,7 @@ export default function DashboardHome() {
         driver_static: data.driver_static || null,
         driver_editable: data.driver_editable || null,
         car: data.car || null,
-        tech_director: data.techDirector || null,
+        tech_director: data.tech_director || null,
         staff_facilities: data.staff || null,
         weather: data.weather || null,
         track: data.track || null,
@@ -1295,28 +1365,75 @@ export default function DashboardHome() {
               </div>
             </div>
             <div className="relative p-3.5 pt-1 flex flex-col gap-0.5">
-              {car.map((part, idx) => (
-                <CarRow key={idx} part={part} finalWear={calculatedWear[idx]} onLvl={(val: number) => updateCar(idx, 'lvl', val)} onWear={(val: number) => updateCar(idx, 'wear', val)} disabled={!isEditMode} />
-              ))}
+              {car.map((part: any, idx: number) => {
+                const displayWear = simCalculatedWear ? simCalculatedWear[idx] : calculatedWear[idx];
+                const realWear = calculatedWear[idx];
+                const isElevated = simCalculatedWear && realWear !== undefined && displayWear > realWear;
+                return (
+                  <div key={idx} className={isElevated ? 'rounded-lg bg-amber-50/50' : ''}>
+                    <CarRow part={part} finalWear={displayWear} onLvl={(val: number) => updateCar(idx, 'lvl', val)} onWear={(val: number) => updateCar(idx, 'wear', val)} disabled={!isEditMode} />
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between h-8 rounded-lg px-2 bg-white border border-slate-200">
+                <label htmlFor="ctr-input" className="text-[10px] font-black text-slate-700 uppercase tracking-wider truncate">CTR - PISTA LIVRE</label>
+                <div className="flex items-center gap-1.5">
+                  {isSimLoading && <Loader2 size={12} className="animate-spin text-emerald-600" aria-hidden />}
+                  {simCalculatedWear && <span className="text-[8px] font-black uppercase tracking-wider text-amber-600 border border-amber-200 bg-amber-50 px-1.5 py-0.5 rounded">SIMULADO</span>}
+                  <input
+                    id="ctr-input"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={100}
+                    value={simCtr}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '') { setSimCtr(''); return; }
+                      if (/^\d{0,3}$/.test(v)) setSimCtr(v);
+                    }}
+                    onBlur={() => {
+                      if (simCtr === '') setSimCtr('0');
+                      else {
+                        const n = Math.max(0, Math.min(100, Math.round(Number(simCtr) || 0)));
+                        setSimCtr(String(n));
+                      }
+                    }}
+                    placeholder="0"
+                    className="w-9 h-6 bg-white border border-slate-200 rounded text-center text-[10px] font-mono font-black text-slate-800 focus:border-emerald-500 outline-none"
+                    aria-label="CTR Pista livre 0 a 100"
+                  />
+                </div>
+              </div>
             </div>
           </section>
 
+          {/* ============================================ */}
+          {/* SEÇÃO AJUSTE DE EXIGÊNCIA - REFATORADA (PASSO 4) */}
+          {/* ============================================ */}
           <section className="lg:col-span-4 bg-white/90 border border-slate-200 rounded-2xl p-4.5 shadow-sm h-full space-y-4 flex flex-col backdrop-blur-sm relative hover:shadow-md hover:border-slate-300 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.01] via-transparent to-emerald-500/[0.01] opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5 relative">
               <div className="p-1 bg-emerald-600 rounded-lg shadow-sm">
                 <Activity size={14} className="text-white" />
               </div>
-              <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-widest bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Ajuste de Exigência</h3>
+              <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-widest bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                Ajuste de Exigência
+              </h3>
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-[6px] font-black text-slate-400 uppercase tracking-wider">PEÇAS + CARACT. = TOTAL</span>
+              </div>
             </div>
+            
+            {/* Performance Metrics - Agora com composição completa */}
             {['power', 'handling', 'accel'].map((key) => (
               <PerformanceMetric
                 key={key}
                 label={key}
                 data={(performanceData as any)[key]}
-                test={(testPoints as any)[key]}
-                onTest={(v: number) => updateTestPoints({ [key]: v })}
-                disabled={!isEditMode}
+                test={(carCharacteristic as any)?.[key] ?? 0}
+                onTest={() => {}}
+                disabled={true}
               />
             ))}
           </section>
