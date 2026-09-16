@@ -45,3 +45,10 @@ yarn-error.log*
 next-env.d.ts
 .aider*
 .opencode/
+
+# android release signing
+*.keystore
+*.jks
+key.properties
+android/key.properties
+android/app/release-key.properties
