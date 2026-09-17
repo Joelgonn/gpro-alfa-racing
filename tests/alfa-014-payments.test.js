@@ -1,0 +1,28 @@
+// tests/alfa-014-payments.test.js
+const fs = require('fs')
+const path = require('path')
+function read(f){ return fs.readFileSync(path.join(__dirname,'..',f),'utf8') }
+function assert(c,m){ if(!c){ console.error('❌ FAIL:',m); process.exitCode=1 } else console.log('✅ PASS:',m) }
+console.log('=== ALFA-014.1 — Payments ===\n')
+const mig = read('supabase/migrations/20250917000007_create_premium_payments.sql')
+const types = read('app/lib/payments/types.ts')
+const svc = read('app/lib/payments/paymentService.ts')
+const api = read('app/api/admin/payments/route.ts')
+const sm = read('app/lib/payments/paymentStateMachine.ts')
+
+assert(mig.includes('create table if not exists public.premium_payments'), 'schema premium_payments')
+assert(mig.includes('order_id uuid not null references public.premium_orders'), 'FK order_id')
+assert(mig.includes("check (status in ('created','pending'"), 'status check')
+assert(mig.includes('amount_cents integer') && mig.includes('>= 0'), 'amount_cents')
+assert(mig.includes('pix_txid text') && mig.includes('payload_hash text'), 'pix_txid, payload_hash')
+assert(mig.includes('idx_premium_payments_order_id') && mig.includes('uniq_premium_payments_pix_txid'), 'índices order_id, pix_txid')
+assert(mig.includes('enable row level security'), 'RLS')
+assert(mig.includes('premium_payments_select_own') && mig.includes('exists'), 'RLS via order ownership')
+assert(types.includes('PremiumPayment') && types.includes('PaymentProvider'), 'types PremiumPayment')
+assert(svc.includes('createPaymentForOrder') && svc.includes('amount_cents'), 'serviço cria pagamento')
+assert(sm.includes('canTransitionPayment'), 'state machine payment')
+assert(api.includes('requireAdmin') && api.includes('orderId'), 'API admin payments')
+assert(api.includes('slice(0, 8)'), 'API mascara pix_txid')
+console.log('\n=== Resumo ===')
+if(process.exitCode) console.log('❌ Falhas payments.')
+else console.log('✅ Payments OK')

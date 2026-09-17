@@ -18,6 +18,9 @@ export const viewport: Viewport = {
   themeColor: "#030712",
   width: "device-width",
   initialScale: 1,
+  // Necessário para o APK (Capacitor) respeitar as áreas seguras do sistema:
+  // sem viewport-fit=cover, env(safe-area-inset-*) resolve para 0 no WebView Android.
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {

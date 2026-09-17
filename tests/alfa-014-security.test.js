@@ -1,0 +1,31 @@
+// tests/alfa-014-security.test.js
+const fs = require('fs')
+const path = require('path')
+function read(f){ return fs.readFileSync(path.join(__dirname,'..',f),'utf8') }
+function assert(c,m){ if(!c){ console.error('❌ FAIL:',m); process.exitCode=1 } else console.log('✅ PASS:',m) }
+console.log('=== ALFA-014.1 — Segurança ===\n')
+const orderApi = read('app/api/admin/orders/route.ts')
+const payApi = read('app/api/admin/payments/route.ts')
+const evtApi = read('app/api/admin/payment-events/route.ts')
+const orderSvc = read('app/lib/payments/orderService.ts')
+const accessService = read('app/lib/access/accessService.ts')
+
+assert(orderApi.includes('requireAdmin'), 'orders exige admin')
+assert(payApi.includes('requireAdmin'), 'payments exige admin')
+assert(evtApi.includes('requireAdmin'), 'payment-events exige admin')
+assert(orderApi.includes('userId') && orderApi.includes('^[0-9a-f-]{36}$'), 'orders valida userId UUID')
+assert(payApi.includes('orderId') && payApi.includes('^[0-9a-f-]{36}$'), 'payments valida orderId')
+assert(orderApi.includes('405') && payApi.includes('405') && evtApi.includes('405'), 'métodos escrita 405')
+assert(!orderApi.includes('payload_json') && !payApi.includes('payload_json'), 'payload_json omitido por padrão')
+assert(!orderApi.includes('service_role') && !payApi.includes('service_role'), 'sem service_role no JSON')
+assert(orderSvc.includes('supabaseAdmin') && payApi.includes('supabaseAdmin'), 'uso service_role somente backend')
+assert(!orderApi.includes('SELECT *') || orderApi.includes('select('), 'sem SELECT * completo')
+assert(accessService.includes('VIP_CHECK = false'), 'VIP_CHECK false')
+assert(!read('app/lib/payments/orderService.ts').includes('grant') && !read('app/lib/payments/paymentService.ts').includes('grant'), 'sem grant VIP automático')
+assert(read('supabase/migrations/20250917000006_create_premium_orders.sql').includes('for select to authenticated'), 'RLS orders select own')
+assert(read('supabase/migrations/20250917000007_create_premium_payments.sql').includes('for select to authenticated'), 'RLS payments select own')
+assert(read('supabase/migrations/20250917000008_create_payment_events.sql').includes('enable row level security'), 'RLS events')
+
+console.log('\n=== Resumo ===')
+if(process.exitCode) console.log('❌ Falhas segurança.')
+else console.log('✅ Segurança OK')

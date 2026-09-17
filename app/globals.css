@@ -20,6 +20,28 @@
   --foreground: #fafafa;
   --primary: #8b5cf6; /* Violet */
   --border: #27272a;
+
+  /* Áreas seguras do dispositivo (APK/Capacitor e iOS).
+     Fallback 0 garante comportamento idêntico no navegador comum. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* Envolve um padding CSS já existente (ex.: 16px 24px) somando a área segura.
+   Usado via style={{ padding: '16px 24px', ['--pad-top']: '16px', ... }} */
+@utility safe-pad {
+  padding-top: calc(var(--safe-top) + var(--pad-top, 0px));
+  padding-bottom: calc(var(--safe-bottom) + var(--pad-bottom, 0px));
+  padding-left: calc(var(--safe-left) + var(--pad-left, 0px));
+  padding-right: calc(var(--safe-right) + var(--pad-right, 0px));
+}
+
+/* Só a margem lateral segura (notch em modo paisagem) — não conflita com p-* do Tailwind */
+@utility px-safe {
+  padding-left: max(var(--safe-left), 0px);
+  padding-right: max(var(--safe-right), 0px);
 }
 
 @layer base {

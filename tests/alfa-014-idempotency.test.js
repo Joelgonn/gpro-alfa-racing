@@ -1,0 +1,25 @@
+// tests/alfa-014-idempotency.test.js
+const fs = require('fs')
+const path = require('path')
+function read(f){ return fs.readFileSync(path.join(__dirname,'..',f),'utf8') }
+function assert(c,m){ if(!c){ console.error('❌ FAIL:',m); process.exitCode=1 } else console.log('✅ PASS:',m) }
+console.log('=== ALFA-014.1 — Idempotência ===\n')
+const orderSvc = read('app/lib/payments/orderService.ts')
+const paySvc = read('app/lib/payments/paymentService.ts')
+const sm = read('app/lib/payments/paymentStateMachine.ts')
+const migOrders = read('supabase/migrations/20250917000006_create_premium_orders.sql')
+const migPayments = read('supabase/migrations/20250917000007_create_premium_payments.sql')
+const migEvents = read('supabase/migrations/20250917000008_create_payment_events.sql')
+
+assert(orderSvc.includes('existing') && orderSvc.includes('maybeSingle'), 'order idempotência via select pending')
+assert(orderSvc.includes('price_cents') && orderSvc.includes('plan') && !orderSvc.includes('body.amount_cents'), 'preço do plano, não frontend')
+assert(paySvc.includes('existing') && paySvc.includes('order_id'), 'payment idempotência por order_id')
+assert(migOrders.includes('uniq_premium_orders_pix_txid'), 'índice único pix_txid orders')
+assert(migPayments.includes('uniq_premium_payments_pix_txid'), 'índice único pix_txid payments')
+assert(migEvents.includes('uniq_payment_events_event_id'), 'índice único event_id')
+assert(sm.includes('canTransitionOrder') && sm.includes('canTransitionPayment'), 'transições validadas')
+assert(orderSvc.includes('canTransitionOrder') || sm.includes('ORDER_TRANSITIONS'), 'validação transição order')
+assert(paySvc.includes('createPaymentForOrder') && !paySvc.includes('grant'), 'separação pedido vs grant (sem VIP automático)')
+console.log('\n=== Resumo ===')
+if(process.exitCode) console.log('❌ Falhas idempotência.')
+else console.log('✅ Idempotência OK')

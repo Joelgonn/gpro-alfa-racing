@@ -147,7 +147,8 @@ const menuGroups = [
     items: [
       { name: 'GPRO API Database', path: '/dashboard/admin/gpro-kb', icon: <Icons.Database /> },
       { name: 'Tyre Research Lab', path: '/dashboard/admin/research/tyres', icon: <Icons.Beaker /> },
-      { name: 'Driver Energy Lab', path: '/dashboard/admin/research/driver-energy', icon: <Icons.Beaker /> }
+      { name: 'Driver Energy Lab', path: '/dashboard/admin/research/driver-energy', icon: <Icons.Beaker /> },
+      { name: 'Convites VIP', path: '/dashboard/admin/vip-invites', icon: <Icons.Users /> }
     ]
   }
 ];
@@ -421,7 +422,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
 
   useEffect(() => { setIsMobileMenuOpen(false); }, [pathname]);
-  useEffect(() => { document.body.style.overflow = isMobileMenuOpen ? 'hidden' : 'auto'; }, [isMobileMenuOpen]);
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : 'auto';
+    // Limpa ao desmontar para não deixar o body travado (ex.: troca de rota/desmontagem do layout)
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isMobileMenuOpen]);
 
   return (
     <GameProvider>
@@ -441,7 +446,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-1 flex flex-col min-w-0 relative">
           
           {/* Mobile Header - Branco Gelo com Dourado */}
-          <div className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-amber-200/30 px-4 h-16 flex items-center justify-between shadow-lg shadow-amber-500/5">
+          {/* safe-pad: soma a área segura do device (barra de status/notch) ao padding existente */}
+          <div
+            className="md:hidden sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-amber-200/30 px-4 h-16 flex items-center justify-between shadow-lg shadow-amber-500/5 safe-pad"
+            style={{ ['--pad-top' as string]: '16px', ['--pad-left' as string]: '16px', ['--pad-right' as string]: '16px', ['--pad-bottom' as string]: '16px' }}
+          >
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/30 flex items-center justify-center">
@@ -472,7 +481,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
           </div>
 
-          <main className="flex-1 w-full relative z-10 p-4 md:p-6 lg:p-8">
+          <main className="flex-1 w-full relative z-10 p-4 md:p-6 lg:p-8 px-safe">
             {children}
           </main>
         </div>

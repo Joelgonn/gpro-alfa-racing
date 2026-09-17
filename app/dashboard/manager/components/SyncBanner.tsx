@@ -44,7 +44,10 @@ export function SyncBanner({ isSyncing, syncStatus, syncError, onSync, hasData }
           Configurar Integração
         </a>
       </div>
-      {hasData === false && <p className="mt-2 text-xs font-bold text-amber-300/80">Algumas informações estão disponíveis. Tente atualizar os módulos pendentes.</p>}
+      {/* A mensagem de "dados disponíveis" só faz sentido quando NÃO há erro */}
+      {hasData === false && syncStatus !== 'error' && (
+        <p className="mt-2 text-xs font-bold text-amber-300/80">Algumas informações estão disponíveis. Tente atualizar os módulos pendentes.</p>
+      )}
     </div>
   );
 }

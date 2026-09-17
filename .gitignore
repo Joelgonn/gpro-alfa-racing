@@ -52,3 +52,27 @@ next-env.d.ts
 key.properties
 android/key.properties
 android/app/release-key.properties
+
+# Project backups
+*.bak*
+*.backup*
+backup-*/
+backup-*
+
+# Local logs
+*.log
+*.out.log
+*.err.log
+
+# Local test result files
+test-result.txt
+test-alfa*.txt
+
+# Local screenshots/evidence
+screen_frame*.png
+
+# Temporary local harnesses
+tests/_*-harness.cjs
+
+# Alfa previous backups
+*.alfaprev

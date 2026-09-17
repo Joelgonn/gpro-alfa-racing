@@ -1,0 +1,296 @@
+# Practice Payload Audit
+
+Quantidade de snapshots analisados: 2
+Quantidade de campos encontrados: 102
+
+## Root keys
+- apiRequestsRemaining | ocorr?ncias: 2 | cobertura: 100.00%
+- bestNetLapIdx | ocorr?ncias: 2 | cobertura: 100.00%
+- braInvalid | ocorr?ncias: 2 | cobertura: 100.00%
+- carAccel | ocorr?ncias: 2 | cobertura: 100.00%
+- carHandl | ocorr?ncias: 2 | cobertura: 100.00%
+- carPower | ocorr?ncias: 2 | cobertura: 100.00%
+- cash | ocorr?ncias: 2 | cobertura: 100.00%
+- disableDriveButton | ocorr?ncias: 2 | cobertura: 100.00%
+- endOfSeason | ocorr?ncias: 2 | cobertura: 100.00%
+- engInvalid | ocorr?ncias: 2 | cobertura: 100.00%
+- errorMsg | ocorr?ncias: 2 | cobertura: 100.00%
+- fWingInvalid | ocorr?ncias: 2 | cobertura: 100.00%
+- gearInvalid | ocorr?ncias: 2 | cobertura: 100.00%
+- isSupporter | ocorr?ncias: 2 | cobertura: 100.00%
+- lapsDone | ocorr?ncias: 2 | cobertura: 100.00%
+- loadingDataState | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlBrakes | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlChassis | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlCooling | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlElectronics | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlEngine | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlFWing | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlGear | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlRWing | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlSidepods | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlSusp | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlUnderbody | ocorr?ncias: 2 | cobertura: 100.00%
+- q1LapData | ocorr?ncias: 2 | cobertura: 100.00%
+- raceInProgress | ocorr?ncias: 2 | cobertura: 100.00%
+- rWingInvalid | ocorr?ncias: 2 | cobertura: 100.00%
+- segmentSelected | ocorr?ncias: 2 | cobertura: 100.00%
+- selectedLap | ocorr?ncias: 2 | cobertura: 100.00%
+- setBrakes | ocorr?ncias: 2 | cobertura: 100.00%
+- setDryTyres | ocorr?ncias: 2 | cobertura: 100.00%
+- setEngine | ocorr?ncias: 2 | cobertura: 100.00%
+- setFWing | ocorr?ncias: 2 | cobertura: 100.00%
+- setGear | ocorr?ncias: 2 | cobertura: 100.00%
+- setRisk | ocorr?ncias: 2 | cobertura: 100.00%
+- setRWing | ocorr?ncias: 2 | cobertura: 100.00%
+- setSusp | ocorr?ncias: 2 | cobertura: 100.00%
+- setTyres | ocorr?ncias: 2 | cobertura: 100.00%
+- showComment1Popover | ocorr?ncias: 2 | cobertura: 100.00%
+- showError | ocorr?ncias: 2 | cobertura: 100.00%
+- showWeatherPopover | ocorr?ncias: 2 | cobertura: 100.00%
+- suspInvalid | ocorr?ncias: 2 | cobertura: 100.00%
+- trackAccel | ocorr?ncias: 2 | cobertura: 100.00%
+- trackHandl | ocorr?ncias: 2 | cobertura: 100.00%
+- trackId | ocorr?ncias: 2 | cobertura: 100.00%
+- trackImg | ocorr?ncias: 2 | cobertura: 100.00%
+- trackName | ocorr?ncias: 2 | cobertura: 100.00%
+- trackNat | ocorr?ncias: 2 | cobertura: 100.00%
+- trackPower | ocorr?ncias: 2 | cobertura: 100.00%
+- tyresInvalid | ocorr?ncias: 2 | cobertura: 100.00%
+- usaBrakes | ocorr?ncias: 2 | cobertura: 100.00%
+- usaChassis | ocorr?ncias: 2 | cobertura: 100.00%
+- usaCooling | ocorr?ncias: 2 | cobertura: 100.00%
+- usaElectronics | ocorr?ncias: 2 | cobertura: 100.00%
+- usaEngine | ocorr?ncias: 2 | cobertura: 100.00%
+- usaFWing | ocorr?ncias: 2 | cobertura: 100.00%
+- usaGear | ocorr?ncias: 2 | cobertura: 100.00%
+- usaRWing | ocorr?ncias: 2 | cobertura: 100.00%
+- usaSidepods | ocorr?ncias: 2 | cobertura: 100.00%
+- usaSusp | ocorr?ncias: 2 | cobertura: 100.00%
+- usaUnderbody | ocorr?ncias: 2 | cobertura: 100.00%
+- weather | ocorr?ncias: 2 | cobertura: 100.00%
+
+## Paths
+- apiRequestsRemaining | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- bestNetLapIdx | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- braInvalid | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- carAccel | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- carHandl | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- carPower | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- cash | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- disableDriveButton | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- endOfSeason | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- engInvalid | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- errorMsg | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- fWingInvalid | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- gearInvalid | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- isSupporter | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- lapsDone | tipo: array | ocorr?ncias: 2 | cobertura: 100.00%
+- loadingDataState | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlBrakes | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlChassis | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlCooling | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlElectronics | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlEngine | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlFWing | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlGear | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlRWing | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlSidepods | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlSusp | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- lvlUnderbody | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- q1LapData | tipo: object | ocorr?ncias: 2 | cobertura: 100.00%
+- raceInProgress | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- rWingInvalid | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- segmentSelected | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- selectedLap | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- setBrakes | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- setDryTyres | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- setEngine | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- setFWing | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- setGear | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- setRisk | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- setRWing | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- setSusp | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- setTyres | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- showComment1Popover | tipo: object | ocorr?ncias: 2 | cobertura: 100.00%
+- showComment1Popover.content | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- showComment1Popover.open | tipo: boolean | ocorr?ncias: 2 | cobertura: 100.00%
+- showError | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- showWeatherPopover | tipo: object | ocorr?ncias: 2 | cobertura: 100.00%
+- showWeatherPopover.open | tipo: boolean | ocorr?ncias: 2 | cobertura: 100.00%
+- suspInvalid | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- trackAccel | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- trackHandl | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- trackId | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- trackImg | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- trackName | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- trackNat | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- trackPower | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- tyresInvalid | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- usaBrakes | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaChassis | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaCooling | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaElectronics | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaEngine | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaFWing | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaGear | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaRWing | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaSidepods | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaSusp | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- usaUnderbody | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- weather | tipo: object | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q1Hum | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q1Temp | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q1Weather | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q1WeatherTransl | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q2Hum | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q2Temp | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q2Weather | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.q2WeatherTransl | tipo: string | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ1HumHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ1HumLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ1RainPHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ1RainPLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ1TempHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ1TempLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ2HumHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ2HumLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ2RainPHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ2RainPLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ2TempHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ2TempLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ3HumHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ3HumLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ3RainPHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ3RainPLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ3TempHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ3TempLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ4HumHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ4HumLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ4RainPHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ4RainPLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ4TempHigh | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+- weather.raceQ4TempLow | tipo: number | ocorr?ncias: 2 | cobertura: 100.00%
+
+## Campos de interesse
+- wear: ausente
+- tyreWear: ausente
+- compound: ausente
+- tyreCompound: ausente
+- weather: presente
+- temperature: ausente
+- stint: ausente
+- laps: ausente
+- fuel: ausente
+
+## Campos presentes em 100%
+- apiRequestsRemaining | tipo: number
+- bestNetLapIdx | tipo: number
+- braInvalid | tipo: number
+- carAccel | tipo: string
+- carHandl | tipo: string
+- carPower | tipo: string
+- cash | tipo: number
+- disableDriveButton | tipo: number
+- endOfSeason | tipo: number
+- engInvalid | tipo: number
+- errorMsg | tipo: string
+- fWingInvalid | tipo: number
+- gearInvalid | tipo: number
+- isSupporter | tipo: number
+- lapsDone | tipo: array
+- loadingDataState | tipo: number
+- lvlBrakes | tipo: string
+- lvlChassis | tipo: string
+- lvlCooling | tipo: string
+- lvlElectronics | tipo: string
+- lvlEngine | tipo: string
+- lvlFWing | tipo: string
+- lvlGear | tipo: string
+- lvlRWing | tipo: string
+- lvlSidepods | tipo: string
+- lvlSusp | tipo: string
+- lvlUnderbody | tipo: string
+- q1LapData | tipo: object
+- raceInProgress | tipo: number
+- rWingInvalid | tipo: number
+- segmentSelected | tipo: string
+- selectedLap | tipo: number
+- setBrakes | tipo: number
+- setDryTyres | tipo: string
+- setEngine | tipo: number
+- setFWing | tipo: number
+- setGear | tipo: number
+- setRisk | tipo: string
+- setRWing | tipo: number
+- setSusp | tipo: number
+- setTyres | tipo: string
+- showComment1Popover | tipo: object
+- showComment1Popover.content | tipo: string
+- showComment1Popover.open | tipo: boolean
+- showError | tipo: number
+- showWeatherPopover | tipo: object
+- showWeatherPopover.open | tipo: boolean
+- suspInvalid | tipo: number
+- trackAccel | tipo: string
+- trackHandl | tipo: string
+- trackId | tipo: number
+- trackImg | tipo: string
+- trackName | tipo: string
+- trackNat | tipo: string
+- trackPower | tipo: string
+- tyresInvalid | tipo: number
+- usaBrakes | tipo: string
+- usaChassis | tipo: string
+- usaCooling | tipo: string
+- usaElectronics | tipo: string
+- usaEngine | tipo: string
+- usaFWing | tipo: string
+- usaGear | tipo: string
+- usaRWing | tipo: string
+- usaSidepods | tipo: string
+- usaSusp | tipo: string
+- usaUnderbody | tipo: string
+- weather | tipo: object
+- weather.q1Hum | tipo: number
+- weather.q1Temp | tipo: number
+- weather.q1Weather | tipo: string
+- weather.q1WeatherTransl | tipo: string
+- weather.q2Hum | tipo: number
+- weather.q2Temp | tipo: number
+- weather.q2Weather | tipo: string
+- weather.q2WeatherTransl | tipo: string
+- weather.raceQ1HumHigh | tipo: number
+- weather.raceQ1HumLow | tipo: number
+- weather.raceQ1RainPHigh | tipo: number
+- weather.raceQ1RainPLow | tipo: number
+- weather.raceQ1TempHigh | tipo: number
+- weather.raceQ1TempLow | tipo: number
+- weather.raceQ2HumHigh | tipo: number
+- weather.raceQ2HumLow | tipo: number
+- weather.raceQ2RainPHigh | tipo: number
+- weather.raceQ2RainPLow | tipo: number
+- weather.raceQ2TempHigh | tipo: number
+- weather.raceQ2TempLow | tipo: number
+- weather.raceQ3HumHigh | tipo: number
+- weather.raceQ3HumLow | tipo: number
+- weather.raceQ3RainPHigh | tipo: number
+- weather.raceQ3RainPLow | tipo: number
+- weather.raceQ3TempHigh | tipo: number
+- weather.raceQ3TempLow | tipo: number
+- weather.raceQ4HumHigh | tipo: number
+- weather.raceQ4HumLow | tipo: number
+- weather.raceQ4RainPHigh | tipo: number
+- weather.raceQ4RainPLow | tipo: number
+- weather.raceQ4TempHigh | tipo: number
+- weather.raceQ4TempLow | tipo: number
+
+## Campos ausentes
+- wear
+- tyreWear
+- compound
+- tyreCompound
+- temperature
+- stint
+- laps
+- fuel

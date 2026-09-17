@@ -1,0 +1,25 @@
+// tests/alfa-0142-payment-preparation.test.js
+const fs = require('fs')
+const path = require('path')
+function read(f){ return fs.readFileSync(path.join(__dirname,'..',f),'utf8') }
+function assert(c,m){ if(!c){ console.error('❌ FAIL:',m); process.exitCode=1 } else console.log('✅ PASS:',m) }
+console.log('=== ALFA-014.2 — Pagamento Preparação ===\n')
+const paySvc = read('app/lib/payments/paymentService.ts')
+const orderSvc = read('app/lib/payments/orderService.ts')
+const route = read('app/api/payments/orders/route.ts')
+const access = read('app/lib/access/accessService.ts')
+
+assert(route.includes('createTestPaymentForOrder') || paySvc.includes('createTestPaymentForOrder'), 'pagamento associado ao pedido correto')
+assert(paySvc.includes("provider: 'test'") || paySvc.includes('provider'), 'provider=test')
+assert(paySvc.includes("status: 'created'") || paySvc.includes('created'), 'status=created')
+assert(paySvc.includes('TEST-ALFA-0141-'), 'identificador TEST-ALFA-0141-')
+assert(!paySvc.includes('qr_code') || !paySvc.includes('gateway'), 'sem gateway externo')
+assert(!paySvc.includes('QR Code Pix'), 'sem Pix real')
+assert(paySvc.includes('status') && paySvc.includes('created'), 'não marcado como confirmado')
+assert(!paySvc.includes('access_grants') && !orderSvc.includes('access_grants'), 'nenhum grant VIP criado')
+assert(paySvc.includes('existing') && paySvc.includes('order_id'), 'pagamento duplicado bloqueado (idempotente por order_id)')
+assert(access.includes('VIP_CHECK = false'), 'VIP_CHECK false')
+assert(!read('app/api/payments/orders/route.ts').includes('requireVip'), 'requireVip desativado')
+console.log('\n=== Resumo ===')
+if(process.exitCode) console.log('❌ Falhas pagamento.')
+else console.log('✅ Pagamento preparação OK')

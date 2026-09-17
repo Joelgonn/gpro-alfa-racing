@@ -9,8 +9,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/app/lib/supabase';
 import { useGame } from '@/app/context/GameContext';
+import { FeedbackDialog, ToastProvider, useToast } from '../manager/components/feedback';
 
-// --- CONFIGURAÇÃO DAS PEÇAS ---
+// --- CONFIGURAÃ‡ÃƒO DAS PEÃ‡AS ---
 const CAR_PARTS = [
   { id: 'chassi', label: 'CHASSIS', icon: <Settings2 size={12} /> },
   { id: 'motor', label: 'MOTOR', icon: <Zap size={12} /> },
@@ -19,10 +20,10 @@ const CAR_PARTS = [
   { id: 'assoalho', label: 'ASSOALHO', icon: <ShieldAlert size={12} /> },
   { id: 'laterais', label: 'LATERAIS', icon: <Settings2 size={12} /> },
   { id: 'radiador', label: 'RADIADOR', icon: <Thermometer size={12} /> },
-  { id: 'cambio', label: 'CÂMBIO', icon: <Settings2 size={12} /> },
+  { id: 'cambio', label: 'CÃ‚MBIO', icon: <Settings2 size={12} /> },
   { id: 'freios', label: 'FREIOS', icon: <ShieldAlert size={12} /> },
-  { id: 'suspensao', label: 'SUSPENSÃO', icon: <Settings2 size={12} /> },
-  { id: 'eletronicos', label: 'ELETRÔNICOS', icon: <Zap size={12} /> },
+  { id: 'suspensao', label: 'SUSPENSÃƒO', icon: <Settings2 size={12} /> },
+  { id: 'eletronicos', label: 'ELETRÃ”NICOS', icon: <Zap size={12} /> },
 ];
 
 // --- MAPEAMENTO DE BANDEIRAS ---
@@ -58,6 +59,16 @@ const extrairNomePista = (trackName: string) => {
 // COMPONENTE PRINCIPAL
 // ============================================
 export default function WearPlanningPage() {
+  // ALFA-015.2 â€” feedback visual prÃ³prio (toast + diÃ¡logo acessÃ­vel) no lugar de confirm()/reload()
+  return (
+    <ToastProvider>
+      <WearPlanningContent />
+    </ToastProvider>
+  );
+}
+
+function WearPlanningContent() {
+  const toast = useToast();
   const { driver } = useGame();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,18 +83,20 @@ export default function WearPlanningPage() {
   const [mobileActiveTab, setMobileActiveTab] = useState(0);
   const [calendarData, setCalendarData] = useState<any>(null);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
+  // ALFA-015.2 â€” confirmaÃ§Ã£o da limpeza da nuvem via diÃ¡logo acessÃ­vel (substitui confirm() nativo)
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const hasCalculatedRef = useRef(false);
   const isInitialLoadRef = useRef(true);
   const calendarLoadedRef = useRef(false);
 
   const driverStats = [
-    { label: 'CON', val: driver?.concentracao || 0, full: 'Concentração' },
+    { label: 'CON', val: driver?.concentracao || 0, full: 'ConcentraÃ§Ã£o' },
     { label: 'TAL', val: driver?.talento || 0, full: 'Talento' },
     { label: 'AGR', val: driver?.agressividade || 0, full: 'Agressividade' },
-    { label: 'EXP', val: driver?.experiencia || 0, full: 'Experiência' },
-    { label: 'TEC', val: driver?.tecnica || 0, full: 'Técnica' },
-    { label: 'RES', val: driver?.resistencia || 0, full: 'Resistência' },
+    { label: 'EXP', val: driver?.experiencia || 0, full: 'ExperiÃªncia' },
+    { label: 'TEC', val: driver?.tecnica || 0, full: 'TÃ©cnica' },
+    { label: 'RES', val: driver?.resistencia || 0, full: 'ResistÃªncia' },
     { label: 'PES', val: driver?.peso || 0, unit: 'kg', full: 'Peso' },
   ];
 
@@ -99,7 +112,7 @@ export default function WearPlanningPage() {
     return `/flags/${code}.png`;
   };
 
-  // Carregar Calendário GPRO
+  // Carregar CalendÃ¡rio GPRO
   useEffect(() => {
     async function loadCalendar() {
       try {
@@ -164,10 +177,10 @@ export default function WearPlanningPage() {
           setSeasonSlots(mappedRaces);
           calendarLoadedRef.current = true;
         } else {
-          console.warn('Não foi possível carregar o calendário');
+          console.warn('NÃ£o foi possÃ­vel carregar o calendÃ¡rio');
         }
       } catch (error) {
-        console.error('Erro ao carregar calendário:', error);
+        console.error('Erro ao carregar calendÃ¡rio:', error);
       } finally {
         setLoadingCalendar(false);
       }
@@ -239,7 +252,7 @@ export default function WearPlanningPage() {
     loadSavedData();
   }, [userId, loadingCalendar, seasonSlots.length]);
 
-  // Função de Cálculo do Motor Python
+  // FunÃ§Ã£o de CÃ¡lculo do Motor Python
   const fetchCalculo = useCallback(async () => {
     if (seasonSlots.length === 0 || !userId || hasCalculatedRef.current) return;
     hasCalculatedRef.current = true;
@@ -267,7 +280,7 @@ export default function WearPlanningPage() {
       const data = await res.json();
       if (data.sucesso) setResults(data.data);
     } catch (error) {
-      console.error('Erro no cálculo:', error);
+      console.error('Erro no cÃ¡lculo:', error);
     } finally { 
       setCalculating(false); 
     }
@@ -284,8 +297,9 @@ export default function WearPlanningPage() {
   }, [loading, userId, seasonSlots.length, fetchCalculo]);
 
   // Salvar no Cloud GPRO Database
-  const saveToCloud = useCallback(async (slots: any, overrides: any, locks: number[]) => {
-    if (!userId) return;
+  // ALFA-015.2 â€” retorna sucesso/falha para que o fluxo de limpeza possa decidir sem recarregar a pÃ¡gina
+  const saveToCloud = useCallback(async (slots: any, overrides: any, locks: number[]): Promise<boolean> => {
+    if (!userId) return false;
     setSaving(true);
     try {
       const slotsToSave = slots.map((slot: any) => ({
@@ -316,7 +330,7 @@ export default function WearPlanningPage() {
         natCode: slot.natCode || '',
       }));
 
-      await fetch('/api/python/save_planning', {
+      const res = await fetch('/api/python/save_planning', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'user-id': userId },
         keepalive: true, 
@@ -328,8 +342,10 @@ export default function WearPlanningPage() {
           }
         })
       });
+      return res.ok;
     } catch (e) {
       console.error("Erro ao salvar:", e);
+      return false;
     } finally { 
       setSaving(false); 
     }
@@ -352,6 +368,26 @@ export default function WearPlanningPage() {
       }
     };
   }, [userId, loading, saveToCloud]);
+
+  /**
+   * ALFA-015.2 â€” Limpeza da nuvem SEM recarregar a aplicaÃ§Ã£o.
+   * Mesma regra de negÃ³cio de antes (grava planning vazio: [] , {} , []), mas agora:
+   * - aguarda a gravaÃ§Ã£o e verifica a resposta antes de mexer na tela;
+   * - em falha total, NÃƒO limpa a interface e reporta o erro;
+   * - em sucesso, limpa os dados visuais que foram removidos e mantÃ©m o usuÃ¡rio na pÃ¡gina.
+   */
+  const clearCloudPlanning = async () => {
+    const ok = await saveToCloud([], {}, []);
+    if (!ok) {
+      toast.error('Falha ao limpar', 'NÃ£o foi possÃ­vel limpar o planejador na nuvem. Nada foi alterado.');
+      return;
+    }
+    setSeasonSlots([]);
+    setManualOverrides({});
+    setLockedSlots([]);
+    setResults(null);
+    toast.success('Planejador limpo', 'O planejador da nuvem foi limpo.');
+  };
 
   const updateSeasonSlot = (index: number, field: string, value: any) => {
     if (lockedSlots.includes(index)) return;
@@ -443,14 +479,14 @@ export default function WearPlanningPage() {
         {/* Controle e Status do Engine */}
         <div className="hidden sm:flex items-center gap-4 bg-white px-6 py-3 rounded-2xl border border-slate-200 font-mono z-10 w-full sm:w-auto justify-between sm:justify-end shadow-sm hover:border-emerald-500/10 transition-all duration-300">
           <button 
-            onClick={() => { if(confirm("ATENÇÃO: Limpar nuvem? Isso resetará TUDO.")) { saveToCloud([], {}, []); window.location.reload(); }}} 
+            onClick={() => setConfirmClear(true)}
             className="mr-2 p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
             title="Limpar planejador da nuvem"
           >
             <Trash2 size={16}/>
           </button>
           <div className="text-right border-l border-slate-200 pl-4 shrink-0">
-            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter">Status de Cálculo</span>
+            <span className="block text-[9px] font-black text-slate-400 uppercase tracking-tighter">Status de CÃ¡lculo</span>
             <div className="flex items-center justify-end gap-2">
                 <span className="text-xs text-emerald-600 font-bold">{calculating ? 'CALCULANDO' : 'PRONTO'}</span>
                 {calculating && <Loader2 size={14} className="animate-spin text-emerald-600" />}
@@ -468,7 +504,7 @@ export default function WearPlanningPage() {
                 <th className="sticky left-0 z-30 bg-slate-100 p-8 text-left border-b border-r border-slate-200 min-w-[180px] shadow-sm">
                   <span className="text-[11px] font-black uppercase text-slate-500 tracking-[0.3em] flex items-center gap-2">
                     <Settings2 size={14} className="text-emerald-600" />
-                    Peças
+                    PeÃ§as
                   </span>
                 </th>
                 {seasonSlots.map((slot, i) => {
@@ -485,7 +521,7 @@ export default function WearPlanningPage() {
                           'bg-[#f8fafc] border-slate-200 hover:border-emerald-500/20'
                         }`}>
                           <div className="flex items-center gap-2 truncate">
-                             {/* ✅ CORRIGIDO: getFlagSrc com o parâmetro correto mapeado dinamicamente */}
+                             {/* âœ… CORRIGIDO: getFlagSrc com o parÃ¢metro correto mapeado dinamicamente */}
                              <div className="relative w-5 h-3 shadow-sm border border-slate-200/50 rounded-sm overflow-hidden"><Image src={getFlagSrc(slot.name)} alt={slot.name} fill className="object-cover rounded-[1px]" unoptimized /></div>
                              <span className={`text-[10px] font-black uppercase italic truncate ${isLocked ? 'text-emerald-700' : isCurrent ? 'text-emerald-700' : isFavorite ? 'text-amber-700 font-black' : 'text-slate-700'}`}>#{i + 1} {slot.name}</span>
                              {isCurrent && <span className="text-[7px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-black border border-emerald-300 shadow-sm animate-pulse">ATUAL</span>}
@@ -518,7 +554,7 @@ export default function WearPlanningPage() {
                            <span className="text-blue-600 font-bold">{slot.fuel || '-'}</span>
                         </div>
                         <div className="grid grid-cols-4 w-full text-[8px] font-black text-slate-400 uppercase mt-1 text-center tracking-widest border-t border-slate-200 pt-2">
-                           <span>Nível</span><span>Início</span><span>Desg.</span><span className="text-amber-600/70">Final</span>
+                           <span>NÃ­vel</span><span>InÃ­cio</span><span>Desg.</span><span className="text-amber-600/70">Final</span>
                         </div>
                       </div>
                     </th>
@@ -628,7 +664,7 @@ export default function WearPlanningPage() {
                         <div className="flex items-center gap-3">
                              <div className="w-10 h-10 bg-white rounded-xl border border-slate-200 flex items-center justify-center shrink-0 shadow-sm relative">
                                 <div className="relative w-7 h-4">
-                                  {/* ✅ CORRIGIDO: getFlagSrc com o parâmetro correto no mobile */}
+                                  {/* âœ… CORRIGIDO: getFlagSrc com o parÃ¢metro correto no mobile */}
                                   <Image 
                                     src={getFlagSrc(seasonSlots[mobileActiveTab]?.name)} 
                                     alt="flag" 
@@ -645,9 +681,9 @@ export default function WearPlanningPage() {
                                 </h2>
                                 <span className="text-[10px] font-black tracking-widest uppercase flex items-center gap-1.5 mt-1.5 leading-none">
                                   {seasonSlots[mobileActiveTab]?.isCurrentRace ? (
-                                    <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">🔴 GP ATUAL</span>
+                                    <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">ðŸ”´ GP ATUAL</span>
                                   ) : seasonSlots[mobileActiveTab]?.isFavTrack ? (
-                                    <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">⭐ FAVORITA</span>
+                                    <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">â­ FAVORITA</span>
                                   ) : (
                                     <span className="text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Race #{mobileActiveTab + 1}</span>
                                   )}
@@ -703,12 +739,12 @@ export default function WearPlanningPage() {
                     </div>
                 </div>
 
-                {/* Tabela de Peças (Gelo) */}
+                {/* Tabela de PeÃ§as (Gelo) */}
                 <div className="flex flex-col w-full overflow-hidden bg-white">
                     <div className="grid grid-cols-[100px_35px_40px_35px_40px] gap-1 px-3 py-2 bg-slate-50 text-[8px] font-black uppercase text-slate-400 tracking-wider border-b border-slate-200 items-center text-center justify-start">
                         <div className="text-left pl-1 flex items-center gap-1.5">
                             <Settings2 size={10} className="text-emerald-600" />
-                            Peça
+                            PeÃ§a
                         </div>
                         <div>Lv</div>
                         <div>Ini</div>
@@ -761,6 +797,18 @@ export default function WearPlanningPage() {
             </div>
         )}
       </div>
+
+      {/* ALFA-015.2 â€” confirmaÃ§Ã£o acessÃ­vel no lugar do confirm() nativo */}
+      <FeedbackDialog
+        isOpen={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        type="destructive"
+        title="Limpar nuvem"
+        message="ATENÃ‡ÃƒO: Limpar nuvem? Isso resetarÃ¡ TUDO."
+        confirmLabel="Limpar tudo"
+        cancelLabel="Cancelar"
+        onConfirm={clearCloudPlanning}
+      />
 
     </div>
   );

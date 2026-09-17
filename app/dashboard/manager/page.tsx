@@ -23,11 +23,22 @@ import { TechDirectorCard } from './components/TechDirectorCard';
 import { StaffCard } from './components/StaffCard';
 import { EmptyState } from './components/EmptyState';
 import { SyncBanner } from './components/SyncBanner';
+import { ToastProvider, useToast } from './components/feedback';
 
 // ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
 export default function ManagerPage() {
+  // ALFA-015.1 — feedback visual próprio no lugar dos diálogos nativos (alert/confirm)
+  return (
+    <ToastProvider>
+      <ManagerContent />
+    </ToastProvider>
+  );
+}
+
+function ManagerContent() {
+  const toast = useToast();
   const router = useRouter();
   const { 
     isGlobalLoading, 
@@ -194,7 +205,7 @@ export default function ManagerPage() {
     if (!file || !userId) return;
 
     if (file.size > 3 * 1024 * 1024) {
-      alert('Selecione uma imagem de até 3MB.');
+      toast.warning('Imagem muito grande', 'Selecione uma imagem de até 3MB.');
       return;
     }
 
@@ -229,7 +240,7 @@ export default function ManagerPage() {
       setAvatarUrl(publicUrl);
     } catch (err: any) {
       console.error('Erro ao enviar imagem:', err);
-      alert('Erro ao carregar imagem: ' + (err.message || err));
+      toast.error('Erro ao carregar imagem', String(err?.message || err));
     } finally {
       setIsUploading(false);
     }
