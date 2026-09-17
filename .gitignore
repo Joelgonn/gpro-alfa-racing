@@ -77,3 +77,4 @@ tests/_*-harness.cjs
 # Alfa previous backups
 *.alfaprevdocs api/
 docs api/
+*.alfaprev
