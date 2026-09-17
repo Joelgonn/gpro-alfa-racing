@@ -75,4 +75,4 @@ screen_frame*.png
 tests/_*-harness.cjs
 
 # Alfa previous backups
-*.alfaprev
+*.alfaprevdocs api/
