@@ -31,6 +31,11 @@ import {
 import { processWebhookEvent } from '@/app/lib/payments/webhook-service'
 
 // O webhook não pode usar cache nem página estática
+// Nota Vercel: Preview deployments são protegidos por Vercel Authentication (SSO) por padrão.
+// Para o Mercado Pago alcançar este endpoint, o Preview deve ser exposto via
+// Deployment Protection Exceptions (ex: preview-*.vercel.app) ou via
+// Protection Bypass for Automation (?x-vercel-protection-bypass=SECRET).
+// Este código NÃO desativa a validação de assinatura do Mercado Pago (fail-closed).
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 

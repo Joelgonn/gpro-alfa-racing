@@ -84,7 +84,11 @@ export function extractExternalReference(payload: unknown): string | null {
   return null
 }
 
-/** Tipos de evento que interessam nesta integração. Qualquer outro é registrado e ignorado. */
+/** Tipos de evento que interessam nesta integração. Qualquer outro é registrado e ignorado.
+ *  Nota: 'order.processed' (enviado pelo teste do Mercado Pago) NÃO é um evento de pagamento
+ *  e retorna 'unknown_event' — o sistema propositalmente NÃO concede VIP para 'order.*'.
+ *  Apenas 'payment' / 'payment.*' são relevantes para futura confirmação de Pix.
+ */
 export function isRelevantEvent(eventType: string | null): boolean {
   if (!eventType) return false
   const t = eventType.toLowerCase()
