@@ -120,12 +120,14 @@ console.log('\n--- 3. Garantias negativas (pagamento / VIP) ---')
 
 const SVC = 'app/lib/payments/webhook-service.ts'
 const svcCode = stripComments(read(SVC))
-assert(!/\.update\(|\.upsert\(|\.delete\(/.test(svcCode), 'webhook-service não executa update/upsert/delete')
-assert(!svcCode.includes('premium_payments'), 'webhook-service não toca premium_payments')
-assert(!svcCode.includes('access_grants'), 'webhook-service não toca access_grants')
-assert(!whCode.includes('premium_payments'), 'handler não toca premium_payments')
-assert(!whCode.includes('access_grants'), 'handler não toca access_grants')
-assert(!/fetch\(|axios|https\.request/.test(whCode + svcCode), 'nenhuma chamada externa ao Mercado Pago')
+// PIX-010: webhook agora confirma pagamento e concede VIP de forma idempotente (quando PIX_ENABLED=true e approved)
+assert(!/\.delete\(/.test(svcCode), 'webhook-service não executa delete (apenas update/insert para confirmação)')
+assert(svcCode.includes('premium_payments'), 'webhook-service toca premium_payments para confirmar (PIX-010)')
+assert(svcCode.includes('access_grants'), 'webhook-service cria access_grants source=payment (PIX-010)')
+assert(!whCode.includes('premium_payments'), 'handler não toca premium_payments diretamente (via service)')
+assert(!whCode.includes('access_grants'), 'handler não toca access_grants diretamente (via service)')
+assert(whCode.includes('processWebhookEvent'), 'handler delega ao service (que consulta MP via client)')
+assert(!/MERCADOPAGO_ACCESS_TOKEN/.test(whCode), 'handler não referencia token direto')
 assert(!/MERCADOPAGO_ACCESS_TOKEN/.test(whCode + svcCode + SIG), 'Access Token nunca referenciado no módulo Pix')
 
 // Eventos financeiros declarados mas SEM emissor: prova estrutural de que o caminho
@@ -149,7 +151,8 @@ assert(comEmissor.length === 0, `nenhum evento financeiro é emitido hoje (emiss
 assert(LOGGER.includes("'pix.payment.confirmed'") && LOGGER.includes("'pix.grant.created'"),
   'eventos financeiros estão declarados no union (contrato pronto, sem emissor)')
 
-// Nenhum caminho de código concede grant a partir de pagamento
+// Concessão VIP: invite (signup) + payment (webhook PIX-010)
+// PIX-010: webhook-service agora concede via access_grants source=payment (idempotente, só approved)
 const GRANT_CALLERS = ['app/actions/signup.ts', 'app/lib/access/accessService.ts']
 const pagamentoComGrant = ['app/lib/payments', 'app/api/payments', 'app/planos']
   .flatMap((d) => {
@@ -163,9 +166,14 @@ const pagamentoComGrant = ['app/lib/payments', 'app/api/payments', 'app/planos']
     })(d)
     return out
   })
-  .filter((rel) => /ensureVipGrantForInvite|grantVip|access_grants/.test(stripComments(read(rel))))
-assert(pagamentoComGrant.length === 0, `módulo de pagamento não concede VIP (falhas: ${pagamentoComGrant.join(', ') || 'nenhuma'})`)
-assert(GRANT_CALLERS.every((f) => fs.existsSync(path.join(ROOT, f))), 'o único caminho de grant continua sendo o de convite')
+  .filter((rel) => {
+    const code = stripComments(read(rel))
+    // Permite webhook-service criar grant source=payment (PIX-010), mas não outros módulos
+    if (rel === 'app/lib/payments/webhook-service.ts' && /source: 'payment'/.test(code)) return false
+    return /ensureVipGrantForInvite|grantVip|access_grants/.test(code)
+  })
+assert(pagamentoComGrant.length === 0, `módulo de pagamento (exceto webhook payment) não concede VIP (falhas: ${pagamentoComGrant.join(', ') || 'nenhuma'})`)
+assert(GRANT_CALLERS.every((f) => fs.existsSync(path.join(ROOT, f))), 'caminhos de grant invite ainda existem')
 
 // ---------------------------------------------------------------------------
 // 4. Nenhum segredo nos logs nem nas respostas HTTP

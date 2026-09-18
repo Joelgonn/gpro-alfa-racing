@@ -4,9 +4,10 @@
 import type { OrderStatus, PremiumOrderStatus, PremiumPaymentStatus } from './types'
 
 // Transições válidas para premium_orders
+// PIX-010: permite pending→paid direto (pagamento Pix aprovado sem passar por awaiting_payment)
 const ORDER_TRANSITIONS: Record<PremiumOrderStatus, PremiumOrderStatus[]> = {
   draft: ['pending', 'cancelled'],
-  pending: ['awaiting_payment', 'cancelled', 'expired', 'failed'],
+  pending: ['awaiting_payment', 'paid', 'cancelled', 'expired', 'failed'],
   awaiting_payment: ['paid', 'cancelled', 'expired', 'failed'],
   paid: ['refunded', 'chargeback'],
   cancelled: [],

@@ -177,3 +177,106 @@ export async function ensureTestPaymentForOrder(orderId: string, userId: string)
 export async function getSafePaymentForUser(paymentId: string, userId: string): Promise<PremiumPayment | null> {
   return getPaymentForUser(paymentId, userId)
 }
+
+// ---------------------------------------------------------------------------
+// PIX-008 — Integração preparatória Mercado Pago (AINDA NÃO ATIVA)
+// ---------------------------------------------------------------------------
+// As funções abaixo preparam a persistência real sem ativar PIX.
+// PIX_ENABLED permanece false nesta sprint; nenhuma rota as chama automaticamente.
+// Quando PIX_ENABLED=true em Preview, a rota /api/payments/orders poderá
+// chamar createMercadoPagoPixPaymentForOrder de forma controlada.
+// Erro de configuração (MERCADOPAGO_CONFIG_MISSING) NÃO faz fallback para provider=test.
+
+import { createPixPayment as mpCreatePixPayment, getMercadoPagoPayment as mpGetPayment } from './mercadopago-client'
+
+export async function fetchMercadoPagoPayment(paymentId: string) {
+  return mpGetPayment(paymentId)
+}
+
+/**
+ * Cria pagamento Pix real via Mercado Pago e persiste em premium_payments.
+ * - Valida dono do pedido (order_id + user_id)
+ * - Reusa pagamento existente com qr_code (idempotência por order_id)
+ * - Valor e moeda vêm exclusivamente do pedido (nunca do frontend)
+ * - external_reference = orderId (UUID)
+ * - NÃO concede VIP, NÃO altera access_grants
+ */
+export async function createMercadoPagoPixPaymentForOrder(
+  orderId: string,
+  userId: string,
+  opts?: { description?: string; payerEmail?: string; idempotencyKey?: string },
+): Promise<PremiumPayment> {
+  if (!orderId || !userId) throw new Error('orderId e userId obrigatórios')
+
+  const { data: order } = await supabaseAdmin
+    .from('premium_orders')
+    .select('id, user_id, amount_cents, currency, status, expires_at')
+    .eq('id', orderId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!order) throw orderNotOwnedError()
+
+  const amountCents = (order as unknown as { amount_cents: number }).amount_cents
+  const currency = (order as unknown as { currency: string }).currency || 'BRL'
+
+  // Reuso: se já existe pagamento mercadopago com qr_code, retorna
+  const { data: existingMp } = await supabaseAdmin
+    .from('premium_payments')
+    .select(PAYMENT_PUBLIC_COLUMNS + ', qr_code, qr_code_base64, ticket_url, provider_status, external_reference, expires_at')
+    .eq('order_id', orderId)
+    .eq('provider', 'mercadopago')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (existingMp && (existingMp as unknown as { qr_code: string | null }).qr_code) {
+    return existingMp as unknown as PremiumPayment
+  }
+
+  const description = opts?.description?.trim() || `VIP ${orderId.slice(0, 8)}`
+
+  const mp = await mpCreatePixPayment({
+    orderId,
+    amountCents,
+    currency,
+    description,
+    payerEmail: opts?.payerEmail,
+    idempotencyKey: opts?.idempotencyKey || orderId,
+  })
+
+  const { data: inserted, error: insErr } = await supabaseAdmin
+    .from('premium_payments')
+    .insert({
+      order_id: orderId,
+      provider: 'mercadopago',
+      provider_payment_id: mp.providerPaymentId,
+      provider_status: mp.providerStatus,
+      external_reference: mp.externalReference || orderId,
+      status: 'pending',
+      amount_cents: amountCents,
+      currency,
+      qr_code: mp.qrCode,
+      qr_code_base64: mp.qrCodeBase64,
+      ticket_url: mp.ticketUrl,
+      expires_at: mp.expiresAt,
+      raw_response_masked: mp.rawResponseMasked as unknown as Record<string, never>,
+    })
+    .select(PAYMENT_PUBLIC_COLUMNS + ', qr_code, qr_code_base64, ticket_url, provider_status, external_reference, expires_at')
+    .single()
+
+  if (insErr || !inserted) {
+    if ((insErr as unknown as { code?: string })?.code === '23505') {
+      const { data: raced } = await supabaseAdmin
+        .from('premium_payments')
+        .select(PAYMENT_PUBLIC_COLUMNS)
+        .eq('order_id', orderId)
+        .eq('provider', 'mercadopago')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (raced) return raced as unknown as PremiumPayment
+    }
+    throw new Error(insErr?.message || 'Falha ao persistir pagamento Mercado Pago')
+  }
+
+  return inserted as unknown as PremiumPayment
+}

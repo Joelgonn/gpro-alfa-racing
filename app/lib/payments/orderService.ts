@@ -205,14 +205,19 @@ export async function getSafeOrderForUser(orderId: string, userId: string): Prom
 // Escopo simultâneo obrigatório: order_id + dono do pedido (premium_orders.user_id) + provider='test'.
 // Status terminais (failed/refunded/chargeback) nunca são apresentados como pagamento ativo.
 // Somente leitura: nunca cria, nunca atualiza, nunca apaga.
+// PIX-009: também cobre provider='mercadopago' quando PIX_ENABLED=true (polling QR real)
 export async function getSafePaymentForOrder(orderId: string, userId: string): Promise<PaymentDTO | null> {
   if (!orderId || !userId) return null
+
+  // Quando PIX_ENABLED=true, prioriza mercadopago; caso contrário, test
+  const pixEnabled = process.env.PIX_ENABLED === 'true'
+  const providers = pixEnabled ? ['mercadopago', 'test'] : ['test']
 
   const { data } = await supabaseAdmin
     .from('premium_payments')
     .select(`${PAYMENT_PUBLIC_COLUMNS}, premium_orders!inner(id, user_id)`)
     .eq('order_id', orderId)
-    .eq('provider', 'test')
+    .in('provider', providers)
     .eq('premium_orders.user_id', userId)
     .neq('status', TERMINAL_PAYMENT_STATUSES[0])
     .neq('status', TERMINAL_PAYMENT_STATUSES[1])
@@ -235,6 +240,31 @@ export async function getSafePaymentForOrder(orderId: string, userId: string): P
     pixTxid: payment.pix_txid,
     amountCents: payment.amount_cents,
     currency: payment.currency,
+  }
+}
+
+// PIX-009: leitura específica para Mercado Pago (usada pelo polling quando necessário)
+export async function getMercadoPagoPaymentForOrder(orderId: string, userId: string): Promise<PaymentDTO | null> {
+  if (!orderId || !userId) return null
+  const { data } = await supabaseAdmin
+    .from('premium_payments')
+    .select(`${PAYMENT_PUBLIC_COLUMNS}, premium_orders!inner(id, user_id)`)
+    .eq('order_id', orderId)
+    .eq('provider', 'mercadopago')
+    .eq('premium_orders.user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!data) return null
+  const p = data as any
+  if (p.premium_orders?.user_id !== userId) return null
+  return {
+    id: p.id,
+    provider: p.provider,
+    status: p.status,
+    pixTxid: p.pix_txid,
+    amountCents: p.amount_cents,
+    currency: p.currency,
   }
 }
 

@@ -1,19 +1,17 @@
 // app/lib/payments/webhook-service.ts
 // PIX-001.1 — Serviço do webhook do Mercado Pago (infraestrutura, SEM ativação financeira)
+// PIX-010 — Confirmação segura e concessão idempotente VIP
 //
-// ESCOPO DESTA SPRINT (deliberadamente restrito):
-//   ✅ valida método e Content-Type
+// ESCOPO ATUAL:
+//   ✅ valida método e Content-Type (route)
 //   ✅ lê e mascaramento o payload
 //   ✅ registra o evento em payment_events de forma IDEMPOTENTE
 //   ✅ correlaciona por external_reference (quando presente) — apenas CONSULTA
-//   ✅ classifica o desfecho para o log
-//   ❌ NÃO confirma pagamento
-//   ❌ NÃO altera premium_payments.status
-//   ❌ NÃO altera premium_orders.status
-//   ❌ NÃO concede VIP
-//   ❌ NÃO chama o Mercado Pago (contrato ainda não capturado)
-//
-// O webhook é um OBSERVADOR nesta sprint. Ele registra o fato e para.
+//   ✅ consulta Mercado Pago server-to-server quando PIX_ENABLED=true
+//   ✅ valida status approved, external_reference, valor, moeda, provider
+//   ✅ confirma premium_payments (pending→confirmed) e premium_orders (pending→paid)
+//   ✅ concede access_grants de forma idempotente (uniq_grant_payment_order)
+//   ✅ trata estados não aprovados e retries de forma segura
 
 import 'server-only'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
@@ -23,6 +21,8 @@ import {
   extractDataId,
   extractEventType,
 } from './mercadopago-signature'
+import { getMercadoPagoPayment, MercadoPagoError } from './mercadopago-client'
+import { canTransitionOrder, canTransitionPayment } from './paymentStateMachine'
 
 export type WebhookOutcome =
   | 'stored_pending'
@@ -31,6 +31,18 @@ export type WebhookOutcome =
   | 'no_reference'
   | 'reference_not_found'
   | 'storage_error'
+  // PIX-010 novos desfechos
+  | 'confirmed'
+  | 'grant_created'
+  | 'grant_reused'
+  | 'pending_observed'
+  | 'rejected_observed'
+  | 'cancelled_observed'
+  | 'refunded_observed'
+  | 'validation_failed'
+  | 'fetch_failed'
+  | 'not_approved'
+  | 'already_confirmed'
 
 export interface WebhookProcessResult {
   outcome: WebhookOutcome
@@ -40,6 +52,10 @@ export interface WebhookProcessResult {
   dataId: string | null
   /** id do premium_orders correlacionado, quando encontrado */
   orderId: string | null
+  /** id do pagamento MP quando consultado */
+  providerPaymentId?: string | null
+  /** id do grant quando criado/reusado */
+  grantId?: string | null
 }
 
 const PROVIDER = 'mercadopago'
@@ -95,8 +111,195 @@ export function isRelevantEvent(eventType: string | null): boolean {
   return t === 'payment' || t === 'payments' || t.startsWith('payment.')
 }
 
+// ---------------------------------------------------------------------------
+// Helpers PIX-010 — validações e concessão
+// ---------------------------------------------------------------------------
+
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+}
+
 /**
- * Processa o webhook: registra o evento e correlaciona. NUNCA concede nada.
+ * Valida pagamento MP retornado server-to-server.
+ * Retorna motivo sanitizado se inválido, null se ok.
+ */
+export function validateMpPayment(
+  mp: { providerStatus: string; externalReference: string | null; amount: number; currency: string },
+  order: { id: string; amount_cents: number; currency: string },
+): string | null {
+  if (mp.providerStatus !== 'approved') {
+    return `status_not_approved:${mp.providerStatus}`
+  }
+  if (!mp.externalReference || !isValidUUID(mp.externalReference)) {
+    return 'external_reference_invalido'
+  }
+  if (mp.externalReference !== order.id) {
+    return 'external_reference_divergente'
+  }
+  const expectedDecimal = Math.round(order.amount_cents) / 100
+  // Comparação segura sem ponto flutuante: compara centavos
+  const mpCents = Math.round(mp.amount * 100)
+  if (mpCents !== order.amount_cents) {
+    return `valor_divergente:mp=${mpCents}_order=${order.amount_cents}_expected=${expectedDecimal}`
+  }
+  if ((mp.currency || 'BRL').toUpperCase() !== 'BRL') {
+    return `moeda_divergente:${mp.currency}`
+  }
+  if ((order.currency || 'BRL').toUpperCase() !== 'BRL') {
+    return 'moeda_pedido_nao_BRL'
+  }
+  return null
+}
+
+async function confirmPaymentAndOrder(
+  orderId: string,
+  paymentRowId: string,
+  mpProviderPaymentId: string,
+): Promise<{ orderConfirmed: boolean; paymentConfirmed: boolean }> {
+  // Buscar estados atuais
+  const { data: order } = await supabaseAdmin.from('premium_orders').select('id, status').eq('id', orderId).maybeSingle()
+  const { data: payment } = await supabaseAdmin.from('premium_payments').select('id, status').eq('id', paymentRowId).maybeSingle()
+
+  let orderConfirmed = false
+  let paymentConfirmed = false
+
+  if (payment) {
+    const from = (payment as unknown as { status: string }).status
+    if (from === 'confirmed') {
+      paymentConfirmed = true // já confirmado, idempotente
+    } else if (canTransitionPayment(from, 'confirmed')) {
+      const { error } = await supabaseAdmin
+        .from('premium_payments')
+        .update({ status: 'confirmed', provider_status: 'approved', provider_payment_id: mpProviderPaymentId, paid_at: new Date().toISOString() })
+        .eq('id', paymentRowId)
+        .in('status', ['pending', 'created'])
+      if (!error) paymentConfirmed = true
+      else {
+        // Tentar re-ler — pode ter sido confirmado por concorrência
+        const { data: recheck } = await supabaseAdmin.from('premium_payments').select('status').eq('id', paymentRowId).maybeSingle()
+        if ((recheck as unknown as { status: string })?.status === 'confirmed') paymentConfirmed = true
+      }
+    } else if (from === 'pending' || from === 'created') {
+      // Fallback: tenta atualizar mesmo se transição não prevista, mas com where
+      const { error } = await supabaseAdmin.from('premium_payments').update({ status: 'confirmed', provider_status: 'approved', paid_at: new Date().toISOString() }).eq('id', paymentRowId).in('status', ['pending', 'created'])
+      if (!error) paymentConfirmed = true
+    }
+  }
+
+  if (order) {
+    const from = (order as unknown as { status: string }).status
+    if (from === 'paid') {
+      orderConfirmed = true
+    } else if (canTransitionOrder(from, 'paid')) {
+      const { error } = await supabaseAdmin.from('premium_orders').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', orderId).in('status', ['pending', 'awaiting_payment', 'draft'])
+      if (!error) orderConfirmed = true
+      else {
+        const { data: recheck } = await supabaseAdmin.from('premium_orders').select('status').eq('id', orderId).maybeSingle()
+        if ((recheck as unknown as { status: string })?.status === 'paid') orderConfirmed = true
+      }
+    } else {
+      // Fallback
+      const { error } = await supabaseAdmin.from('premium_orders').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', orderId).eq('status', 'pending')
+      if (!error) orderConfirmed = true
+    }
+  }
+
+  return { orderConfirmed, paymentConfirmed }
+}
+
+async function ensurePaymentGrant(
+  order: { id: string; user_id: string; plan_id: string },
+): Promise<{ grantId: string | null; isNew: boolean }> {
+  // Buscar duração do plano para calcular expires_at
+  const { data: plan } = await supabaseAdmin.from('premium_plans').select('duration_days').eq('id', order.plan_id).maybeSingle()
+  const durationDays = (plan as unknown as { duration_days: number | null })?.duration_days ?? 30
+  const now = new Date()
+  const expiresAt = durationDays === null ? null : new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+
+  // Idempotência: já existe grant para este pedido?
+  const { data: existing } = await supabaseAdmin
+    .from('access_grants')
+    .select('id')
+    .eq('user_id', order.user_id)
+    .eq('source', 'payment')
+    .contains('metadata', { order_id: order.id } as unknown as string)
+    .maybeSingle()
+
+  // Fallback para índice parcial metadata->>'order_id'
+  if (existing) {
+    return { grantId: (existing as unknown as { id: string }).id, isNew: false }
+  }
+  // Tenta buscar via metadata JSONB com filtro alternativo (compatível com índice parcial)
+  const { data: existing2 } = await supabaseAdmin
+    .from('access_grants')
+    .select('id, metadata')
+    .eq('user_id', order.user_id)
+    .eq('source', 'payment')
+    .limit(10)
+
+  if (existing2) {
+    for (const row of existing2 as unknown as Array<{ id: string; metadata: Record<string, unknown> }>) {
+      if ((row.metadata as Record<string, unknown>)?.order_id === order.id) {
+        return { grantId: row.id, isNew: false }
+      }
+    }
+  }
+
+  const payload = {
+    user_id: order.user_id,
+    source: 'payment' as const,
+    plan: 'full_premium' as const,
+    status: 'active' as const,
+    starts_at: now.toISOString(),
+    expires_at: expiresAt,
+    metadata: {
+      order_id: order.id,
+      created_via: 'pix010_webhook',
+    } as unknown as Record<string, unknown>,
+  }
+
+  const { data: inserted, error } = await supabaseAdmin
+    .from('access_grants')
+    .insert(payload)
+    .select('id')
+    .single()
+
+  if (!error && inserted) {
+    return { grantId: (inserted as unknown as { id: string }).id, isNew: true }
+  }
+
+  if ((error as unknown as { code?: string })?.code === '23505') {
+    // Concorrência: grant já inserido por outro processo (uniq_grant_payment_order)
+    const { data: raced } = await supabaseAdmin
+      .from('access_grants')
+      .select('id, metadata')
+      .eq('user_id', order.user_id)
+      .eq('source', 'payment')
+      .limit(10)
+    if (raced) {
+      for (const row of raced as unknown as Array<{ id: string; metadata: Record<string, unknown> }>) {
+        if ((row.metadata as Record<string, unknown>)?.order_id === order.id) {
+          return { grantId: row.id, isNew: false }
+        }
+      }
+    }
+    // Tenta buscar novamente via contains
+    const { data: raced2 } = await supabaseAdmin
+      .from('access_grants')
+      .select('id')
+      .eq('user_id', order.user_id)
+      .eq('source', 'payment')
+      .contains('metadata', { order_id: order.id } as unknown as string)
+      .maybeSingle()
+    if (raced2) return { grantId: (raced2 as unknown as { id: string }).id, isNew: false }
+  }
+
+  return { grantId: null, isNew: false }
+}
+
+/**
+ * Processa o webhook: registra o evento e, quando PIX_ENABLED=true e evento relevante,
+ * confirma pagamento via server-to-server e concede VIP de forma idempotente.
  * Retorna o desfecho para o handler decidir a resposta HTTP.
  */
 export async function processWebhookEvent(params: {
@@ -116,7 +319,7 @@ export async function processWebhookEvent(params: {
   // Evento não relacionado a pagamento: registra como ignorado (não some sem rastro).
   const relevant = isRelevantEvent(eventType)
 
-  // Correlação por external_reference — APENAS consulta, nada é alterado.
+  // Correlação por external_reference — APENAS consulta, nada é alterado (para registro inicial).
   let orderId: string | null = null
   if (externalReference) {
     const { data } = await supabaseAdmin
@@ -162,7 +365,127 @@ export async function processWebhookEvent(params: {
   if (!externalReference) return { outcome: 'no_reference', stored: true, eventType, dataId, orderId }
   if (!orderId) return { outcome: 'reference_not_found', stored: true, eventType, dataId, orderId }
 
+  // PIX-010: a partir daqui, evento relevante com orderId, mas ainda sem confirmação.
+  // Se PIX_ENABLED=false, preserva comportamento antigo (stored_pending, sem MP).
+  const pixEnabled = process.env.PIX_ENABLED === 'true'
+  if (!pixEnabled) {
+    void signatureStatus
+    void signatureMethod
+    return { outcome: 'stored_pending', stored: true, eventType, dataId, orderId }
+  }
+
+  // PIX_ENABLED=true: precisa de data.id (paymentId) para consultar MP
+  if (!dataId) {
+    await supabaseAdmin.from('payment_events').update({ processing_status: 'ignored', error_message: 'data.id ausente, sem consulta MP' }).eq('event_id', eventId)
+    return { outcome: 'unknown_event', stored: true, eventType, dataId, orderId }
+  }
+
+  // Consulta server-to-server (fonte de verdade)
+  let mp: Awaited<ReturnType<typeof getMercadoPagoPayment>>
+  try {
+    mp = await getMercadoPagoPayment(dataId)
+  } catch (e: unknown) {
+    const err = e as MercadoPagoError
+    const code = (err as unknown as { code?: string })?.code || 'UNKNOWN'
+    const msg = String((err as Error)?.message || '').slice(0, 80)
+    // Erros esperados: CONFIG_MISSING, UNAUTHORIZED, NOT_FOUND, RATE_LIMITED, TIMEOUT, etc.
+    // Não concede VIP, registra erro sanitizado e retorna 200 para evitar retry infinito (exceto 429/timeout que MP já retém)
+    await supabaseAdmin.from('payment_events').update({ processing_status: 'failed', error_message: `mp_fetch_failed:${code}:${msg}`.slice(0, 200) }).eq('event_id', eventId)
+    if (code === 'MERCADOPAGO_CONFIG_MISSING') {
+      return { outcome: 'validation_failed', stored: true, eventType, dataId, orderId }
+    }
+    return { outcome: 'fetch_failed', stored: true, eventType, dataId, orderId }
+  }
+
+  // Validações obrigatórias antes de confirmar
+  // Buscar pedido completo para validar valor/moeda/usuário
+  const { data: fullOrder } = await supabaseAdmin.from('premium_orders').select('id, user_id, plan_id, amount_cents, currency, status').eq('id', orderId).maybeSingle()
+  if (!fullOrder) {
+    await supabaseAdmin.from('payment_events').update({ processing_status: 'failed', error_message: 'pedido nao encontrado apos mp fetch' }).eq('event_id', eventId)
+    return { outcome: 'reference_not_found', stored: true, eventType, dataId, orderId }
+  }
+
+  // Validar provider: deve ser mercadopago, não test
+  // Buscar pagamento local correspondente (deve existir, criado em POST /api/payments/orders)
+  const { data: localPayment } = await supabaseAdmin
+    .from('premium_payments')
+    .select('id, order_id, provider, status, amount_cents, currency')
+    .eq('order_id', orderId)
+    .eq('provider', 'mercadopago')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!localPayment) {
+    await supabaseAdmin.from('payment_events').update({ processing_status: 'failed', error_message: 'pagamento local mercadopago nao encontrado' }).eq('event_id', eventId)
+    return { outcome: 'validation_failed', stored: true, eventType, dataId, orderId }
+  }
+  if ((localPayment as unknown as { provider: string }).provider !== 'mercadopago') {
+    await supabaseAdmin.from('payment_events').update({ processing_status: 'failed', error_message: 'provider divergente' }).eq('event_id', eventId)
+    return { outcome: 'validation_failed', stored: true, eventType, dataId, orderId }
+  }
+
+  const orderForValidation = fullOrder as unknown as { id: string; amount_cents: number; currency: string; user_id: string; plan_id: string; status: string }
+  const validationError = validateMpPayment(
+    { providerStatus: mp.providerStatus, externalReference: mp.externalReference, amount: mp.amount, currency: mp.currency },
+    { id: orderForValidation.id, amount_cents: orderForValidation.amount_cents, currency: orderForValidation.currency },
+  )
+
+  if (validationError) {
+    // Estados não aprovados: pending, in_process, rejected, etc.
+    const status = mp.providerStatus
+    if (status === 'pending' || status === 'in_process' || status === 'authorized') {
+      await supabaseAdmin.from('payment_events').update({ processing_status: 'pending', error_message: `mp_status:${status}` }).eq('event_id', eventId)
+      return { outcome: 'pending_observed', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId }
+    }
+    if (status === 'rejected' || status === 'cancelled') {
+      await supabaseAdmin.from('payment_events').update({ processing_status: 'ignored', error_message: `mp_rejected:${status}` }).eq('event_id', eventId)
+      return { outcome: 'rejected_observed', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId }
+    }
+    if (status === 'refunded' || status === 'charged_back') {
+      await supabaseAdmin.from('payment_events').update({ processing_status: 'ignored', error_message: `mp_refunded:${status}` }).eq('event_id', eventId)
+      return { outcome: 'refunded_observed', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId }
+    }
+    // Demais falhas de validação (valor, moeda, external_reference)
+    await supabaseAdmin.from('payment_events').update({ processing_status: 'failed', error_message: `validation:${validationError}`.slice(0, 200) }).eq('event_id', eventId)
+    return { outcome: 'validation_failed', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId }
+  }
+
+  // Status approved e validações ok → confirmar pagamento e pedido
+  // Verificar se já estava confirmado (idempotência)
+  const alreadyConfirmed = (localPayment as unknown as { status: string }).status === 'confirmed'
+  const { data: alreadyPaidOrder } = await supabaseAdmin.from('premium_orders').select('status').eq('id', orderId).maybeSingle()
+  const alreadyPaid = (alreadyPaidOrder as unknown as { status: string })?.status === 'paid'
+
+  if (alreadyConfirmed && alreadyPaid) {
+    // Verifica grant existente para retorno idempotente
+    const { data: existingGrant } = await supabaseAdmin
+      .from('access_grants')
+      .select('id')
+      .eq('user_id', orderForValidation.user_id)
+      .eq('source', 'payment')
+      .contains('metadata', { order_id: orderId } as unknown as string)
+      .maybeSingle()
+    const grantId = (existingGrant as unknown as { id: string } | null)?.id ?? null
+    await supabaseAdmin.from('payment_events').update({ processing_status: 'processed', error_message: null }).eq('event_id', eventId)
+    return { outcome: 'already_confirmed', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId, grantId }
+  }
+
+  const paymentRowId = (localPayment as unknown as { id: string }).id
+  const { orderConfirmed, paymentConfirmed } = await confirmPaymentAndOrder(orderId, paymentRowId, mp.providerPaymentId)
+
+  // Mesmo se já confirmado, prossegue para grant (idempotente)
+  const grantRes = await ensurePaymentGrant({ id: orderForValidation.id, user_id: orderForValidation.user_id, plan_id: orderForValidation.plan_id })
+
+  await supabaseAdmin.from('payment_events').update({ processing_status: 'processed', error_message: null }).eq('event_id', eventId)
+
   void signatureStatus
   void signatureMethod
-  return { outcome: 'stored_pending', stored: true, eventType, dataId, orderId }
+  void orderConfirmed
+  void paymentConfirmed
+
+  if (grantRes.isNew) {
+    return { outcome: 'grant_created', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId, grantId: grantRes.grantId }
+  }
+  return { outcome: 'grant_reused', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId, grantId: grantRes.grantId }
 }

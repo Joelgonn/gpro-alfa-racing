@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { getOrderDetailsForUser } from '@/app/lib/payments/orderService'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 function isValidUUID(str: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
@@ -59,6 +60,34 @@ export async function GET(
     // DTO já vem montado por allow-list positiva no serviço:
     // order = { id, planCode, status, amountCents, currency, expiresAt, paidAt, createdAt, updatedAt }
     // payment = { id, provider, status, pixTxid, amountCents, currency } | null
+
+    // PIX-009: quando PIX_ENABLED=true, anexa QR real do Mercado Pago (se existir)
+    // Nunca retorna payload_json, nunca expõe token
+    let pizzData: { qrCode: string | null; qrCodeBase64: string | null; ticketUrl: string | null } | null = null
+    if (process.env.PIX_ENABLED === 'true') {
+      const { data: mpPay } = await supabaseAdmin
+        .from('premium_payments')
+        .select('qr_code, qr_code_base64, ticket_url, provider, provider_payment_id')
+        .eq('order_id', id)
+        .eq('provider', 'mercadopago')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (mpPay) {
+        const row = mpPay as unknown as { qr_code: string | null; qr_code_base64: string | null; ticket_url: string | null }
+        if (row.qr_code || row.qr_code_base64 || row.ticket_url) {
+          pizzData = { qrCode: row.qr_code, qrCodeBase64: row.qr_code_base64, ticketUrl: row.ticket_url }
+        }
+      }
+    }
+
+    if (pizzData) {
+      return NextResponse.json({
+        order: details.order,
+        payment: details.payment,
+        pizzData,
+      })
+    }
     return NextResponse.json({
       order: details.order,
       payment: details.payment,
