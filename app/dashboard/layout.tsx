@@ -148,7 +148,8 @@ const menuGroups = [
       { name: 'GPRO API Database', path: '/dashboard/admin/gpro-kb', icon: <Icons.Database /> },
       { name: 'Tyre Research Lab', path: '/dashboard/admin/research/tyres', icon: <Icons.Beaker /> },
       { name: 'Driver Energy Lab', path: '/dashboard/admin/research/driver-energy', icon: <Icons.Beaker /> },
-      { name: 'Convites VIP', path: '/dashboard/admin/vip-invites', icon: <Icons.Users /> }
+      { name: 'Convites VIP', path: '/dashboard/admin/vip-invites', icon: <Icons.Users /> },
+      { name: 'Planos e preços', path: '/dashboard/admin/plans', icon: <Icons.Money /> }
     ]
   }
 ];

@@ -29,6 +29,18 @@ export type VipEvent =
   | 'vip.grant.sync.succeeded'
   | 'vip.grant.sync.failed'
   | 'vip.access.denied'
+  // PIX-001 — eventos da integração Pix / Mercado Pago (aditivo, não altera os existentes)
+  | 'pix.plan.updated'
+  | 'pix.order.created'
+  | 'pix.charge.created'
+  | 'pix.charge.failed'
+  | 'pix.webhook.received'
+  | 'pix.webhook.rejected'
+  | 'pix.webhook.processed'
+  | 'pix.payment.confirmed'
+  | 'pix.payment.failed'
+  | 'pix.grant.created'
+  | 'pix.grant.reused'
 
 // Helpers mascaramento — nunca registram completo
 export function maskEmail(email: string): string {

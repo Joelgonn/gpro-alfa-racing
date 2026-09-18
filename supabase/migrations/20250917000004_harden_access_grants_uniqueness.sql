@@ -19,7 +19,7 @@ begin
   end loop;
 
   if dup_count > 0 then
-    raise notice 'ALFA-011.9: % combinações duplicadas encontradas — constraint NÃO será criada até limpeza manual', dup_count;
+    raise exception 'ALFA-011.9: % combinações duplicadas encontradas em access_grants; limpeza manual necessária', dup_count using errcode = '23505';
   else
     raise notice 'ALFA-011.9: nenhuma duplicata — prosseguindo para constraint';
   end if;
@@ -136,12 +136,19 @@ begin
     where status = 'active' and expires_at is not null and expires_at <= now()
     for update
   loop
-    update public.access_grants set status = 'expired', updated_at = now() where id = v_row.id;
-    insert into public.access_events (user_id, access_grant_id, event_type, source, metadata)
+    update public.access_grants
+    set status = 'expired', updated_at = now()
+    where id = v_row.id
+      and status = 'active'
+      and expires_at is not null
+      and expires_at <= now();
+    if found then
+      insert into public.access_events (user_id, access_grant_id, event_type, source, metadata)
     values (v_row.user_id, v_row.id, 'expired', v_row.source, jsonb_build_object('expired_at', v_row.expires_at));
     update public.user_state set vip_status = 'expired', vip_expires_at = v_row.expires_at, updated_at = now()
       where user_id = v_row.user_id and access_grant_id = v_row.id;
-    v_count := v_count + 1;
+      v_count := v_count + 1;
+    end if;
   end loop;
   return v_count;
 end;
