@@ -16,7 +16,7 @@ const migration = read('supabase/migrations/20250917000003_extend_invite_codes.s
 const listRoute = read('app/api/admin/vip-invites/route.ts')
 const revokeRoute = read('app/api/admin/vip-invites/[id]/revoke/route.ts')
 const page = read('app/dashboard/admin/vip-invites/page.tsx')
-const layout = read('app/dashboard/layout.tsx')
+const layout = read('app/dashboard/DashboardShell.tsx') // PIX-015: menu/sidebar passou a viver no shell de cliente
 const accessService = read('app/lib/access/accessService.ts')
 const signup = read('app/actions/signup.ts')
 

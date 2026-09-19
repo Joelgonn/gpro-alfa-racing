@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/app/lib/auth';
+// PIX-015 — autorização centralizada (integração GPRO é recurso Premium)
+import { guardPremiumApi } from '@/app/lib/access/authorization';
 import { getGproToken, setGproToken, hasGproToken } from '@/app/lib/gpro-token';
 
 // GET: retorna apenas se tem token (sem expor valor)
 export async function GET() {
   try {
+    const denied = await guardPremiumApi();
+    if (denied) return denied;
     const user = await requireAuth();
     const hasToken = await hasGproToken(user.id);
     return NextResponse.json({ success: true, hasToken });
@@ -17,6 +21,8 @@ export async function GET() {
 // POST: define/atualiza token (criptografado em repouso, nunca retornado)
 export async function POST(request: NextRequest) {
   try {
+    const denied = await guardPremiumApi();
+    if (denied) return denied;
     const user = await requireAuth();
     const body = await request.json();
     const token = String(body.token || body.gpro_token || '').trim();
@@ -40,6 +46,8 @@ export async function POST(request: NextRequest) {
 // DELETE: remove token
 export async function DELETE() {
   try {
+    const denied = await guardPremiumApi();
+    if (denied) return denied;
     const user = await requireAuth();
     await setGproToken(user.id, null);
     return NextResponse.json({ success: true });

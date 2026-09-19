@@ -8,6 +8,8 @@ import { Driver, CarPart, TechDirector, StaffFacilities, WeatherData } from '@/a
 import { supabase } from '@/app/lib/supabase';
 import { supabaseAdmin } from '@/app/lib/supabase-admin';
 import { requireAuth, resolveUserId } from '@/app/lib/auth';
+// PIX-015 — autorização centralizada (ações não públicas exigem Premium)
+import { guardPremiumApi } from '@/app/lib/access/authorization';
 
 // --- TIPOS REFATORADOS ---
 interface DriverEditable {
@@ -263,6 +265,10 @@ export async function GET(request: Request, context: any) {
         const isPublicAction = action.includes('tracks') || action.includes('tyre_suppliers');
         let userId: string | null = null;
         if (!isPublicAction) {
+            // PIX-015: ações do motor de cálculo exigem acesso Premium.
+            // As ações públicas (tracks/tyre_suppliers) continuam abertas de propósito.
+            const denied = await guardPremiumApi();
+            if (denied) return denied;
             const headerUserId = request.headers.get('user-id');
             // Validação server-side: qualquer user-id enviado deve coincidir com sessão (previne IDOR)
             if (headerUserId) {
@@ -379,6 +385,10 @@ export async function GET(request: Request, context: any) {
 
 // --- ROTAS POST ---
 export async function POST(request: Request, context: any) {
+    // PIX-015: ações POST do motor exigem acesso Premium (free → 403, admin → liberado).
+    const denied = await guardPremiumApi();
+    if (denied) return denied;
+
     // Autenticação obrigatória para todas as ações POST (previne IDOR)
     const headerUserId = request.headers.get('user-id');
     let userId: string;

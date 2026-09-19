@@ -37,7 +37,7 @@ assert(read('app/api/python/[[...route]]/route.ts').includes('401') && read('app
 assert(fs.existsSync(path.join(__dirname, '..', 'app/dashboard/admin/layout.tsx')), '3. admin layout existe');
 assert(read('app/dashboard/admin/layout.tsx').includes("role !== 'admin'"), '3. admin layout verifica role admin');
 assert(read('app/dashboard/admin/layout.tsx').includes('redirect'), '3. admin layout redireciona não-admin');
-assert(read('app/dashboard/layout.tsx').includes("localRole === 'admin'"), '3. menu admin oculto para não-admin');
+assert(read('app/dashboard/DashboardShell.tsx').includes("localRole === 'admin'"), '3. menu admin oculto para não-admin');
 
 // 4. Usuário comum não acessa APIs administrativas (requireAdmin)
 assert(read('app/api/admin/gpro-kb/route.ts').includes('requireAdmin'), '4. admin/gpro-kb exige requireAdmin');

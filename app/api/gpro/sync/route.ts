@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { saveSnapshots } from '@/app/lib/gpro-snapshot';
 import type { Capture } from '@/app/lib/capture';
 import { requireAuth, resolveUserId } from '@/app/lib/auth';
+// PIX-015 — autorização centralizada (import GPRO é recurso Premium)
+import { guardPremiumApi } from '@/app/lib/access/authorization';
 import { supabaseAdmin } from '@/app/lib/supabase-admin';
 import { getGproToken } from '@/app/lib/gpro-token';
 
@@ -376,6 +378,10 @@ function getTrackName(data: GproJson): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // PIX-015: sincronização com a GPRO exige acesso Premium (free → 403, admin → liberado).
+    const denied = await guardPremiumApi();
+    if (denied) return denied;
+
     // 1. Autenticação server-side (não confia em userId do cliente)
     let requestedUserId: string | null = null;
     try {

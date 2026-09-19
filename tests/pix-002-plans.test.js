@@ -147,7 +147,7 @@ assert(!/access_grants|ensureVipGrant|premium_payments/.test(adminPageCode), 'te
 // ---------------------------------------------------------------------------
 console.log('\n--- 5. Menu administrativo ---')
 
-const layout = read('app/dashboard/layout.tsx')
+const layout = read('app/dashboard/DashboardShell.tsx') // PIX-015: menu/sidebar passou a viver no shell de cliente
 assert(/\/dashboard\/admin\/plans/.test(layout), 'menu admin aponta para a tela de planos')
 assert(/name: 'Planos e preços'/.test(layout), 'item de menu rotulado em português')
 assert(/\/dashboard\/admin\/vip-invites/.test(layout), 'menu de convites VIP preservado (nada foi removido)')

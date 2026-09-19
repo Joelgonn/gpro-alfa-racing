@@ -219,6 +219,7 @@ import {
   getMercadoPagoPayment as mpGetPayment,
   getMercadoPagoOrder as mpGetOrder,
   type MercadoPagoError,
+  type MercadoPagoErrorDetail,
 } from './mercadopago-client'
 
 export async function fetchMercadoPagoPayment(paymentId: string) {
@@ -544,11 +545,46 @@ async function performMercadoPagoAttempt(params: {
 
     throw new Error('Falha ao persistir pagamento Mercado Pago')
   } catch (e) {
-    const err = e as MercadoPagoError & { code?: string; status?: number }
-    const marker = `error:${err?.status ?? 'unknown'}:${err?.code ?? 'UNKNOWN'}`
+    const err = e as MercadoPagoError & { code?: string; status?: number; detail?: MercadoPagoErrorDetail }
+    const detail = err?.detail
+
+    // PIX-015 — o provedor pode ter CRIADO a Order/pagamento e só então falhar a
+    // transação (HTTP 402 processing_error). Sem persistir esses ids, a Order ficava
+    // invisível para nós (provider_order_id NULL) e a recuperação era impossível.
+    if (detail?.providerOrderId) {
+      try {
+        await supabaseAdmin
+          .from('premium_orders')
+          .update({
+            provider_order_id: detail.providerOrderId,
+            provider_external_reference: orderId,
+          })
+          .eq('id', orderId)
+      } catch {
+        // melhor esforço: a falha original é o que importa
+      }
+    }
+    if (detail?.providerPaymentId) {
+      try {
+        await supabaseAdmin
+          .from('premium_payments')
+          .update({ provider_payment_id: detail.providerPaymentId })
+          .eq('id', attempt.id)
+      } catch {
+        // melhor esforço
+      }
+    }
+
+    const marker = `error:${err?.status ?? 'unknown'}:${err?.code ?? 'UNKNOWN'}${detail?.statusDetail ? ':' + detail.statusDetail : ''}`
     const rawMasked = {
       error_code: err?.code ?? 'UNKNOWN',
       error_status: err?.status ?? null,
+      provider_error_code: detail?.providerErrorCode ?? null,
+      provider_error_message: detail?.providerMessage ?? null,
+      status_detail: detail?.statusDetail ?? null,
+      details: detail?.details ?? [],
+      provider_order_id: detail?.providerOrderId ?? null,
+      provider_payment_id: detail?.providerPaymentId ?? null,
     }
     if (isAttemptOutcomeUnknown(err)) {
       // Timeout / rede / 429 / 5xx: a Order pode existir no provedor.

@@ -22,15 +22,43 @@ export type MercadoPagoErrorCode =
   | 'MERCADOPAGO_NOT_FOUND'
   // PIX-014.6 — conflito de idempotência no provedor é causa PRÓPRIA, não erro genérico
   | 'MERCADOPAGO_IDEMPOTENCY_CONFLICT'
+  // PIX-015 — o provedor criou a Order/pagamento e a TRANSAÇÃO falhou (HTTP 402).
+  // Causa distinta de falha de requisição: a cobrança chegou a existir no provedor.
+  | 'MERCADOPAGO_TRANSACTION_FAILED'
+
+/**
+ * PIX-015 — Detalhe estruturado do erro do provedor.
+ * Existe porque, até aqui, o 402 de Production era registrado apenas como
+ * `code/message` do primeiro erro, descartando o motivo real da transação
+ * (`status_detail`, `details`) e os identificadores criados (Order/payment) —
+ * o que tornava a causa impossível de determinar pelos nossos logs.
+ * Tudo aqui é sanitizado: nada de token, nada de PII.
+ */
+export interface MercadoPagoErrorDetail {
+  /** código do erro do provedor (ex.: failed) */
+  providerErrorCode: string | null
+  /** mensagem do provedor, truncada */
+  providerMessage: string | null
+  /** motivos adicionais (details/cause), sanitizados e truncados */
+  details: string[]
+  /** status_detail do pagamento/order quando o provedor informa */
+  statusDetail: string | null
+  /** id da Order no provedor, quando presente no corpo do erro */
+  providerOrderId: string | null
+  /** id do pagamento no provedor, quando presente no corpo do erro */
+  providerPaymentId: string | null
+}
 
 export class MercadoPagoError extends Error {
   readonly code: MercadoPagoErrorCode
   readonly status?: number
-  constructor(code: MercadoPagoErrorCode, message: string, status?: number) {
+  readonly detail?: MercadoPagoErrorDetail
+  constructor(code: MercadoPagoErrorCode, message: string, status?: number, detail?: MercadoPagoErrorDetail) {
     super(message)
     this.name = 'MercadoPagoError'
     this.code = code
     this.status = status
+    this.detail = detail
   }
 }
 
@@ -149,6 +177,26 @@ interface RawOrderResponse {
 
 function centsToDecimal(cents: number): number {
   return Math.round(cents) / 100
+}
+
+/**
+ * PIX-015 — Primeira data ISO-8601 VÁLIDA entre os candidatos.
+ * O campo `expiration_time` do payload é uma DURAÇÃO ("P1D") e o provedor a devolve
+ * ecoada na resposta; a data real de expiração vem em `date_of_expiration`.
+ * Aceitar "P1D" como data fazia o QR nunca expirar localmente (premium_payments.expires_at
+ * ficava NULL e o QR era tratado como utilizável para sempre). Evidência: resposta real
+ * do provedor no sandbox traz `expiration_time: "P1D"` **e** `date_of_expiration` ISO.
+ */
+function firstValidIsoDate(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value !== 'string') continue
+    const text = value.trim()
+    if (!text) continue
+    if (/^P/i.test(text)) continue // duração ISO-8601 (ex.: P1D) não é data
+    if (Number.isNaN(new Date(text).getTime())) continue
+    return text
+  }
+  return null
 }
 
 function validateCreateParams(params: CreatePixPaymentParams): void {
@@ -320,7 +368,12 @@ function normalizeOrder(raw: RawOrderResponse): MercadoPagoPixPayment {
   const qrCode = pm?.qr_code && typeof pm.qr_code === 'string' ? (pm.qr_code as string) : null
   const qrCodeBase64 = pm?.qr_code_base64 && typeof pm.qr_code_base64 === 'string' ? (pm.qr_code_base64 as string) : null
   const ticketUrl = (pm?.ticket_url as string) || ((payment as Record<string, unknown>).ticket_url as string) || null
-  const expiresAt = (payment as Record<string, unknown>).expiration_time as string | null || (raw as Record<string, unknown>).expiration_time as string | null || null
+  const expiresAt = firstValidIsoDate([
+    (payment as Record<string, unknown>).date_of_expiration,
+    (raw as Record<string, unknown>).date_of_expiration,
+    (payment as Record<string, unknown>).expiration_time,
+    (raw as Record<string, unknown>).expiration_time,
+  ])
 
   return {
     providerPaymentId,
@@ -341,6 +394,163 @@ function normalizeOrder(raw: RawOrderResponse): MercadoPagoPixPayment {
 function truncateErrorBody(text: string): string {
   if (!text) return ''
   return text.slice(0, 500)
+}
+
+// ---------------------------------------------------------------------------
+// PIX-015 — Extração DEFENSIVA do detalhe do erro do provedor
+// ---------------------------------------------------------------------------
+// Objetivo: não perder o motivo real da falha nem os identificadores criados.
+// Não assume um shape único: procura os campos conhecidos e, se necessário,
+// varre o corpo de forma limitada por ids do provedor (ORD.../PAY...).
+// Sempre sanitizado (sem token, sem e-mail, truncado).
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function sanitizeProviderText(value: unknown, max = 200): string | null {
+  if (value === null || value === undefined) return null
+  let raw: string
+  if (typeof value === 'string') raw = value
+  else if (typeof value === 'number' || typeof value === 'boolean') raw = String(value)
+  else {
+    try {
+      raw = JSON.stringify(value)
+    } catch {
+      raw = String(value)
+    }
+  }
+  const cleaned = raw
+    .replace(/(eyJ[A-Za-z0-9._-]{10,})/g, '[jwt]')
+    .replace(/(apikey|api_key|access_token|token|secret|authorization)\s*[:=]\s*\S+/gi, '$1=[redigido]')
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return cleaned ? cleaned.slice(0, max) : null
+}
+
+function collectDetails(source: unknown, out: string[], depth = 0): void {
+  if (source === null || source === undefined || depth > 3 || out.length >= 5) return
+  if (typeof source === 'string' || typeof source === 'number') {
+    const text = sanitizeProviderText(source)
+    if (text) out.push(text)
+    return
+  }
+  if (Array.isArray(source)) {
+    for (const item of source.slice(0, 5)) collectDetails(item, out, depth + 1)
+    return
+  }
+  if (isRecord(source)) {
+    const code = sanitizeProviderText(source.code, 80)
+    const message = sanitizeProviderText(source.message, 160)
+    if (code || message) out.push([code ? `code=${code}` : '', message ? `message=${message}` : ''].filter(Boolean).join(' '))
+    for (const key of ['details', 'cause', 'description', 'reason', 'status_detail']) {
+      if (source[key] !== undefined && !(code && key === 'details' && out.length > 0 && depth === 0)) {
+        collectDetails(source[key], out, depth + 1)
+      }
+    }
+  }
+}
+
+/** Procura um id do provedor (ORD.../PAY...) em qualquer profundidade limitada. */
+function findProviderId(value: unknown, prefix: 'ORD' | 'PAY'): string | null {
+  const pattern = new RegExp(`\\b(${prefix}[0-9A-Za-z]{6,})\\b`)
+  const seen = new Set<unknown>()
+  const walk = (node: unknown, depth: number): string | null => {
+    if (node === null || node === undefined || depth > 4) return null
+    if (typeof node === 'string') {
+      const m = node.match(pattern)
+      return m ? m[1] : null
+    }
+    if (typeof node !== 'object' || seen.has(node)) return null
+    seen.add(node)
+    if (Array.isArray(node)) {
+      for (const item of node.slice(0, 5)) {
+        const found = walk(item, depth + 1)
+        if (found) return found
+      }
+      return null
+    }
+    for (const child of Object.values(node as Record<string, unknown>)) {
+      const found = walk(child, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  return walk(value, 0)
+}
+
+/** Procura `status_detail` em qualquer profundidade limitada (o provedor aninha esse campo). */
+function findStatusDetail(value: unknown, depth = 0): string | null {
+  if (value === null || value === undefined || depth > 4) return null
+  if (Array.isArray(value)) {
+    for (const item of value.slice(0, 5)) {
+      const found = findStatusDetail(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  if (!isRecord(value)) return null
+  const direct = sanitizeProviderText(value.status_detail, 120)
+  if (direct) return direct
+  for (const child of Object.values(value)) {
+    const found = findStatusDetail(child, depth + 1)
+    if (found) return found
+  }
+  return null
+}
+
+/** Monta o detalhe estruturado a partir do corpo de erro bruto (já parseado). */
+export function extractErrorDetail(parsedBody: unknown, fallbackCode = ''): MercadoPagoErrorDetail {
+  const body = isRecord(parsedBody) ? parsedBody : {}
+  const errors = Array.isArray(body.errors) ? (body.errors as unknown[]) : []
+  const first = isRecord(errors[0]) ? (errors[0] as Record<string, unknown>) : {}
+
+  const details: string[] = []
+  if (first.details !== undefined) collectDetails(first.details, details)
+  if (first.cause !== undefined) collectDetails(first.cause, details)
+  if (first.message !== undefined && details.length === 0) collectDetails(first.message, details)
+  if (details.length === 0 && errors.length > 1) collectDetails(errors.slice(1), details)
+
+  const transactions = isRecord(body.transactions) ? (body.transactions as Record<string, unknown>) : {}
+  const payments = Array.isArray(transactions.payments) ? (transactions.payments as unknown[]) : []
+  const firstPayment = isRecord(payments[0]) ? (payments[0] as Record<string, unknown>) : {}
+  const bodyPayment = isRecord(body.payment) ? (body.payment as Record<string, unknown>) : {}
+
+  const statusDetail =
+    sanitizeProviderText(firstPayment.status_detail, 120) ??
+    sanitizeProviderText(bodyPayment.status_detail, 120) ??
+    sanitizeProviderText(body.status_detail, 120) ??
+    sanitizeProviderText(first.status_detail, 120) ??
+    findStatusDetail(errors) ??
+    findStatusDetail(body)
+
+  return {
+    providerErrorCode: sanitizeProviderText(first.code, 80) ?? sanitizeProviderText(fallbackCode, 80),
+    providerMessage: sanitizeProviderText(first.message, 160),
+    details: details.slice(0, 5),
+    statusDetail,
+    providerOrderId:
+      sanitizeProviderText(first.order_id, 64) ??
+      sanitizeProviderText(body.order_id, 64) ??
+      findProviderId(body, 'ORD'),
+    providerPaymentId:
+      sanitizeProviderText(first.payment_id, 64) ??
+      sanitizeProviderText(firstPayment.id, 64) ??
+      sanitizeProviderText(bodyPayment.id, 64) ??
+      findProviderId(body, 'PAY'),
+  }
+}
+
+/** Sufixo legível (e sanitizado) com o motivo real + ids criados pelo provedor. */
+function buildDetailSuffix(detail: MercadoPagoErrorDetail): string {
+  const parts = [
+    detail.statusDetail ? `status_detail=${detail.statusDetail}` : '',
+    detail.details.length ? `details=${detail.details.join(' | ').slice(0, 240)}` : '',
+    detail.providerOrderId ? `order=${detail.providerOrderId}` : '',
+    detail.providerPaymentId ? `payment=${detail.providerPaymentId}` : '',
+  ].filter(Boolean)
+  return parts.length ? ` ${parts.join(' ')}` : ''
 }
 
 // ---------------------------------------------------------------------------
@@ -384,9 +594,11 @@ function handleHttpError(status: number, bodyText: string): never {
   // Tenta extrair mensagem estruturada do Mercado Pago (errors[].code/message/cause)
   let mpDetail = ''
   let mpErrorCode = ''
+  let parsedBody: unknown = null
   if (truncated) {
     try {
-      const parsed = JSON.parse(truncated) as Record<string, unknown>
+      parsedBody = JSON.parse(truncated)
+      const parsed = parsedBody as Record<string, unknown>
       const errors = (parsed as { errors?: Array<{ code?: string; message?: string; cause?: unknown }> }).errors
       if (Array.isArray(errors) && errors.length > 0) {
         const first = errors[0]
@@ -402,15 +614,25 @@ function handleHttpError(status: number, bodyText: string): never {
       // body não é JSON — usa truncated
     }
   }
+  // PIX-015 — detalhe estruturado (motivo real + ids criados), sempre sanitizado.
+  const detail = extractErrorDetail(parsedBody, mpErrorCode)
+  const detailSuffix = buildDetailSuffix(detail)
   const sanitizedMp = mpDetail ? ` Mercado Pago ${status}${mpDetail}` : truncated ? `: ${truncated.slice(0, 200)}` : ''
   if (status === 401) {
-    throw new MercadoPagoError('MERCADOPAGO_UNAUTHORIZED', `Nao autorizado${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, 401)
+    throw new MercadoPagoError('MERCADOPAGO_UNAUTHORIZED', `Nao autorizado${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, 401, detail)
   }
   if (status === 402) {
-    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Mercado Pago 402 code=failed${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 120) : '')}`, 402)
+    // A Order/pagamento foi criada e a TRANSAÇÃO falhou no provedor: causa própria,
+    // com o motivo (status_detail/details) preservado para diagnóstico.
+    throw new MercadoPagoError(
+      'MERCADOPAGO_TRANSACTION_FAILED',
+      `Mercado Pago 402 transacao falhou${detailSuffix || sanitizedMp || (truncated ? ': ' + truncated.slice(0, 120) : '')}`,
+      402,
+      detail,
+    )
   }
   if (status === 404) {
-    throw new MercadoPagoError('MERCADOPAGO_NOT_FOUND', `Recurso nao encontrado${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, 404)
+    throw new MercadoPagoError('MERCADOPAGO_NOT_FOUND', `Recurso nao encontrado${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, 404, detail)
   }
   // PIX-014.6 — 409 do Mercado Pago tem causa própria e exige tratamento próprio:
   // `idempotency_key_already_used` significa que a chave já foi registrada no provedor
@@ -423,17 +645,18 @@ function handleHttpError(status: number, bodyText: string): never {
         'MERCADOPAGO_IDEMPOTENCY_CONFLICT',
         `Chave de idempotencia ja utilizada no Mercado Pago${sanitizedMp}`,
         409,
+        detail,
       )
     }
-    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Conflito ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 120) : '')}`, 409)
+    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Conflito ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 120) : '')}`, 409, detail)
   }
   if (status === 429) {
-    throw new MercadoPagoError('MERCADOPAGO_RATE_LIMITED', 'Rate limit Mercado Pago', 429)
+    throw new MercadoPagoError('MERCADOPAGO_RATE_LIMITED', 'Rate limit Mercado Pago', 429, detail)
   }
   if (status >= 500) {
-    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Erro gateway ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, status)
+    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Erro gateway ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, status, detail)
   }
-  throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Requisicao falhou ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, status)
+  throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Requisicao falhou ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, status, detail)
 }
 
 // ---------------------------------------------------------------------------

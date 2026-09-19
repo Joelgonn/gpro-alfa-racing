@@ -4,6 +4,8 @@ import * as XLSX from 'xlsx';
 import { readFile } from 'node:fs/promises';
 import { supabaseAdmin } from '@/app/lib/supabase-admin';
 import { requireAuth, resolveUserId } from '@/app/lib/auth';
+// PIX-015 — autorização centralizada
+import { guardPremiumApi } from '@/app/lib/access/authorization';
 
 import { getTrackFlag } from '@/app/lib/tracks';
 
@@ -247,6 +249,10 @@ function mergeCalendarWithTracks(calendar: any[] | null, tracks: any[]): any[] |
 
 export async function GET(request: Request) {
   try {
+    // PIX-015: calendário da GPRO é recurso Premium (free → 403, admin → liberado).
+    const denied = await guardPremiumApi();
+    if (denied) return denied;
+
     // Extrai userId da URL (query param) com validação server-side (previne IDOR)
     const url = new URL(request.url);
     const rawUserId = url.searchParams.get('userId');

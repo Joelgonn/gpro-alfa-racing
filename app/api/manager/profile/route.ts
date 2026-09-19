@@ -11,6 +11,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabase-admin';
 import { requireAuth, resolveUserId } from '@/app/lib/auth';
+// PIX-015 — autorização centralizada (autenticação não é autorização Premium)
+import { guardPremiumApi } from '@/app/lib/access/authorization';
 import { getGproToken } from '@/app/lib/gpro-token';
 
 const GPRO_LANG = 'br';
@@ -111,6 +113,10 @@ const CACHE_TTL = 300000; // 5 minutos
 
 export async function GET(request: NextRequest) {
   try {
+    // PIX-015: dados do Manager exigem acesso Premium (free → 403, admin → liberado).
+    const denied = await guardPremiumApi();
+    if (denied) return denied;
+
     const headerUserId = request.headers.get('user-id');
     let userId: string;
     try {

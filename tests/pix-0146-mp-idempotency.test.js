@@ -371,7 +371,7 @@ console.log('\n--- 5. Falha definitiva → nova chave ---')
     { seed: { premium_orders: [seedOrder()], premium_payments: [] }, mpScript: [{ status: 402, body: { errors: [{ code: 'processing_error', message: 'failed to process' }] } }] })
 
   if (!r.ok) { pending('execução indisponível: ' + r.reason) } else {
-    assert(r.out.code === 'MERCADOPAGO_REQUEST_FAILED', '5. 402 é rejeição definitiva')
+    assert(r.out.code === 'MERCADOPAGO_TRANSACTION_FAILED', '5. 402 ⇒ MERCADOPAGO_TRANSACTION_FAILED (causa própria, PIX-015)')
     assert(r.out.rows[0].status === 'failed', '5. rejeição definitiva encerra a tentativa (chave não volta a ser usada)')
     assert(String(r.out.rows[0].marker || '').includes('402'), '5. motivo registrado para diagnóstico')
   }

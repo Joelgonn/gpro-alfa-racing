@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/app/lib/supabase';
 import { supabaseAdmin } from '@/app/lib/supabase-admin';
 import { requireAuth } from '@/app/lib/auth';
+// PIX-015 — autorização centralizada
+import { guardPremiumApi } from '@/app/lib/access/authorization';
 import zlib from 'zlib';
 import { promisify } from 'util';
 
@@ -64,6 +66,9 @@ function parseCSVLine(line: string, separator: string): string[] {
 
 export async function GET() {
     try {
+        // PIX-015: dados de mercado exigem acesso Premium (free → 403, admin → liberado).
+        const denied = await guardPremiumApi();
+        if (denied) return denied;
         const { data, error } = await supabase
             .from('market_drivers')
             .select('*')
@@ -88,6 +93,9 @@ export async function GET() {
 
 export async function POST() {
     try {
+        // PIX-015: sincronização de mercado exige acesso Premium.
+        const denied = await guardPremiumApi();
+        if (denied) return denied;
         // Proteção: apenas usuários autenticados podem sincronizar mercado (previne abuso anônimo)
         await requireAuth();
         // --- 1. DOWNLOAD E DECOMPRESSÃO ---
