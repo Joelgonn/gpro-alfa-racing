@@ -34,18 +34,22 @@ function orderNotOwnedError(): Error {
 }
 
 // Cria pagamento para um pedido, com prevenção de duplicidade via order_id
+// PIX-011.1: exige userId e valida ownership antes de qualquer escrita (IDOR)
 export async function createPaymentForOrder(params: {
   orderId: string
+  userId: string
   provider?: string
 }): Promise<PremiumPayment> {
-  const { orderId, provider = 'mock' } = params
+  const { orderId, userId, provider = 'mock' } = params
   if (!orderId) throw new Error('orderId obrigatório')
+  if (!userId) throw new Error('userId obrigatório')
 
-  // Verificar pedido existe e capturar amount
+  // Verificar pedido existe e pertence ao usuário (ownership)
   const { data: order, error: orderErr } = await supabaseAdmin
     .from('premium_orders')
     .select('id, user_id, amount_cents, currency, status')
     .eq('id', orderId)
+    .eq('user_id', userId)
     .single()
   if (orderErr || !order) throw new Error('Pedido não encontrado')
 

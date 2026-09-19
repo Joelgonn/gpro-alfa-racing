@@ -80,7 +80,7 @@ assert(whSvc.includes('MERCADOPAGO_CONFIG_MISSING') || whSvc.includes('validatio
 // 3. Pagamento aprovado — validações
 // ---------------------------------------------------------------------------
 console.log('\n--- 3. Pagamento aprovado validações ---')
-assert(whSvc.includes("providerStatus !== 'approved'") || whSvc.includes("status !== 'approved'") || whSvc.includes("status_not_approved"), 'svc aceita somente approved')
+assert(whSvc.includes("status_not_approved"), 'svc valida status aprovado/processado (Orders API)')
 assert(whSvc.includes('externalReference') && whSvc.includes('external_reference'), 'svc valida external_reference')
 assert(whSvc.includes('isValidUUID') && whSvc.includes('externalReference'), 'svc valida UUID do external_reference')
 assert(whSvc.includes('Math.round') && whSvc.includes('amount'), 'svc valida valor com comparação centavos (sem float)')
@@ -92,7 +92,7 @@ assert(whSvc.includes('plan_id') || whSvc.includes('premium_plans'), 'svc relaci
 
 // Testa validateMpPayment — estrutural (evita import com alias @/ que falha em node puro)
 assert(whSvc.includes('function validateMpPayment'), 'validateMpPayment exportado')
-assert(whSvc.includes("providerStatus !== 'approved'"), 'validateMpPayment rejeita status != approved')
+assert(whSvc.includes("normalizedStatus") && whSvc.includes("status_not_approved"), 'validateMpPayment valida status aprovado/processado e rejeita outros')
 assert(whSvc.includes('external_reference_divergente'), 'validateMpPayment detecta external_reference divergente')
 assert(whSvc.includes('valor_divergente'), 'validateMpPayment detecta valor divergente')
 assert(whSvc.includes('moeda_divergente'), 'validateMpPayment detecta moeda divergente')

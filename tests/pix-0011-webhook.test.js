@@ -106,7 +106,7 @@ const emptyHeaders = `new Headers()` // Headers global existe no Node 18+
 {
   const r = runPure(`
     const crypto = await import('node:crypto');
-    const ts = '1690000000', rid = 'req-abc', did = '999';
+    const ts = String(Date.now()), rid = 'req-abc', did = '999';
     const template = 'id:{data_id};request-id:{request_id};ts:{ts}';
     const manifest = mod.buildManifest(template, { dataId: did, requestId: rid, ts });
     const v1 = crypto.createHmac('sha256','segredo').update(manifest).digest('hex');

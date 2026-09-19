@@ -17,7 +17,9 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {}
+          } catch (e) {
+            console.warn('supabase setAll failed', String((e as Error)?.message || e).slice(0, 80))
+          }
         },
       },
     }

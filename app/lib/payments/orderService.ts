@@ -73,15 +73,16 @@ export async function getOrderForUser(orderId: string, userId: string): Promise<
   return (data as unknown as PremiumOrder) || null
 }
 
-export async function transitionOrderStatus(orderId: string, toStatus: string, userId?: string): Promise<PremiumOrder> {
-  const { data: order } = await supabaseAdmin.from('premium_orders').select('status, user_id').eq('id', orderId).single()
+export async function transitionOrderStatus(orderId: string, toStatus: string, userId: string): Promise<PremiumOrder> {
+  if (!orderId || !userId || !toStatus) throw new Error('orderId, toStatus e userId obrigatórios')
+  const { data: order } = await supabaseAdmin.from('premium_orders').select('status, user_id').eq('id', orderId).eq('user_id', userId).single()
   if (!order) throw new Error('Pedido não encontrado')
-  if (userId && (order as any).user_id !== userId) throw new Error('Acesso negado')
+  if ((order as any).user_id !== userId) throw new Error('Acesso negado')
   if (!canTransitionOrder((order as any).status, toStatus)) throw new Error(`Transição inválida ${(order as any).status} -> ${toStatus}`)
   const updates: any = { status: toStatus }
   if (toStatus === 'paid') updates.paid_at = new Date().toISOString()
   if (toStatus === 'cancelled') updates.cancelled_at = new Date().toISOString()
-  const { data, error } = await supabaseAdmin.from('premium_orders').update(updates).eq('id', orderId).select('*').single()
+  const { data, error } = await supabaseAdmin.from('premium_orders').update(updates).eq('id', orderId).eq('user_id', userId).select('*').single()
   if (error) throw new Error(error.message)
   return data as unknown as PremiumOrder
 }

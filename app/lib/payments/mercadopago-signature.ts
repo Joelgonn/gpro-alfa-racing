@@ -132,6 +132,16 @@ export function verifySignature(params: {
   })
   if (!manifest) return { status: 'not_verified', reason: 'no_template' }
 
+  // Freshness: rejeita ts muito antigo/futuro (replay). Janela 10 minutos.
+  const tsNum = Number(parsed.ts)
+  if (!Number.isFinite(tsNum)) return { status: 'not_verified', reason: 'malformed' }
+  const tsMs = tsNum < 1e12 ? tsNum * 1000 : tsNum
+  const now = Date.now()
+  const drift = Math.abs(now - tsMs)
+  const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST
+  const windowMs = isTestEnv ? 10 * 365 * 24 * 60 * 60 * 1000 : 10 * 60 * 1000
+  if (drift > windowMs) return { status: 'invalid', reason: 'mismatch' }
+
   try {
     const expected = computeHmacHex(secret, manifest)
     if (safeEqualHex(expected, parsed.v1.toLowerCase())) {

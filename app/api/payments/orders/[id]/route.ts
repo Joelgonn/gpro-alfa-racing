@@ -62,18 +62,20 @@ export async function GET(
     // payment = { id, provider, status, pixTxid, amountCents, currency } | null
 
     // PIX-009: quando PIX_ENABLED=true, anexa QR real do Mercado Pago (se existir)
+    // IDOR fix PIX-011.1: QR só para dono, via join com premium_orders.user_id
     // Nunca retorna payload_json, nunca expõe token
     let pizzData: { qrCode: string | null; qrCodeBase64: string | null; ticketUrl: string | null } | null = null
     if (process.env.PIX_ENABLED === 'true') {
       const { data: mpPay } = await supabaseAdmin
         .from('premium_payments')
-        .select('qr_code, qr_code_base64, ticket_url, provider, provider_payment_id')
+        .select('qr_code, qr_code_base64, ticket_url, provider, provider_payment_id, premium_orders!inner(user_id)')
         .eq('order_id', id)
         .eq('provider', 'mercadopago')
+        .eq('premium_orders.user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      if (mpPay) {
+      if (mpPay && (mpPay as unknown as { premium_orders: { user_id: string } }).premium_orders?.user_id === userId) {
         const row = mpPay as unknown as { qr_code: string | null; qr_code_base64: string | null; ticket_url: string | null }
         if (row.qr_code || row.qr_code_base64 || row.ticket_url) {
           pizzData = { qrCode: row.qr_code, qrCodeBase64: row.qr_code_base64, ticketUrl: row.ticket_url }

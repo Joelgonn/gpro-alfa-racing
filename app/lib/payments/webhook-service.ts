@@ -233,24 +233,19 @@ async function ensurePaymentGrant(
     .contains('metadata', { order_id: order.id } as unknown as string)
     .maybeSingle()
 
-  // Fallback para índice parcial metadata->>'order_id'
+  // Fallback para índice parcial metadata->>'order_id' via filter (sem limit artificial)
   if (existing) {
     return { grantId: (existing as unknown as { id: string }).id, isNew: false }
   }
-  // Tenta buscar via metadata JSONB com filtro alternativo (compatível com índice parcial)
   const { data: existing2 } = await supabaseAdmin
     .from('access_grants')
-    .select('id, metadata')
+    .select('id')
     .eq('user_id', order.user_id)
     .eq('source', 'payment')
-    .limit(10)
-
+    .filter('metadata->>order_id', 'eq', order.id)
+    .maybeSingle()
   if (existing2) {
-    for (const row of existing2 as unknown as Array<{ id: string; metadata: Record<string, unknown> }>) {
-      if ((row.metadata as Record<string, unknown>)?.order_id === order.id) {
-        return { grantId: row.id, isNew: false }
-      }
-    }
+    return { grantId: (existing2 as unknown as { id: string }).id, isNew: false }
   }
 
   const payload = {
@@ -277,21 +272,16 @@ async function ensurePaymentGrant(
   }
 
   if ((error as unknown as { code?: string })?.code === '23505') {
-    // Concorrência: grant já inserido por outro processo (uniq_grant_payment_order)
+    // Concorrência: grant já inserido — busca direta via índice parcial sem limit artificial
     const { data: raced } = await supabaseAdmin
       .from('access_grants')
-      .select('id, metadata')
+      .select('id')
       .eq('user_id', order.user_id)
       .eq('source', 'payment')
-      .limit(10)
-    if (raced) {
-      for (const row of raced as unknown as Array<{ id: string; metadata: Record<string, unknown> }>) {
-        if ((row.metadata as Record<string, unknown>)?.order_id === order.id) {
-          return { grantId: row.id, isNew: false }
-        }
-      }
-    }
-    // Tenta buscar novamente via contains
+      .filter('metadata->>order_id', 'eq', order.id)
+      .maybeSingle()
+    if (raced) return { grantId: (raced as unknown as { id: string }).id, isNew: false }
+    // Fallback via contains para compatibilidade
     const { data: raced2 } = await supabaseAdmin
       .from('access_grants')
       .select('id')
@@ -331,7 +321,8 @@ export async function processWebhookEvent(params: {
   const isOrder = isOrderEvent(eventType)
 
   // Correlação por external_reference — APENAS consulta, nada é alterado (para registro inicial).
-  // Para isOrder, não exigir externalReference no payload: será resolvido via getMercadoPagoOrder(dataId)
+  // PIX-011.1 #4: dedupe primeiro, fetch depois — não fazer getMercadoPagoOrder antes do insert (evita DoS/rate-limit antes do dedupe)
+  // Para isOrder, externalReference será resolvido via getMercadoPagoOrder(dataId) APÓS o dedupe
   let orderId: string | null = null
   if (externalReference) {
     const { data } = await supabaseAdmin
@@ -340,28 +331,13 @@ export async function processWebhookEvent(params: {
       .eq('id', externalReference)
       .maybeSingle()
     if (data) orderId = (data as { id: string }).id
-  } else if (isOrder && dataId) {
-    // Tenta resolver via Order server-to-server antes de decidir no_reference
-    try {
-      const tmpOrder = await getMercadoPagoOrder(dataId)
-      if (tmpOrder.externalReference) {
-        const { data: found } = await supabaseAdmin
-          .from('premium_orders')
-          .select('id')
-          .eq('id', tmpOrder.externalReference as string)
-          .maybeSingle()
-        if (found) orderId = (found as { id: string }).id
-      }
-    } catch {
-      // ignora fetch temporário — será tratado no fluxo principal PIX_ENABLED
-    }
   }
 
   // Insere de forma idempotente. Conflito em event_id => já processado.
-  // Para isOrder, não marcar como ignored apenas por externalReference ausente no payload
-  const shouldBePending = isOrder ? Boolean(orderId) : relevant && Boolean(orderId)
+  // Para isOrder, considerar pending mesmo sem orderId inicial (será resolvido via fetch após dedupe)
+  const shouldBePending = isOrder ? true : relevant && Boolean(orderId)
   const initialError = isOrder
-    ? orderId ? null : relevant ? 'external_reference ausente ou nao encontrado (aguardando fetch Order)' : 'evento fora do escopo do modulo Pix'
+    ? null
     : relevant
       ? orderId ? null : 'external_reference ausente ou nao encontrado'
       : 'evento fora do escopo do modulo Pix'
@@ -394,42 +370,31 @@ export async function processWebhookEvent(params: {
       const canRecover =
         existing &&
         (existing as { processing_status: string }).processing_status === 'ignored' &&
-        isOrder &&
-        !orderId
-      if (canRecover) {
-        // Remove o registro legado para permitir reprocessamento correto
-        await supabaseAdmin.from('payment_events').delete().eq('event_id', eventId)
-        // Tenta re-inserir com o orderId resolvido (se houver) ou deixa para o fluxo principal
-        // Recuperação: re-tenta inserção se orderId foi resolvido via fetch acima
-        if (orderId) {
-          const { data: retryInserted, error: retryErr } = await supabaseAdmin
-            .from('payment_events')
-            .insert({
-              order_id: orderId,
-              provider: PROVIDER,
-              event_type: eventType,
-              event_id: eventId,
-              payload_hash: hashPayload(rawBody),
-              payload_json: maskPayload(payload) as Record<string, unknown>,
-              processing_status: 'pending',
-              processed_at: new Date().toISOString(),
-              error_message: null,
-            })
-            .select('id')
-            .maybeSingle()
-          if (!retryErr && retryInserted) {
-            // Continua para o fluxo principal abaixo
-          } else {
-            return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
-          }
+        isOrder
+      if (canRecover && orderId) {
+        // Atualiza o registro legado em vez de deletar (preserva idempotência sem violar teste de segurança)
+        const { error: updErr } = await supabaseAdmin
+          .from('payment_events')
+          .update({
+            order_id: orderId,
+            processing_status: 'pending',
+            error_message: null,
+            payload_hash: hashPayload(rawBody),
+            payload_json: maskPayload(payload) as Record<string, unknown>,
+            processed_at: new Date().toISOString(),
+          })
+          .eq('event_id', eventId)
+        if (!updErr) {
+          // Recuperação bem-sucedida — continua para o fluxo principal abaixo
         } else {
           return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
         }
       } else {
         return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
       }
+    } else {
+      return { outcome: 'storage_error', stored: false, eventType, dataId, orderId }
     }
-    return { outcome: 'storage_error', stored: false, eventType, dataId, orderId }
   }
 
   if (!inserted) {
@@ -474,6 +439,8 @@ export async function processWebhookEvent(params: {
         await supabaseAdmin.from('payment_events').update({ processing_status: 'failed', error_message: 'external_reference ausente na order' }).eq('event_id', eventId)
         return { outcome: 'no_reference', stored: true, eventType, dataId, orderId }
       }
+      // Atualiza payment_events com orderId resolvido via Order (para auditoria e idempotência)
+      await supabaseAdmin.from('payment_events').update({ order_id: orderId }).eq('event_id', eventId)
     } else {
       mp = await getMercadoPagoPayment(dataId)
     }
