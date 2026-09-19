@@ -41,6 +41,16 @@ export type VipEvent =
   | 'pix.payment.failed'
   | 'pix.grant.created'
   | 'pix.grant.reused'
+  // ALFA-015.0 — eventos do cadastro gratuito (aditivo, não altera os existentes)
+  // Não são eventos VIP: o cadastro gratuito nunca concede access_grant.
+  | 'free.signup.started'
+  | 'free.signup.auth_created'
+  | 'free.signup.completed'
+  | 'free.signup.confirmation_required'
+  | 'free.signup.confirmed'
+  | 'free.signup.confirmation_failed'
+  | 'free.signup.rejected'
+  | 'free.signup.profile_failed'
 
 // Helpers mascaramento — nunca registram completo
 export function maskEmail(email: string): string {

@@ -136,10 +136,22 @@ export default async function PlanosPage() {
           </p>
         </section>
 
-        <div className="text-center">
-          <Link href={user ? '/dashboard' : '/login'} className="text-xs font-bold uppercase tracking-widest text-amber-400 hover:text-amber-300">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Link
+            href={user ? '/dashboard' : `/login?next=${encodeURIComponent('/planos')}`}
+            className="text-xs font-bold uppercase tracking-widest text-amber-400 hover:text-amber-300"
+          >
             {user ? 'Ir para o painel' : 'Entrar'}
           </Link>
+          {/* ALFA-015.0 — porta de entrada gratuita (o cadastro não concede Premium) */}
+          {!user && (
+            <Link
+              href="/cadastro"
+              className="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-200"
+            >
+              Não tem conta? Criar conta grátis
+            </Link>
+          )}
         </div>
       </div>
     </main>

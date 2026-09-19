@@ -1,21 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaUserAstronaut, FaLock, FaTicketAlt, FaSignInAlt, FaArrowLeft } from 'react-icons/fa';
+import { FaUserAstronaut, FaLock, FaTicketAlt, FaSignInAlt, FaArrowLeft, FaUserPlus } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { signUpWithInviteCode } from '../actions/signup';
+import { resolvePostLoginDestination, safeInternalPath, type PostLoginAccess } from '../lib/auth-flow';
 
 export default function LoginPage() {
   const router = useRouter();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  // ALFA-015.0 — retorno pedido por quem interrompeu o fluxo (ex.: /login?next=/planos)
+  const [nextPath, setNextPath] = useState<string | null>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+
+  // Lido no cliente para não exigir Suspense: usado apenas depois do login.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      setNextPath(safeInternalPath(params.get('next')));
+      const confirmacao = params.get('confirmacao');
+      if (confirmacao === 'falhou') {
+        setMessage('Não foi possível confirmar seu e-mail: o link pode ter expirado. Entre com sua senha ou crie a conta novamente.');
+      } else if (confirmacao === 'pendente') {
+        setMessage('Confirme o e-mail enviado para ativar sua conta e depois faça login.');
+      }
+    } catch {
+      /* sem query string: fluxo normal */
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +42,7 @@ export default function LoginPage() {
     setMessage('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -31,10 +50,36 @@ export default function LoginPage() {
       if (error) {
         setMessage('Erro: ' + error.message);
         setLoading(false);
-      } else {
-        router.push('/dashboard/manager');
-        router.refresh();
+        return;
       }
+
+      // ALFA-015.0 — destino após login.
+      // Ordem: ?next= explícito → Admin → Premium ativo → usuário gratuito (/planos).
+      // Sem leitura de user_state (usuário legado/sem linha), o destino atual é preservado.
+      let access: PostLoginAccess | null = null;
+      const userId = data?.user?.id;
+      if (userId) {
+        try {
+          const { data: userState, error: stateError } = await supabase
+            .from('user_state')
+            .select('role, access_plan')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (!stateError && userState) {
+            const row = userState as { role?: string | null; access_plan?: string | null };
+            access = {
+              role: row.role ?? null,
+              accessPlan: row.access_plan ?? null,
+            };
+          }
+        } catch {
+          access = null;
+        }
+      }
+
+      router.push(resolvePostLoginDestination({ next: nextPath, access }));
+      router.refresh();
     } catch (err) {
       setMessage('Ocorreu um erro inesperado ao tentar fazer login.');
       setLoading(false);
@@ -202,6 +247,20 @@ export default function LoginPage() {
                   <h2 className="text-base font-black tracking-tight text-white">Seu lugar na equipe começa aqui.</h2>
                   <p className="mt-1 text-sm font-semibold text-zinc-300">Você recebeu uma credencial. Agora é hora de entrar para o grid.</p>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-400">Valide seu código VIP, crie seu acesso e prepare-se para acompanhar sua jornada no Lobo Alfa.</p>
+
+                  {/* ALFA-015.0 — porta de entrada gratuita (não substitui o fluxo de convite VIP) */}
+                  <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] px-4 py-3">
+                    <p className="text-xs leading-relaxed text-emerald-200">
+                      Não tem código VIP? O cadastro gratuito está aberto: crie sua conta sem custo e conheça a plataforma.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/cadastro')}
+                      className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 text-xs font-extrabold uppercase tracking-widest text-emerald-200 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                    >
+                      Criar conta grátis <FaUserPlus aria-hidden />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -298,7 +357,14 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="mt-4 text-center">
+          <div className="mt-4 flex flex-col items-center gap-1 text-center">
+            <button
+              type="button"
+              onClick={() => router.push('/cadastro')}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-yellow-300 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+            >
+              Não tenho conta — criar grátis <FaUserPlus aria-hidden />
+            </button>
             <button
               type="button"
               onClick={() => router.push('/')}

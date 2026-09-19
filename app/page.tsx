@@ -27,6 +27,7 @@ import {
   Users,
   Download,
   Smartphone,
+  UserPlus,
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -65,6 +66,13 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* ALFA-015.0 — porta de entrada gratuita */}
+            <Link
+              href="/cadastro"
+              className="hidden lg:inline-flex h-9 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-zinc-200 hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
+            >
+              Criar conta grátis
+            </Link>
             <Link
               href="/login"
               className="hidden sm:inline-flex h-9 items-center justify-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-zinc-900 shadow-[0_0_20px_rgba(250,204,21,0.18)] hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
@@ -103,6 +111,9 @@ export default function LandingPage() {
             <a onClick={() => setMobileOpen(false)} href="#fluxo" className="rounded-xl px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Como funciona</a>
             <Link onClick={() => setMobileOpen(false)} href="/login" className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-yellow-400 px-6 text-sm font-bold text-zinc-900 hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
               Entrar na plataforma <ArrowRight size={16} aria-hidden />
+            </Link>
+            <Link onClick={() => setMobileOpen(false)} href="/cadastro" className="mt-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-6 text-sm font-semibold text-zinc-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
+              Criar conta grátis <UserPlus size={16} aria-hidden />
             </Link>
           </nav>
         </div>
@@ -153,6 +164,20 @@ export default function LandingPage() {
                 >
                   Ver recursos
                 </a>
+              </div>
+
+              {/* ALFA-015.0 — cadastro gratuito: criar conta não concede Premium */}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Link
+                  href="/cadastro"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-6 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
+                >
+                  <UserPlus size={17} aria-hidden />
+                  Criar conta grátis
+                </Link>
+                <span className="text-xs leading-relaxed text-zinc-400">
+                  Cadastro gratuito. O acesso Premium é opcional, via Pix.
+                </span>
               </div>
 
               <div className="mt-4 flex flex-col gap-2">
@@ -392,6 +417,12 @@ export default function LandingPage() {
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-yellow-400 px-7 text-sm font-extrabold text-zinc-900 shadow-lg hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
                 >
                   Entrar na plataforma <ArrowRight size={18} aria-hidden />
+                </Link>
+                <Link
+                  href="/cadastro"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-7 text-sm font-bold text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                >
+                  Criar conta grátis <UserPlus size={18} aria-hidden />
                 </Link>
                 <a
                   href="#recursos"
