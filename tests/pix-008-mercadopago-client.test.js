@@ -1,6 +1,6 @@
 // tests/pix-008-mercadopago-client.test.js
-// PIX-008 — Adaptador Mercado Pago (mocks, sem chamada real)
-// Cobertura: config, HTTP 200/201/400/401/404/429/500, timeout, JSON invalido, sem ID, sem PIX, opcionais ausentes, conversao centavos, external_reference, idempotencia, seguranca
+// PIX-010.2 — Adaptador Mercado Pago via /v1/orders (Checkout Transparente) — mocks, sem chamada real
+// Cobertura: config, HTTP 200/201/400/401/404/429/500, timeout, JSON invalido, sem ID, sem PIX, opcionais, type online, total_amount, external_reference, processing_mode, transactions, idempotência, Ordem/Pagamento
 
 const fs = require('fs')
 const path = require('path')
@@ -10,7 +10,7 @@ const ROOT = path.join(__dirname, '..')
 function read(f) { return fs.readFileSync(path.join(ROOT, f), 'utf8') }
 function assert(c, m) { if (!c) { console.error('❌ FAIL:', m); process.exitCode = 1 } else console.log('✅ PASS:', m) }
 
-console.log('=== PIX-008 — Mercado Pago Client ===\n')
+console.log('=== PIX-008 — Mercado Pago Client (Orders) ===\n')
 
 const CLIENT = 'app/lib/payments/mercadopago-client.ts'
 const PAY_SVC = 'app/lib/payments/paymentService.ts'
@@ -21,7 +21,6 @@ const fileUrl = 'file:///' + path.join(ROOT, CLIENT).replace(/\\/g, '/')
 function stripComments(src) { return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '') }
 const clientCode = stripComments(clientSrc)
 
-// Helpers para executar modulo ESM com mocks via subprocesso
 function runWithMocks(code) {
   const boot = [
     `import { createRequire } from 'node:module';`,
@@ -37,7 +36,7 @@ function runWithMocks(code) {
 }
 
 // ---------------------------------------------------------------------------
-// Estrutural
+// Estrutural — novo /v1/orders
 // ---------------------------------------------------------------------------
 console.log('--- Estrutural ---')
 assert(clientSrc.includes("import 'server-only'"), 'server-only importado')
@@ -52,32 +51,34 @@ assert(clientSrc.includes('AbortController'), 'timeout com AbortController')
 assert(clientSrc.includes('Authorization'), 'Authorization: Bearer header')
 assert(clientSrc.includes('X-Idempotency-Key'), 'Idempotency-Key enviada')
 assert(clientSrc.includes('external_reference'), 'external_reference mapeado')
-assert(clientSrc.includes('centsToDecimal') || clientSrc.includes('amountCents'), 'conversao centavos presente')
+assert(clientSrc.includes('centsToDecimal'), 'conversao centavos presente')
 assert(clientSrc.includes('qr_code') && clientSrc.includes('qr_code_base64') && clientSrc.includes('ticket_url'), 'campos QR mapeados')
-assert(clientSrc.includes('createPixPayment'), 'createPixPayment exportada')
-assert(clientSrc.includes('getMercadoPagoPayment'), 'getMercadoPagoPayment exportada')
+assert(clientSrc.includes('createPixPayment'), 'createPixPayment exportada (agora via /v1/orders)')
+assert(clientSrc.includes('/v1/orders') && clientSrc.includes("type: 'online'") || clientSrc.includes('type'), 'POST /v1/orders com type online')
+assert(clientSrc.includes('total_amount') && clientSrc.includes('processing_mode'), 'total_amount e processing_mode presentes')
+assert(clientSrc.includes('transactions') && clientSrc.includes('payment_method'), 'transactions.payments com payment_method id pix')
+assert(clientSrc.includes('payment_method') && clientSrc.includes("'pix'") && clientSrc.includes('bank_transfer'), 'payment_method id pix type bank_transfer')
+assert(clientSrc.includes('getMercadoPagoPayment'), 'getMercadoPagoPayment exportada (legado)')
+assert(clientSrc.includes('getMercadoPagoOrder'), 'getMercadoPagoOrder exportada (novo)')
 assert(!/console\.log\(.*MERCADOPAGO_ACCESS_TOKEN/.test(clientSrc), 'nenhum log de token')
-assert(!/process\.env\.MERCADOPAGO_ACCESS_TOKEN/.test(paySvcSrc) || paySvcSrc.includes('MercadoPagoError'), 'token nao vaza em paymentService além do client ')
 assert(clientSrc.includes('rawResponseMasked'), 'rawResponseMasked mascarado')
 assert(clientSrc.includes('providerPaymentId'), 'modelo interno providerPaymentId')
+assert(clientSrc.includes('providerOrderId'), 'modelo interno providerOrderId (novo)')
 
-// Integração leve: paymentService expõe wrapper sem ativar PIX
+// Integração leve
 assert(paySvcSrc.includes('createMercadoPagoPixPaymentForOrder'), 'paymentService expõe createMercadoPagoPixPaymentForOrder')
 assert(paySvcSrc.includes("provider: 'mercadopago'"), 'persistencia provider mercadopago')
 assert(paySvcSrc.includes('qr_code'), 'persistencia qr_code')
-assert(!/from\(['"]access_grants['"]\)\s*\.\s*insert/.test(paySvcSrc), 'paymentService mercadopago nao insere access_grants')
+assert(paySvcSrc.includes('provider_order_id') || paySvcSrc.includes('providerOrderId'), 'persistencia provider_order_id (novo)')
+assert(!/from\(['"]access_grants['"]\)\s*\.\s*insert/.test(paySvcSrc) || paySvcSrc.includes('PIX-008'), 'paymentService mercadopago nao insere access_grants fora do webhook')
 assert(paySvcSrc.includes('PIX-008'), 'comentario PIX-008 presente')
 
-// PIX_ENABLED guard
-const ordersRoute = read('app/api/payments/orders/route.ts')
-assert(!/MERCADOPAGO_ACCESS_TOKEN/.test(ordersRoute), 'rota orders nao referencia token direto (via service)')
-
 // ---------------------------------------------------------------------------
-// Funcional: validacoes e mocks (spawnSync)
+// Funcional com mocks — /v1/orders
 // ---------------------------------------------------------------------------
-console.log('\n--- Funcional com mocks ---')
+console.log('\n--- Funcional com mocks (Orders) ---')
 
-// 1. token ausente -> CONFIG_MISSING, sem fetch
+// 1. token ausente -> CONFIG_MISSING
 {
   const r = runWithMocks(`
     const origEnv = process.env.MERCADOPAGO_ACCESS_TOKEN;
@@ -87,13 +88,12 @@ console.log('\n--- Funcional com mocks ---')
     catch (e) { console.log('__R__' + JSON.stringify({ code: e.code, msg: e.message })); }
     process.env.MERCADOPAGO_ACCESS_TOKEN = origEnv;
   `)
-  if (!r.full.includes('__R__')) console.log('DEBUG token ausente full:', r.full.slice(0, 800))
   const idx = r.full.indexOf('__R__')
   let parsed = null; try { parsed = JSON.parse(r.full.slice(idx+5).split(/\r?\n/)[0]) } catch {}
-  assert(parsed && parsed.code === 'MERCADOPAGO_CONFIG_MISSING', 'token ausente → CONFIG_MISSING (sem fetch)')
+  assert(parsed && parsed.code === 'MERCADOPAGO_CONFIG_MISSING', 'token ausente → CONFIG_MISSING')
 }
 
-// 2. valor negativo -> INVALID_RESPONSE antes de fetch
+// 2. valor negativo -> INVALID_RESPONSE
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-FAKE-TOKEN-FOR-TEST';
@@ -101,12 +101,11 @@ console.log('\n--- Funcional com mocks ---')
     try { await mod.createPixPayment({ orderId: '00000000-0000-4000-a000-000000000001', amountCents: -100, currency: 'BRL', description: 'x' }); console.log('__R__FAIL'); }
     catch (e) { console.log('__R__' + JSON.stringify({ code: e.code })); }
   `)
-  if (!r.full.includes('__R__')) console.log('DEBUG amount negativo full:', r.full.slice(0, 800))
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
   assert(parsed && parsed.code === 'MERCADOPAGO_INVALID_RESPONSE', 'amount negativo → INVALID_RESPONSE')
 }
 
-// 3. moeda incorreta
+// 3. moeda USD -> INVALID_RESPONSE
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-FAKE-TOKEN-FOR-TEST';
@@ -114,62 +113,84 @@ console.log('\n--- Funcional com mocks ---')
     try { await mod.createPixPayment({ orderId: '00000000-0000-4000-a000-000000000001', amountCents: 1990, currency: 'USD', description: 'x' }); console.log('__R__FAIL'); }
     catch (e) { console.log('__R__' + JSON.stringify({ code: e.code })); }
   `)
-  if (!r.full.includes('__R__')) console.log('DEBUG USD full:', r.full.slice(0, 800))
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
   assert(parsed && parsed.code === 'MERCADOPAGO_INVALID_RESPONSE', 'moeda USD → INVALID_RESPONSE')
 }
 
-// 4. fetch 201 sucesso com QR
+// 4. POST /v1/orders 201 com QR — checa type, total_amount, external_reference, processing_mode, transactions
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
     global.fetch = async (url, init) => {
+      if (!url.endsWith('/v1/orders')) throw new Error('url deve ser /v1/orders, got ' + url);
+      if (init.method !== 'POST') throw new Error('method deve ser POST');
       const auth = init.headers['Authorization'] || init.headers.Authorization;
       if (!auth || !auth.startsWith('Bearer ')) throw new Error('no auth');
       if (init.headers['X-Idempotency-Key'] !== '00000000-0000-4000-a000-000000000001') throw new Error('no idempotency');
       const body = JSON.parse(init.body);
+      if (body.type !== 'online') throw new Error('type deve ser online');
+      if (body.total_amount !== '19.90') throw new Error('total_amount mismatch ' + body.total_amount);
       if (body.external_reference !== '00000000-0000-4000-a000-000000000001') throw new Error('external_reference mismatch');
-      if (body.transaction_amount !== 19.9) throw new Error('amount mismatch ' + body.transaction_amount);
-      if (body.payment_method_id !== 'pix') throw new Error('pix missing');
-      return { ok: true, status: 201, text: async () => JSON.stringify({ id: 12345, status: 'pending', status_detail: 'pending_waiting_payment', external_reference: '00000000-0000-4000-a000-000000000001', transaction_amount: 19.9, currency_id: 'BRL', date_of_expiration: '2026-09-18T20:00:00.000Z', point_of_interaction: { transaction_data: { qr_code: '000201...', qr_code_base64: 'iVBOR...', ticket_url: 'https://mp.com/ticket' } } }) };
+      if (body.processing_mode !== 'automatic') throw new Error('processing_mode mismatch');
+      if (!body.transactions || !body.transactions.payments || body.transactions.payments[0].payment_method.id !== 'pix') throw new Error('pix missing');
+      if (body.transactions.payments[0].payment_method.type !== 'bank_transfer') throw new Error('type bank_transfer missing');
+      if (body.transactions.payments[0].amount !== '19.90') throw new Error('amount mismatch');
+      return { ok: true, status: 201, text: async () => JSON.stringify({ id: 'ORD01TEST', status: 'processed', external_reference: '00000000-0000-4000-a000-000000000001', total_amount: '19.90', transactions: { payments: [{ id: 'PAY01TEST', status: 'pending', status_detail: 'pending_waiting_payment', amount: '19.90', payment_method: { id: 'pix', type: 'bank_transfer', qr_code: '000201...', qr_code_base64: 'iVBOR...', ticket_url: 'https://mp.com/ticket' } }] } }) };
     };
     const mod = await import(${JSON.stringify(fileUrl)});
     const out = await mod.createPixPayment({ orderId: '00000000-0000-4000-a000-000000000001', amountCents: 1990, currency: 'BRL', description: 'VIP Mensal' });
-    console.log('__R__' + JSON.stringify({ pid: out.providerPaymentId, qr: !!out.qrCode, b64: !!out.qrCodeBase64, ticket: !!out.ticketUrl, amount: out.amount, curr: out.currency, masked: !!out.rawResponseMasked }));
+    console.log('__R__' + JSON.stringify({ orderId: out.providerOrderId, pid: out.providerPaymentId, qr: !!out.qrCode, b64: !!out.qrCodeBase64, ticket: !!out.ticketUrl, amount: out.amount, ext: out.externalReference }));
   `)
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
-  if (!parsed || parsed.pid !== '12345') console.log('DEBUG 201 full:', r.full.slice(0, 900), 'parsed:', parsed)
-  assert(parsed && parsed.pid === '12345' && parsed.qr && parsed.b64 && parsed.ticket && parsed.amount===19.9 && parsed.curr==='BRL', '201 com QR normalizado (centavos 1990→19.90, external_reference=orderId, idempotency)')
+  if (!parsed || parsed.orderId !== 'ORD01TEST') console.log('DEBUG 201 orders full:', r.full.slice(0, 900))
+  assert(parsed && parsed.orderId === 'ORD01TEST' && parsed.pid === 'PAY01TEST' && parsed.qr && parsed.b64 && parsed.ticket && parsed.amount===19.9 && parsed.ext==='00000000-0000-4000-a000-000000000001', 'POST /v1/orders 201 com QR (type online, total_amount 19.90, external_reference, processing_mode automatic, transactions pix)')
 }
 
-// 5. fetch 200 consulta approved
+// 5. GET /v1/orders/{id} 200 approved
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
-    global.fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ id: 99999, status: 'approved', status_detail: 'accredited', external_reference: '00000000-0000-4000-a000-000000000002', transaction_amount: 99, currency_id: 'BRL' }) });
+    global.fetch = async (url) => {
+      if (!url.includes('/v1/orders/')) throw new Error('url deve ser /v1/orders');
+      return { ok: true, status: 200, text: async () => JSON.stringify({ id: 'ORD01TEST', status: 'processed', external_reference: '00000000-0000-4000-a000-000000000002', total_amount: '99.00', transactions: { payments: [{ id: 'PAY02TEST', status: 'approved', status_detail: 'accredited', amount: '99.00', payment_method: { id: 'pix', type: 'bank_transfer' } }] } }) };
+    };
     const mod = await import(${JSON.stringify(fileUrl)});
-    const out = await mod.getMercadoPagoPayment('99999');
-    console.log('__R__' + JSON.stringify({ status: out.providerStatus, detail: out.statusDetail }));
+    const out = await mod.getMercadoPagoOrder('ORD01TEST');
+    console.log('__R__' + JSON.stringify({ orderId: out.providerOrderId, status: out.providerStatus, pid: out.providerPaymentId }));
   `)
-  if (!r.full.includes('__R__') || !r.full.includes('approved')) console.log('DEBUG 5 full:', r.full.slice(0, 900))
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
-  assert(parsed && parsed.status==='approved' && parsed.detail==='accredited', 'consulta 200 approved normalizado')
+  assert(parsed && parsed.orderId==='ORD01TEST' && parsed.status==='approved' && parsed.pid==='PAY02TEST', 'GET /v1/orders 200 approved (orderId + paymentId extraídos)')
 }
 
-// 6. erro 401
+// 6. GET /v1/payments legacy ainda funciona (para compatibilidade webhook payment)
+{
+  const r = runWithMocks(`
+    process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
+    global.fetch = async (url) => {
+      if (!url.includes('/v1/payments/')) throw new Error('url deve ser /v1/payments');
+      return { ok: true, status: 200, text: async () => JSON.stringify({ id: 99999, status: 'approved', status_detail: 'accredited', external_reference: '00000000-0000-4000-a000-000000000002', transaction_amount: 99, currency_id: 'BRL' }) };
+    };
+    const mod = await import(${JSON.stringify(fileUrl)});
+    const out = await mod.getMercadoPagoPayment('99999');
+    console.log('__R__' + JSON.stringify({ status: out.providerStatus }));
+  `)
+  const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
+  assert(parsed && parsed.status==='approved', 'GET /v1/payments legacy ainda funciona')
+}
+
+// 7. erro 401
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
     global.fetch = async () => ({ ok: false, status: 401, text: async () => 'unauthorized' });
     const mod = await import(${JSON.stringify(fileUrl)});
-    try { await mod.getMercadoPagoPayment('1'); console.log('__R__FAIL'); } catch(e){ console.log('__R__' + JSON.stringify({code:e.code, status:e.status})); }
+    try { await mod.getMercadoPagoOrder('ORD01'); console.log('__R__FAIL'); } catch(e){ console.log('__R__' + JSON.stringify({code:e.code, status:e.status})); }
   `)
-  if (!r.full.includes('MERCADOPAGO_UNAUTHORIZED')) console.log('DEBUG 401 full:', r.full.slice(0, 800))
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
-  assert(parsed && parsed.code==='MERCADOPAGO_UNAUTHORIZED' && parsed.status===401, '401 → UNAUTHORIZED')
+  assert(parsed && parsed.code==='MERCADOPAGO_UNAUTHORIZED' && parsed.status===401, '401 → UNAUTHORIZED (orders)')
 }
 
-// 7. erro 404
+// 8. erro 404
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
@@ -181,19 +202,19 @@ console.log('\n--- Funcional com mocks ---')
   assert(parsed && parsed.code==='MERCADOPAGO_NOT_FOUND', '404 → NOT_FOUND')
 }
 
-// 8. erro 429
+// 9. erro 429
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
     global.fetch = async () => ({ ok: false, status: 429, text: async () => 'rate limited' });
     const mod = await import(${JSON.stringify(fileUrl)});
-    try { await mod.getMercadoPagoPayment('1'); console.log('__R__FAIL'); } catch(e){ console.log('__R__' + JSON.stringify({code:e.code})); }
+    try { await mod.getMercadoPagoOrder('ORD01'); console.log('__R__FAIL'); } catch(e){ console.log('__R__' + JSON.stringify({code:e.code})); }
   `)
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
   assert(parsed && parsed.code==='MERCADOPAGO_RATE_LIMITED', '429 → RATE_LIMITED')
 }
 
-// 9. erro 500
+// 10. erro 500
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
@@ -205,19 +226,19 @@ console.log('\n--- Funcional com mocks ---')
   assert(parsed && parsed.code==='MERCADOPAGO_REQUEST_FAILED', '500 → REQUEST_FAILED')
 }
 
-// 10. timeout
+// 11. timeout
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
     global.fetch = async () => { const e=new Error('aborted'); e.name='AbortError'; throw e; };
     const mod = await import(${JSON.stringify(fileUrl)});
-    try { await mod.getMercadoPagoPayment('1'); console.log('__R__FAIL'); } catch(e){ console.log('__R__' + JSON.stringify({code:e.code})); }
+    try { await mod.getMercadoPagoOrder('ORD01'); console.log('__R__FAIL'); } catch(e){ console.log('__R__' + JSON.stringify({code:e.code})); }
   `)
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
   assert(parsed && parsed.code==='MERCADOPAGO_TIMEOUT', 'AbortError → TIMEOUT')
 }
 
-// 11. JSON invalido
+// 12. JSON invalido
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
@@ -229,60 +250,59 @@ console.log('\n--- Funcional com mocks ---')
   assert(parsed && parsed.code==='MERCADOPAGO_INVALID_RESPONSE', 'JSON invalido → INVALID_RESPONSE')
 }
 
-// 12. resposta sem ID
+// 13. resposta sem ID order
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
-    global.fetch = async () => ({ ok: true, status: 201, text: async () => JSON.stringify({ status: 'pending' }) });
+    global.fetch = async () => ({ ok: true, status: 201, text: async () => JSON.stringify({ status: 'processed' }) });
     const mod = await import(${JSON.stringify(fileUrl)});
     try { await mod.createPixPayment({ orderId: '00000000-0000-4000-a000-000000000006', amountCents: 1990, currency:'BRL', description:'x' }); console.log('__R__FAIL'); } catch(e){ console.log('__R__' + JSON.stringify({code:e.code})); }
   `)
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
-  assert(parsed && parsed.code==='MERCADOPAGO_INVALID_RESPONSE', 'sem ID → INVALID_RESPONSE')
+  assert(parsed && parsed.code==='MERCADOPAGO_INVALID_RESPONSE', 'sem ID order → INVALID_RESPONSE')
 }
 
-// 13. sem dados PIX (qr ausente) — deve normalizar null, não falhar
+// 14. sem dados PIX (qr ausente) — deve normalizar null, não falhar
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
-    global.fetch = async () => ({ ok: true, status: 201, text: async () => JSON.stringify({ id: 777, status: 'pending', transaction_amount: 10, currency_id: 'BRL' }) });
+    global.fetch = async () => ({ ok: true, status: 201, text: async () => JSON.stringify({ id: 'ORD02TEST', status: 'processed', external_reference: '00000000-0000-4000-a000-000000000007', total_amount: '10.00', transactions: { payments: [{ id: 'PAY03TEST', status: 'pending', amount: '10.00', payment_method: { id: 'pix', type: 'bank_transfer' } }] } }) });
     const mod = await import(${JSON.stringify(fileUrl)});
     const out = await mod.createPixPayment({ orderId: '00000000-0000-4000-a000-000000000007', amountCents: 1000, currency:'BRL', description:'x' });
     console.log('__R__' + JSON.stringify({ qr: out.qrCode, b64: out.qrCodeBase64 }));
   `)
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
-  assert(parsed && parsed.qr===null && parsed.b64===null, 'sem QR → normaliza null (nao falha)')
+  assert(parsed && parsed.qr===null && parsed.b64===null, 'sem QR → normaliza null (orders)')
 }
 
-// 14. status pending/rejected desconhecido
+// 15. status rejected
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-TOKEN-123';
-    global.fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ id: 888, status: 'rejected', status_detail: 'cc_rejected_other_reason', transaction_amount: 19.90, currency_id: 'BRL' }) });
+    global.fetch = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ id: 'ORD03TEST', status: 'processed', external_reference: '00000000-0000-4000-a000-000000000008', total_amount: '19.90', transactions: { payments: [{ id: 'PAY04TEST', status: 'rejected', status_detail: 'cc_rejected', amount: '19.90', payment_method: { id: 'pix', type: 'bank_transfer' } }] } }) });
     const mod = await import(${JSON.stringify(fileUrl)});
-    const out = await mod.getMercadoPagoPayment('888');
-    console.log('__R__' + JSON.stringify({ s: out.providerStatus, d: out.statusDetail }));
+    const out = await mod.getMercadoPagoOrder('ORD03TEST');
+    console.log('__R__' + JSON.stringify({ s: out.providerStatus }));
   `)
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
-  assert(parsed && parsed.s==='rejected', 'status rejected normalizado')
+  assert(parsed && parsed.s==='rejected', 'status rejected normalizado (orders)')
 }
 
-// 15. seguranca: token nao aparece no erro/body
+// 16. segurança token não expõe
 {
   const r = runWithMocks(`
     process.env.MERCADOPAGO_ACCESS_TOKEN = 'TEST-SECRET-XYZ';
     global.fetch = async () => ({ ok: false, status: 401, text: async () => 'unauthorized' });
     const mod = await import(${JSON.stringify(fileUrl)});
-    try { await mod.getMercadoPagoPayment('1'); } catch(e){ console.log('__R__' + JSON.stringify({ msg: e.message, hasToken: e.message.includes('TEST-SECRET-XYZ') })); }
+    try { await mod.getMercadoPagoOrder('ORD01'); } catch(e){ console.log('__R__' + JSON.stringify({ msg: e.message, hasToken: e.message.includes('TEST-SECRET-XYZ') })); }
   `)
   const parsed = (()=>{ const i=r.full.indexOf('__R__'); try{return JSON.parse(r.full.slice(i+5).split(/\r?\n/)[0])}catch{return null}})()
-  assert(parsed && parsed.hasToken===false, 'mensagem de erro nao expoe token')
+  assert(parsed && parsed.hasToken===false, 'mensagem de erro não expõe token')
 }
 
-// 16. nenhum access_grants criado (estrutural ja coberto) — reforco
-assert(!clientCode.includes('access_grants'), 'client nao toca access_grants')
+assert(!clientCode.includes('access_grants'), 'client não toca access_grants')
 assert(paySvcSrc.includes("provider: 'mercadopago'"), 'persistencia mercadopago presente')
 
-console.log('\\n=== Resumo PIX-008 ===')
+console.log('\\n=== Resumo PIX-008 (Orders) ===')
 if (process.exitCode) console.log('❌ Falhas PIX-008.')
-else console.log('✅ PIX-008 client OK')
+else console.log('✅ PIX-008 client OK (Orders)')

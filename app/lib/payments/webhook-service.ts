@@ -21,7 +21,7 @@ import {
   extractDataId,
   extractEventType,
 } from './mercadopago-signature'
-import { getMercadoPagoPayment, MercadoPagoError } from './mercadopago-client'
+import { getMercadoPagoPayment, getMercadoPagoOrder, MercadoPagoError } from './mercadopago-client'
 import { canTransitionOrder, canTransitionPayment } from './paymentStateMachine'
 
 export type WebhookOutcome =
@@ -101,14 +101,20 @@ export function extractExternalReference(payload: unknown): string | null {
 }
 
 /** Tipos de evento que interessam nesta integração. Qualquer outro é registrado e ignorado.
- *  Nota: 'order.processed' (enviado pelo teste do Mercado Pago) NÃO é um evento de pagamento
- *  e retorna 'unknown_event' — o sistema propositalmente NÃO concede VIP para 'order.*'.
- *  Apenas 'payment' / 'payment.*' são relevantes para futura confirmação de Pix.
+ *  PIX-010.2: com Checkout Transparente via /v1/orders, 'order'/'order.processed' também é relevante
+ *  (contém o pagamento Pix dentro de transactions.payments[0]).
+ *  Mantém compatibilidade com 'payment' legado.
  */
 export function isRelevantEvent(eventType: string | null): boolean {
   if (!eventType) return false
   const t = eventType.toLowerCase()
-  return t === 'payment' || t === 'payments' || t.startsWith('payment.')
+  return t === 'payment' || t === 'payments' || t.startsWith('payment.') || t === 'order' || t === 'orders' || t.startsWith('order.')
+}
+
+export function isOrderEvent(eventType: string | null): boolean {
+  if (!eventType) return false
+  const t = eventType.toLowerCase()
+  return t === 'order' || t === 'orders' || t.startsWith('order.')
 }
 
 // ---------------------------------------------------------------------------
@@ -361,11 +367,13 @@ export async function processWebhookEvent(params: {
     return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
   }
 
-  if (!relevant) return { outcome: 'unknown_event', stored: true, eventType, dataId, orderId }
-  if (!externalReference) return { outcome: 'no_reference', stored: true, eventType, dataId, orderId }
-  if (!orderId) return { outcome: 'reference_not_found', stored: true, eventType, dataId, orderId }
+  // PIX-010.2: order também é relevante (Checkout Transparente)
+  const isOrder = isOrderEvent(eventType)
+  if (!relevant && !isOrder) return { outcome: 'unknown_event', stored: true, eventType, dataId, orderId }
+  if (!externalReference && !isOrder) return { outcome: 'no_reference', stored: true, eventType, dataId, orderId }
+  if (!orderId && !isOrder) return { outcome: 'reference_not_found', stored: true, eventType, dataId, orderId }
 
-  // PIX-010: a partir daqui, evento relevante com orderId, mas ainda sem confirmação.
+  // PIX-010: a partir daqui, evento relevante com orderId (ou order), mas ainda sem confirmação.
   // Se PIX_ENABLED=false, preserva comportamento antigo (stored_pending, sem MP).
   const pixEnabled = process.env.PIX_ENABLED === 'true'
   if (!pixEnabled) {
@@ -374,16 +382,34 @@ export async function processWebhookEvent(params: {
     return { outcome: 'stored_pending', stored: true, eventType, dataId, orderId }
   }
 
-  // PIX_ENABLED=true: precisa de data.id (paymentId) para consultar MP
+  // PIX_ENABLED=true: precisa de data.id (paymentId ou orderId) para consultar MP
   if (!dataId) {
     await supabaseAdmin.from('payment_events').update({ processing_status: 'ignored', error_message: 'data.id ausente, sem consulta MP' }).eq('event_id', eventId)
     return { outcome: 'unknown_event', stored: true, eventType, dataId, orderId }
   }
 
-  // Consulta server-to-server (fonte de verdade)
+  // Consulta server-to-server (fonte de verdade) — suporta /v1/payments e /v1/orders
   let mp: Awaited<ReturnType<typeof getMercadoPagoPayment>>
   try {
-    mp = await getMercadoPagoPayment(dataId)
+    if (isOrder) {
+      // Checkout Transparente: data.id é orderId, buscar order e extrair payment
+      const orderMp = await getMercadoPagoOrder(dataId)
+      // Se a order contém o pagamento, usa-o; senão, usa a própria order como mp (para validação via total_amount)
+      // Para compatibilidade, se orderMp já tem providerPaymentId (do payment dentro), usa orderMp
+      mp = orderMp
+      // Se a order não tem external_reference no nível da order, mas tem no payment, já está em orderMp.externalReference
+      // Garante que orderId seja derivado do external_reference da order se ainda não tínhamos
+      if (!orderId && orderMp.externalReference) {
+        const { data: orderByExt } = await supabaseAdmin.from('premium_orders').select('id').eq('id', orderMp.externalReference as string).maybeSingle()
+        if (orderByExt) orderId = (orderByExt as { id: string }).id
+      }
+      if (!orderId) {
+        await supabaseAdmin.from('payment_events').update({ processing_status: 'failed', error_message: 'external_reference ausente na order' }).eq('event_id', eventId)
+        return { outcome: 'no_reference', stored: true, eventType, dataId, orderId }
+      }
+    } else {
+      mp = await getMercadoPagoPayment(dataId)
+    }
   } catch (e: unknown) {
     const err = e as MercadoPagoError
     const code = (err as unknown as { code?: string })?.code || 'UNKNOWN'
@@ -472,7 +498,7 @@ export async function processWebhookEvent(params: {
   }
 
   const paymentRowId = (localPayment as unknown as { id: string }).id
-  const { orderConfirmed, paymentConfirmed } = await confirmPaymentAndOrder(orderId, paymentRowId, mp.providerPaymentId)
+  const { orderConfirmed, paymentConfirmed } = await confirmPaymentAndOrder(orderId as string, paymentRowId, mp.providerPaymentId)
 
   // Mesmo se já confirmado, prossegue para grant (idempotente)
   const grantRes = await ensurePaymentGrant({ id: orderForValidation.id, user_id: orderForValidation.user_id, plan_id: orderForValidation.plan_id })

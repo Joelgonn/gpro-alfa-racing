@@ -243,6 +243,17 @@ export async function createMercadoPagoPixPaymentForOrder(
     idempotencyKey: opts?.idempotencyKey || orderId,
   })
 
+  // Persiste provider_order_id em premium_orders (coluna 20250919000001) para rastreabilidade da Order MP
+  if ((mp as unknown as { providerOrderId?: string | null }).providerOrderId) {
+    await supabaseAdmin
+      .from('premium_orders')
+      .update({
+        provider_order_id: (mp as unknown as { providerOrderId: string }).providerOrderId,
+        provider_external_reference: mp.externalReference || orderId,
+      })
+      .eq('id', orderId)
+  }
+
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from('premium_payments')
     .insert({

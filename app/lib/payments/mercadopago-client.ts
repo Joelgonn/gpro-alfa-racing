@@ -63,6 +63,7 @@ export interface CreatePixPaymentParams {
 
 export interface MercadoPagoPixPayment {
   providerPaymentId: string
+  providerOrderId?: string | null
   providerStatus: string
   statusDetail: string | null
   externalReference: string | null
@@ -75,15 +76,17 @@ export interface MercadoPagoPixPayment {
   rawResponseMasked: Record<string, unknown>
 }
 
-// Tipos brutos mínimos da API (somente campos usados)
+// Tipos brutos mínimos da API (somente campos usados) — suporta /v1/payments e /v1/orders
 interface RawPaymentResponse {
   id?: number | string
   status?: string
   status_detail?: string
   external_reference?: string | null
   transaction_amount?: number
+  total_amount?: number | string
   currency_id?: string
   date_of_expiration?: string | null
+  expiration_time?: string | null
   point_of_interaction?: {
     transaction_data?: {
       qr_code?: string | null
@@ -91,6 +94,50 @@ interface RawPaymentResponse {
       ticket_url?: string | null
     } | null
   } | null
+  transactions?: {
+    payments?: Array<{
+      id?: number | string
+      status?: string
+      status_detail?: string
+      amount?: number | string
+      payment_method?: {
+        id?: string
+        type?: string
+        qr_code?: string | null
+        qr_code_base64?: string | null
+        ticket_url?: string | null
+      } | null
+      qr_code?: string | null
+      qr_code_base64?: string | null
+      ticket_url?: string | null
+      expiration_time?: string | null
+    }>
+  }
+  [k: string]: unknown
+}
+
+interface RawOrderResponse {
+  id?: string
+  external_reference?: string | null
+  total_amount?: number | string
+  status?: string
+  payer?: { email?: string }
+  transactions?: {
+    payments?: Array<{
+      id?: string | number
+      amount?: number | string
+      status?: string
+      status_detail?: string
+      payment_method?: {
+        id?: string
+        type?: string
+        qr_code?: string | null
+        qr_code_base64?: string | null
+        ticket_url?: string | null
+      }
+      expiration_time?: string | null
+    }>
+  }
   [k: string]: unknown
 }
 
@@ -133,6 +180,37 @@ function validateCreateParams(params: CreatePixPaymentParams): void {
 }
 
 function buildPixPayload(params: CreatePixPaymentParams): Record<string, unknown> {
+  // PIX-010.2 — Checkout Transparente via /v1/orders (não /v1/payments)
+  const amountDecimal = centsToDecimal(params.amountCents)
+  const amountStr = amountDecimal.toFixed(2)
+  const body: Record<string, unknown> = {
+    type: 'online',
+    external_reference: params.orderId.trim(),
+    total_amount: amountStr,
+    description: params.description.trim().slice(0, 200),
+    processing_mode: 'automatic',
+    transactions: {
+      payments: [
+        {
+          amount: amountStr,
+          payment_method: {
+            id: 'pix',
+            type: 'bank_transfer',
+          },
+          // Pix expira em até 30min por padrão; usa P3Y6M... como fallback se não houver expires_at
+          expiration_time: 'P1D',
+        },
+      ],
+    },
+  }
+  if (params.payerEmail) {
+    body.payer = { email: params.payerEmail.trim() }
+  }
+  return body
+}
+
+// Mantido para compatibilidade com testes que verificam payload legado (não usado na criação atual)
+function buildLegacyPixPayload(params: CreatePixPaymentParams): Record<string, unknown> {
   const currency = (params.currency || 'BRL').toUpperCase()
   const amountDecimal = centsToDecimal(params.amountCents)
   const body: Record<string, unknown> = {
@@ -148,15 +226,36 @@ function buildPixPayload(params: CreatePixPaymentParams): Record<string, unknown
   return body
 }
 
-function maskRawResponse(raw: RawPaymentResponse): Record<string, unknown> {
+function maskRawResponse(raw: RawPaymentResponse | RawOrderResponse): Record<string, unknown> {
   // Retorna apenas campos seguros, nunca token, nunca payer completo
   const out: Record<string, unknown> = {}
-  const allowed = ['id', 'status', 'status_detail', 'external_reference', 'transaction_amount', 'currency_id', 'date_of_expiration']
+  const allowed = ['id', 'status', 'status_detail', 'external_reference', 'transaction_amount', 'total_amount', 'currency_id', 'date_of_expiration', 'expiration_time']
   for (const k of allowed) {
-    if (k in raw) out[k] = raw[k as keyof RawPaymentResponse] as unknown
+    if (k in raw) out[k] = (raw as Record<string, unknown>)[k] as unknown
   }
-  if (raw.point_of_interaction?.transaction_data) {
-    const td = raw.point_of_interaction.transaction_data
+  const anyRaw = raw as RawOrderResponse
+  if (anyRaw.transactions?.payments?.[0]) {
+    const p = anyRaw.transactions.payments[0] as Record<string, unknown>
+    out.transactions = {
+      payments: [
+        {
+          id: (p as Record<string, unknown>).id ? '[id]' : null,
+          status: (p as Record<string, unknown>).status ?? null,
+          amount: (p as Record<string, unknown>).amount ?? null,
+          payment_method: (() => {
+            const pm = (p as Record<string, unknown>).payment_method as Record<string, unknown> | undefined
+            if (!pm) return null
+            return {
+              qr_code: pm.qr_code ? '[qr_code]' : null,
+              qr_code_base64: pm.qr_code_base64 ? '[base64]' : null,
+              ticket_url: pm.ticket_url ? String(pm.ticket_url).slice(0, 120) : null,
+            }
+          })(),
+        },
+      ],
+    }
+  } else if ((raw as RawPaymentResponse).point_of_interaction?.transaction_data) {
+    const td = (raw as RawPaymentResponse).point_of_interaction!.transaction_data!
     out.point_of_interaction = {
       transaction_data: {
         qr_code: td.qr_code ? '[qr_code]' : null,
@@ -169,6 +268,7 @@ function maskRawResponse(raw: RawPaymentResponse): Record<string, unknown> {
 }
 
 function normalizePayment(raw: RawPaymentResponse): MercadoPagoPixPayment {
+  // Legado /v1/payments
   if (raw.id === undefined || raw.id === null || String(raw.id).trim() === '') {
     throw new MercadoPagoError('MERCADOPAGO_INVALID_RESPONSE', 'Resposta sem ID do pagamento')
   }
@@ -178,7 +278,7 @@ function normalizePayment(raw: RawPaymentResponse): MercadoPagoPixPayment {
   const externalReference = typeof raw.external_reference === 'string' ? raw.external_reference : null
   const amount = typeof raw.transaction_amount === 'number' ? raw.transaction_amount : 0
   const currency = typeof raw.currency_id === 'string' ? raw.currency_id : 'BRL'
-  const td = raw.point_of_interaction?.transaction_data
+  const td = (raw as RawPaymentResponse).point_of_interaction?.transaction_data
   const qrCode = td?.qr_code && typeof td.qr_code === 'string' ? td.qr_code : null
   const qrCodeBase64 = td?.qr_code_base64 && typeof td.qr_code_base64 === 'string' ? td.qr_code_base64 : null
   const ticketUrl = td?.ticket_url && typeof td.ticket_url === 'string' ? td.ticket_url : null
@@ -195,6 +295,43 @@ function normalizePayment(raw: RawPaymentResponse): MercadoPagoPixPayment {
     qrCodeBase64,
     ticketUrl,
     expiresAt,
+    rawResponseMasked: maskRawResponse(raw),
+  }
+}
+
+function normalizeOrder(raw: RawOrderResponse): MercadoPagoPixPayment {
+  // Novo /v1/orders — extrai payment de transactions.payments[0]
+  const orderId = raw.id ? String(raw.id) : null
+  if (!orderId) throw new MercadoPagoError('MERCADOPAGO_INVALID_RESPONSE', 'Resposta sem ID da order')
+  const externalReference = typeof raw.external_reference === 'string' ? raw.external_reference : null
+  const payment = raw.transactions?.payments?.[0]
+  if (!payment || payment.id === undefined || String(payment.id).trim() === '') {
+    throw new MercadoPagoError('MERCADOPAGO_INVALID_RESPONSE', 'Resposta sem ID do pagamento na order')
+  }
+  const providerPaymentId = String(payment.id)
+  const providerStatus = typeof payment.status === 'string' ? payment.status : typeof raw.status === 'string' ? raw.status : 'unknown'
+  const statusDetail = typeof (payment as Record<string, unknown>).status_detail === 'string' ? (payment as Record<string, unknown>).status_detail as string : null
+  const amountRaw = (payment as Record<string, unknown>).amount ?? raw.total_amount
+  const amount = typeof amountRaw === 'number' ? amountRaw : typeof amountRaw === 'string' ? parseFloat(amountRaw) : 0
+  const currency = 'BRL'
+  const pm = (payment as Record<string, unknown>).payment_method as Record<string, unknown> | undefined
+  const qrCode = pm?.qr_code && typeof pm.qr_code === 'string' ? (pm.qr_code as string) : null
+  const qrCodeBase64 = pm?.qr_code_base64 && typeof pm.qr_code_base64 === 'string' ? (pm.qr_code_base64 as string) : null
+  const ticketUrl = (pm?.ticket_url as string) || ((payment as Record<string, unknown>).ticket_url as string) || null
+  const expiresAt = (payment as Record<string, unknown>).expiration_time as string | null || (raw as Record<string, unknown>).expiration_time as string | null || null
+
+  return {
+    providerPaymentId,
+    providerOrderId: orderId,
+    providerStatus,
+    statusDetail,
+    externalReference,
+    amount,
+    currency,
+    qrCode,
+    qrCodeBase64: qrCodeBase64,
+    ticketUrl: ticketUrl && typeof ticketUrl === 'string' ? ticketUrl : null,
+    expiresAt: expiresAt && typeof expiresAt === 'string' ? expiresAt : null,
     rawResponseMasked: maskRawResponse(raw),
   }
 }
@@ -262,8 +399,8 @@ function handleHttpError(status: number, bodyText: string): never {
 // ---------------------------------------------------------------------------
 
 export async function createPixPayment(params: CreatePixPaymentParams): Promise<MercadoPagoPixPayment> {
+  // PIX-010.2 — cria via /v1/orders (Checkout Transparente), não /v1/payments (legacy)
   validateCreateParams(params)
-  // Validacao de configuracao antes de qualquer chamada externa
   getMercadoPagoConfig()
 
   const payload = buildPixPayload(params)
@@ -274,7 +411,7 @@ export async function createPixPayment(params: CreatePixPaymentParams): Promise<
     'X-Idempotency-Key': idempotencyKey,
   }
 
-  const res = await mercadoPagoFetch('/v1/payments', {
+  const res = await mercadoPagoFetch('/v1/orders', {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
@@ -286,14 +423,39 @@ export async function createPixPayment(params: CreatePixPaymentParams): Promise<
     handleHttpError(res.status, text)
   }
 
+  let raw: RawOrderResponse
+  try {
+    raw = text ? (JSON.parse(text) as RawOrderResponse) : ({} as RawOrderResponse)
+  } catch {
+    throw new MercadoPagoError('MERCADOPAGO_INVALID_RESPONSE', 'Resposta JSON invalida do Mercado Pago')
+  }
+
+  return normalizeOrder(raw)
+}
+
+// Mantido para compatibilidade com testes que verificam payload legado (não usado na criação atual)
+export async function createPixPaymentLegacy(params: CreatePixPaymentParams): Promise<MercadoPagoPixPayment> {
+  validateCreateParams(params)
+  getMercadoPagoConfig()
+  const payload = buildLegacyPixPayload(params)
+  const idempotencyKey = params.idempotencyKey?.trim() || params.orderId.trim()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Idempotency-Key': idempotencyKey,
+  }
+  const res = await mercadoPagoFetch('/v1/payments', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  })
+  const text = await res.text().catch(() => '')
+  if (!res.ok) handleHttpError(res.status, text)
   let raw: RawPaymentResponse
   try {
     raw = text ? (JSON.parse(text) as RawPaymentResponse) : ({} as RawPaymentResponse)
   } catch {
     throw new MercadoPagoError('MERCADOPAGO_INVALID_RESPONSE', 'Resposta JSON invalida do Mercado Pago')
   }
-
-  // Campos PIX sao opcionais na resposta inicial — QR Code pode nao estar presente imediatamente
   return normalizePayment(raw)
 }
 
@@ -329,12 +491,35 @@ export async function getMercadoPagoPayment(paymentId: string): Promise<MercadoP
   return normalizePayment(raw)
 }
 
+export async function getMercadoPagoOrder(orderId: string): Promise<MercadoPagoPixPayment> {
+  if (!orderId || typeof orderId !== 'string' || !orderId.trim()) {
+    throw new MercadoPagoError('MERCADOPAGO_INVALID_RESPONSE', 'orderId invalido')
+  }
+  getMercadoPagoConfig()
+  const encoded = encodeURIComponent(orderId.trim())
+  const res = await mercadoPagoFetch(`/v1/orders/${encoded}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  })
+  const text = await res.text().catch(() => '')
+  if (!res.ok) handleHttpError(res.status, text)
+  let raw: RawOrderResponse
+  try {
+    raw = text ? (JSON.parse(text) as RawOrderResponse) : ({} as RawOrderResponse)
+  } catch {
+    throw new MercadoPagoError('MERCADOPAGO_INVALID_RESPONSE', 'Resposta JSON invalida do Mercado Pago')
+  }
+  return normalizeOrder(raw)
+}
+
 // Exportado para testes — nao usar fora de testes
 export const _internal = {
   centsToDecimal,
   buildPixPayload,
+  buildLegacyPixPayload,
   maskRawResponse,
   normalizePayment,
+  normalizeOrder,
   validateCreateParams,
   truncateErrorBody,
 }
