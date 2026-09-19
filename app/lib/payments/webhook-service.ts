@@ -133,7 +133,9 @@ export function validateMpPayment(
   mp: { providerStatus: string; externalReference: string | null; amount: number; currency: string },
   order: { id: string; amount_cents: number; currency: string },
 ): string | null {
-  if (mp.providerStatus !== 'approved') {
+  const normalizedStatus = (mp.providerStatus || '').toLowerCase()
+  // Orders API retorna processed/accredited para Pix aprovado; Payments API legado retorna approved
+  if (normalizedStatus !== 'approved' && normalizedStatus !== 'processed') {
     return `status_not_approved:${mp.providerStatus}`
   }
   if (!mp.externalReference || !isValidUUID(mp.externalReference)) {
@@ -325,7 +327,11 @@ export async function processWebhookEvent(params: {
   // Evento não relacionado a pagamento: registra como ignorado (não some sem rastro).
   const relevant = isRelevantEvent(eventType)
 
+  // PIX-010.2: order também é relevante (Checkout Transparente)
+  const isOrder = isOrderEvent(eventType)
+
   // Correlação por external_reference — APENAS consulta, nada é alterado (para registro inicial).
+  // Para isOrder, não exigir externalReference no payload: será resolvido via getMercadoPagoOrder(dataId)
   let orderId: string | null = null
   if (externalReference) {
     const { data } = await supabaseAdmin
@@ -334,9 +340,31 @@ export async function processWebhookEvent(params: {
       .eq('id', externalReference)
       .maybeSingle()
     if (data) orderId = (data as { id: string }).id
+  } else if (isOrder && dataId) {
+    // Tenta resolver via Order server-to-server antes de decidir no_reference
+    try {
+      const tmpOrder = await getMercadoPagoOrder(dataId)
+      if (tmpOrder.externalReference) {
+        const { data: found } = await supabaseAdmin
+          .from('premium_orders')
+          .select('id')
+          .eq('id', tmpOrder.externalReference as string)
+          .maybeSingle()
+        if (found) orderId = (found as { id: string }).id
+      }
+    } catch {
+      // ignora fetch temporário — será tratado no fluxo principal PIX_ENABLED
+    }
   }
 
   // Insere de forma idempotente. Conflito em event_id => já processado.
+  // Para isOrder, não marcar como ignored apenas por externalReference ausente no payload
+  const shouldBePending = isOrder ? Boolean(orderId) : relevant && Boolean(orderId)
+  const initialError = isOrder
+    ? orderId ? null : relevant ? 'external_reference ausente ou nao encontrado (aguardando fetch Order)' : 'evento fora do escopo do modulo Pix'
+    : relevant
+      ? orderId ? null : 'external_reference ausente ou nao encontrado'
+      : 'evento fora do escopo do modulo Pix'
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from('payment_events')
     .insert({
@@ -346,19 +374,60 @@ export async function processWebhookEvent(params: {
       event_id: eventId,
       payload_hash: hashPayload(rawBody),
       payload_json: maskPayload(payload) as Record<string, unknown>,
-      processing_status: relevant && orderId ? 'pending' : 'ignored',
+      processing_status: shouldBePending ? 'pending' : 'ignored',
       processed_at: new Date().toISOString(),
-      error_message: relevant
-        ? (orderId ? null : 'external_reference ausente ou nao encontrado')
-        : 'evento fora do escopo do modulo Pix',
+      error_message: initialError,
     })
     .select('id')
     .maybeSingle()
 
   if (insErr) {
     // 23505 = unique_violation em event_id => evento duplicado (comportamento correto)
+    // Para isOrder com status incompleto, permitir reprocessamento se anterior foi ignored
     if ((insErr as { code?: string }).code === '23505') {
-      return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
+      // Verifica se o evento existente está como ignored/no_reference e pode ser recuperado
+      const { data: existing } = await supabaseAdmin
+        .from('payment_events')
+        .select('processing_status, order_id')
+        .eq('event_id', eventId)
+        .maybeSingle()
+      const canRecover =
+        existing &&
+        (existing as { processing_status: string }).processing_status === 'ignored' &&
+        isOrder &&
+        !orderId
+      if (canRecover) {
+        // Remove o registro legado para permitir reprocessamento correto
+        await supabaseAdmin.from('payment_events').delete().eq('event_id', eventId)
+        // Tenta re-inserir com o orderId resolvido (se houver) ou deixa para o fluxo principal
+        // Recuperação: re-tenta inserção se orderId foi resolvido via fetch acima
+        if (orderId) {
+          const { data: retryInserted, error: retryErr } = await supabaseAdmin
+            .from('payment_events')
+            .insert({
+              order_id: orderId,
+              provider: PROVIDER,
+              event_type: eventType,
+              event_id: eventId,
+              payload_hash: hashPayload(rawBody),
+              payload_json: maskPayload(payload) as Record<string, unknown>,
+              processing_status: 'pending',
+              processed_at: new Date().toISOString(),
+              error_message: null,
+            })
+            .select('id')
+            .maybeSingle()
+          if (!retryErr && retryInserted) {
+            // Continua para o fluxo principal abaixo
+          } else {
+            return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
+          }
+        } else {
+          return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
+        }
+      } else {
+        return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
+      }
     }
     return { outcome: 'storage_error', stored: false, eventType, dataId, orderId }
   }
@@ -367,8 +436,6 @@ export async function processWebhookEvent(params: {
     return { outcome: 'duplicate_ignored', stored: false, eventType, dataId, orderId }
   }
 
-  // PIX-010.2: order também é relevante (Checkout Transparente)
-  const isOrder = isOrderEvent(eventType)
   if (!relevant && !isOrder) return { outcome: 'unknown_event', stored: true, eventType, dataId, orderId }
   if (!externalReference && !isOrder) return { outcome: 'no_reference', stored: true, eventType, dataId, orderId }
   if (!orderId && !isOrder) return { outcome: 'reference_not_found', stored: true, eventType, dataId, orderId }
