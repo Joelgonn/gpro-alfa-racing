@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { createOrderFromPlanCode } from '@/app/lib/payments/orderService'
-import { createTestPaymentForOrder, createMercadoPagoPixPaymentForOrder } from '@/app/lib/payments/paymentService'
+import { createTestPaymentForOrder, createMercadoPagoPixPaymentForOrder, hasUsableMercadoPagoPayment } from '@/app/lib/payments/paymentService'
 import { MercadoPagoError } from '@/app/lib/payments/mercadopago-client'
 
 export async function POST(request: NextRequest) {
@@ -55,9 +55,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: e.message }, { status })
     }
 
-    // Impedir pedido expirado
+    // Impedir pedido expirado.
+    // PIX-014.6: a exceção é ter ainda uma cobrança Pix VÁLIDA para o pedido — nesse
+    // caso o usuário recebe de volta o MESMO QR (sem nova Order, sem cobrança nova).
+    // Depois da Parte B, "expirado sem cobrança utilizável" já chega aqui como pedido
+    // novo (createOrderFromPlanCode substitui o pedido); este bloqueio é a rede de segurança.
     if (result.order.expires_at && new Date(result.order.expires_at).getTime() < Date.now()) {
-      return NextResponse.json({ success: false, error: 'Pedido expirado' }, { status: 409 })
+      const stillPayable = await hasUsableMercadoPagoPayment(result.order.id)
+      if (!stillPayable) {
+        return NextResponse.json({ success: false, error: 'Pedido expirado' }, { status: 409 })
+      }
     }
 
     const pixEnabled = process.env.PIX_ENABLED === 'true'
@@ -76,11 +83,16 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Fluxo real — exige configuração Mercado Pago
+      // PIX-014.5: Production bloqueia @testuser.com antes de chamar MP
+      const payerEmailRaw = (user as unknown as { email?: string })?.email?.trim() ?? ''
+      if (process.env.VERCEL_ENV === 'production' && payerEmailRaw.toLowerCase().endsWith('@testuser.com')) {
+        return NextResponse.json({ success: false, error: 'Usuário de teste não pode realizar pagamento em Production' }, { status: 400 })
+      }
       try {
         payment = await createMercadoPagoPixPaymentForOrder(result.order.id, userId, {
           description: `VIP ${planCode}`,
           idempotencyKey,
-          payerEmail: (user as unknown as { email?: string })?.email,
+          payerEmail: payerEmailRaw || undefined,
         })
 
         // Validar resposta antes de expor — já validado no client, mas checa consistência adicional
@@ -103,8 +115,9 @@ export async function POST(request: NextRequest) {
         if (err?.code === 'MERCADOPAGO_CONFIG_MISSING') {
           return NextResponse.json({ success: false, error: 'Serviço de pagamento indisponível' }, { status: 503 })
         }
-        const safe = String(err?.message || 'Falha ao criar cobrança').slice(0, 80).replace(/(apikey|token|secret|authorization)\s*[:=]\s*\S+/gi, '$1=[redigido]')
-        console.error('Falha ao criar pagamento Mercado Pago', safe)
+        // Sanitiza sem truncar em 80 — preserva code/message/cause do MP para diagnóstico (até ~300)
+        const rawSafe = String(err?.message || 'Falha ao criar cobrança').replace(/(apikey|token|secret|authorization)\s*[:=]\s*\S+/gi, '$1=[redigido]').replace(/(eyJ[A-Za-z0-9._-]{10,})/g, '[jwt]').slice(0, 300)
+        console.error(`Falha ao criar pagamento Mercado Pago status=${err?.status ?? 'unknown'} ${rawSafe}`)
         return NextResponse.json({ success: false, error: 'Falha ao criar cobrança' }, { status: 503 })
       }
     }

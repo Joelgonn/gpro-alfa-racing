@@ -183,27 +183,446 @@ export async function getSafePaymentForUser(paymentId: string, userId: string): 
 }
 
 // ---------------------------------------------------------------------------
-// PIX-008 — Integração preparatória Mercado Pago (AINDA NÃO ATIVA)
+// PIX-008 — Integração Mercado Pago (adaptador real, condicionado a PIX_ENABLED)
+// PIX-014.6 — CAMADA DE TENTATIVA (idempotência própria por tentativa)
 // ---------------------------------------------------------------------------
-// As funções abaixo preparam a persistência real sem ativar PIX.
-// PIX_ENABLED permanece false nesta sprint; nenhuma rota as chama automaticamente.
-// Quando PIX_ENABLED=true em Preview, a rota /api/payments/orders poderá
-// chamar createMercadoPagoPixPaymentForOrder de forma controlada.
-// Erro de configuração (MERCADOPAGO_CONFIG_MISSING) NÃO faz fallback para provider=test.
+// O adaptador Mercado Pago continua sendo o único ponto de comunicação com o
+// provedor. O que mudou é QUAL chave de idempotência é enviada:
+//
+//   ANTES: chave do checkout (TEST-ALFA-0141-<PLANO>-<DIA>) — a MESMA chave em
+//          todas as tentativas do mesmo plano no mesmo dia. Depois de uma tentativa
+//          registrada no provedor (mesmo terminando em erro), a seguinte recebia
+//          409 `idempotency_key_already_used`.
+//
+//   AGORA: chave POR TENTATIVA, persistida ANTES da chamada ao provedor:
+//          TEST-ALFA-0141-MP-<orderId>-<n>
+//
+// Regras desta camada:
+//   - retry da MESMA tentativa (timeout / resposta perdida / clique duplo) → MESMA chave;
+//   - tentativa encerrada sem cobrança utilizável → NOVA tentativa com NOVA chave;
+//   - QR válido existente → devolve sem chamar o provedor;
+//   - Order recuperável por provider_order_id → reusa (GET /v1/orders), não duplica;
+//   - 409 de idempotência → tratamento próprio, no máximo UMA recuperação (sem loop);
+//   - nenhuma chave aleatória por requisição: a chave é determinística por tentativa.
+//
+// A chave é persistida em premium_payments.pix_txid — coluna cuja finalidade
+// documentada é exatamente idempotência ("ID Pix para idempotência"), coberta pelo
+// índice único parcial uniq_premium_payments_pix_txid: duas tentativas nunca
+// compartilham a mesma chave, o que garante a proteção contra clique duplo.
+// NENHUMA migration foi necessária.
+//
+// Erro de configuração (MERCADOPAGO_CONFIG_MISSING) continua NÃO fazendo fallback
+// para provider=test, e esta camada NÃO concede acesso premium.
 
-import { createPixPayment as mpCreatePixPayment, getMercadoPagoPayment as mpGetPayment } from './mercadopago-client'
+import {
+  createPixPayment as mpCreatePixPayment,
+  getMercadoPagoPayment as mpGetPayment,
+  getMercadoPagoOrder as mpGetOrder,
+  type MercadoPagoError,
+} from './mercadopago-client'
 
 export async function fetchMercadoPagoPayment(paymentId: string) {
   return mpGetPayment(paymentId)
 }
 
+// ---------------------------------------------------------------------------
+// PIX-014.6 — Tentativa Mercado Pago: tipos, chave e classificação (puros)
+// ---------------------------------------------------------------------------
+
+/** Janela em que uma tentativa sem QR ainda é considerada "em voo" e mantém a mesma chave. */
+export const MP_ATTEMPT_IN_FLIGHT_MS = 90_000
+
+const MP_ATTEMPT_COLUMNS =
+  'id, order_id, provider, status, pix_txid, provider_payment_id, provider_status, external_reference, qr_code, qr_code_base64, ticket_url, expires_at, created_at, amount_cents, currency'
+
+export interface MercadoPagoAttemptRow {
+  id: string
+  order_id: string
+  provider: string
+  status: string
+  pix_txid: string | null
+  provider_payment_id: string | null
+  provider_status: string | null
+  external_reference: string | null
+  qr_code: string | null
+  qr_code_base64: string | null
+  ticket_url: string | null
+  expires_at: string | null
+  created_at: string
+  amount_cents: number
+  currency: string
+}
+
 /**
- * Cria pagamento Pix real via Mercado Pago e persiste em premium_payments.
+ * Estado da última tentativa de um pedido:
+ * - `paid`      → já confirmada (nunca criar outra cobrança)
+ * - `usable_qr` → existe QR válido: devolver sem chamar o provedor
+ * - `in_flight` → sem QR e recente: retry deve usar a MESMA chave
+ * - `stale`     → sem QR e antiga: pode ser encerrada e substituída por nova tentativa
+ * - `closed`    → encerrada sem cobrança utilizável: nova tentativa com nova chave
+ * - `none`      → nenhuma tentativa ainda
+ */
+export type MercadoPagoAttemptState = 'none' | 'paid' | 'usable_qr' | 'in_flight' | 'stale' | 'closed'
+
+/**
+ * Chave de idempotência DA TENTATIVA (determinística e persistida).
+ * Nunca é aleatória por requisição: é função do pedido e do número da tentativa.
+ */
+export function buildMercadoPagoAttemptKey(orderId: string, attemptNumber: number): string {
+  return `TEST-ALFA-0141-MP-${orderId}-${attemptNumber}`
+}
+
+/** Classificação pura da tentativa mais recente — sem banco, testável isoladamente. */
+export function classifyMercadoPagoAttempt(
+  row: MercadoPagoAttemptRow | null,
+  now: Date = new Date(),
+): MercadoPagoAttemptState {
+  if (!row) return 'none'
+  if (row.status === 'confirmed') return 'paid'
+
+  const hasQr = Boolean(row.qr_code)
+  if (hasQr && (row.status === 'created' || row.status === 'pending')) {
+    if (!row.expires_at) return 'usable_qr'
+    const expires = new Date(row.expires_at)
+    if (Number.isNaN(expires.getTime())) return 'usable_qr'
+    return expires.getTime() > now.getTime() ? 'usable_qr' : 'closed'
+  }
+
+  if (row.status === 'created') {
+    const created = new Date(row.created_at)
+    const age = Number.isNaN(created.getTime()) ? Number.POSITIVE_INFINITY : now.getTime() - created.getTime()
+    return age < MP_ATTEMPT_IN_FLIGHT_MS ? 'in_flight' : 'stale'
+  }
+
+  // 'pending' sem QR, ou tentativa já encerrada (failed/refunded/chargeback):
+  // não há cobrança utilizável ⇒ a próxima tentativa recebe chave nova.
+  return 'closed'
+}
+
+// ---------------------------------------------------------------------------
+// PIX-014.6 — Persistência da tentativa (sempre ANTES de chamar o provedor)
+// ---------------------------------------------------------------------------
+
+async function getLatestMercadoPagoAttempt(orderId: string): Promise<MercadoPagoAttemptRow | null> {
+  const { data } = await supabaseAdmin
+    .from('premium_payments')
+    .select(MP_ATTEMPT_COLUMNS)
+    .eq('order_id', orderId)
+    .eq('provider', 'mercadopago')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data as unknown as MercadoPagoAttemptRow | null) ?? null
+}
+
+async function countMercadoPagoAttempts(orderId: string): Promise<number> {
+  const { data } = await supabaseAdmin
+    .from('premium_payments')
+    .select('id')
+    .eq('order_id', orderId)
+    .eq('provider', 'mercadopago')
+  return Array.isArray(data) ? data.length : 0
+}
+
+/** Existe cobrança Mercado Pago com QR ainda válido para este pedido? (leitura pura) */
+export async function hasUsableMercadoPagoPayment(orderId: string): Promise<boolean> {
+  if (!orderId) return false
+  const latest = await getLatestMercadoPagoAttempt(orderId)
+  return classifyMercadoPagoAttempt(latest) === 'usable_qr'
+}
+
+/**
+ * Abre a tentativa `n` gravando a chave ANTES da chamada ao provedor.
+ * Em corrida (clique duplo), o índice único de pix_txid faz uma das requisições
+ * perder com 23505 — ela então ADOTA a linha vencedora, de modo que as duas
+ * chamadas usem exatamente a mesma chave e o provedor devolva a mesma Order.
+ */
+async function openMercadoPagoAttempt(params: {
+  orderId: string
+  attemptNumber: number
+  amountCents: number
+  currency: string
+}): Promise<MercadoPagoAttemptRow> {
+  const key = buildMercadoPagoAttemptKey(params.orderId, params.attemptNumber)
+
+  const { data, error } = await supabaseAdmin
+    .from('premium_payments')
+    .insert({
+      order_id: params.orderId,
+      provider: 'mercadopago',
+      status: 'created',
+      amount_cents: params.amountCents,
+      currency: params.currency,
+      external_reference: params.orderId,
+      pix_txid: key,
+    })
+    .select(MP_ATTEMPT_COLUMNS)
+    .single()
+
+  if (!error && data) return data as unknown as MercadoPagoAttemptRow
+
+  if ((error as unknown as { code?: string })?.code === '23505') {
+    const raced = await getLatestMercadoPagoAttempt(params.orderId)
+    if (raced) return raced
+  }
+
+  throw new Error(error?.message || 'Falha ao registrar tentativa Mercado Pago')
+}
+
+/** Encerra a tentativa sem cobrança utilizável, preservando o motivo para diagnóstico. */
+async function closeMercadoPagoAttempt(rowId: string, marker: string, rawMasked?: Record<string, unknown>): Promise<void> {
+  try {
+    await supabaseAdmin
+      .from('premium_payments')
+      .update({
+        status: 'failed',
+        provider_status: marker.slice(0, 120),
+        ...(rawMasked ? { raw_response_masked: rawMasked as unknown as Record<string, never> } : {}),
+      })
+      .eq('id', rowId)
+  } catch {
+    // Melhor esforço: a chave já foi usada no provedor; a próxima tentativa terá chave nova.
+  }
+}
+
+/**
+ * A falha deixa o desfecho DESCONHECIDO no provedor?
+ * Timeout, falha de rede, 429 e 5xx podem ter criado a Order sem nos devolver a
+ * resposta. Nesses casos a tentativa continua "em voo" e o retry deve reutilizar
+ * a MESMA chave (por isso não é encerrada agora). Rejeição definitiva (4xx
+ * processado pelo provedor, inclusive 409 de idempotência) encerra a tentativa.
+ */
+function isAttemptOutcomeUnknown(err: MercadoPagoError & { code?: string; status?: number }): boolean {
+  if (err?.code === 'MERCADOPAGO_TIMEOUT') return true
+  if (err?.code === 'MERCADOPAGO_RATE_LIMITED') return true
+  const status = err?.status
+  if (typeof status !== 'number') return true // falha de rede: nenhuma resposta do provedor
+  return status >= 500
+}
+
+/** Mantém a tentativa EM VOO (mesma chave no retry), apenas registrando o motivo. */
+async function markAttemptUncertain(rowId: string, marker: string, rawMasked?: Record<string, unknown>): Promise<void> {
+  try {
+    await supabaseAdmin
+      .from('premium_payments')
+      .update({
+        status: 'created',
+        provider_status: marker.slice(0, 120),
+        ...(rawMasked ? { raw_response_masked: rawMasked as unknown as Record<string, never> } : {}),
+      })
+      .eq('id', rowId)
+  } catch {
+    // Melhor esforço: sem marcação a tentativa continua 'created' de qualquer forma.
+  }
+}
+
+function isValidDate(value: string | null | undefined): boolean {
+  if (!value) return false
+  return !Number.isNaN(new Date(value).getTime())
+}
+
+/** Persiste o resultado do provedor na linha da tentativa (nunca cria cobrança nova). */
+async function persistAttemptResult(rowId: string, mp: {
+  providerPaymentId: string
+  providerStatus: string
+  externalReference: string | null
+  qrCode: string | null
+  qrCodeBase64: string | null
+  ticketUrl: string | null
+  expiresAt: string | null
+  rawResponseMasked: Record<string, unknown>
+}): Promise<MercadoPagoAttemptRow | null> {
+  const hasQr = Boolean(mp.qrCode || mp.qrCodeBase64 || mp.ticketUrl)
+  const { data } = await supabaseAdmin
+    .from('premium_payments')
+    .update({
+      // QR disponível → cobrança apresentável: status: 'pending'.
+      // Sem QR não há cobrança apresentável: permanece 'created' para que o retry
+      // reuse ESTA tentativa (mesma chave) em vez de abrir outra Order.
+      ...(hasQr ? { status: 'pending' } : { status: 'created' }),
+      provider_payment_id: mp.providerPaymentId,
+      provider_status: mp.providerStatus,
+      external_reference: mp.externalReference,
+      qr_code: mp.qrCode,
+      qr_code_base64: mp.qrCodeBase64,
+      ticket_url: mp.ticketUrl,
+      // expires_at é timestamptz: só grava valor realmente parseável
+      expires_at: isValidDate(mp.expiresAt) ? mp.expiresAt : null,
+      raw_response_masked: mp.rawResponseMasked as unknown as Record<string, never>,
+    })
+    .eq('id', rowId)
+    .select(MP_ATTEMPT_COLUMNS)
+    .single()
+
+  return (data as unknown as MercadoPagoAttemptRow | null) ?? null
+}
+
+/**
+ * Recuperação: se o pedido já tem provider_order_id, consulta a Order no provedor
+ * antes de abrir nova tentativa — evita criar uma segunda Order quando a primeira
+ * existe (timeout, resposta perdida, retry após conflito de idempotência).
+ */
+async function recoverAttemptFromProviderOrder(
+  orderId: string,
+  attempt: MercadoPagoAttemptRow,
+): Promise<MercadoPagoAttemptRow | null> {
+  const { data: orderRow } = await supabaseAdmin
+    .from('premium_orders')
+    .select('provider_order_id')
+    .eq('id', orderId)
+    .maybeSingle()
+
+  const providerOrderId = (orderRow as unknown as { provider_order_id?: string | null } | null)?.provider_order_id
+  if (!providerOrderId) return null
+
+  try {
+    const mp = await mpGetOrder(providerOrderId)
+    if (!mp.qrCode && !mp.qrCodeBase64 && !mp.ticketUrl) return null
+    const persisted = await persistAttemptResult(attempt.id, {
+      providerPaymentId: mp.providerPaymentId,
+      providerStatus: mp.providerStatus,
+      externalReference: mp.externalReference || orderId,
+      qrCode: mp.qrCode,
+      qrCodeBase64: mp.qrCodeBase64,
+      ticketUrl: mp.ticketUrl,
+      expiresAt: mp.expiresAt,
+      rawResponseMasked: mp.rawResponseMasked,
+    })
+    return persisted
+  } catch {
+    // Order inexistente/inutilizável no provedor → segue para nova tentativa legítima.
+    return null
+  }
+}
+
+/** Executa UMA chamada ao provedor com a chave DA TENTATIVA e persiste o resultado. */
+async function performMercadoPagoAttempt(params: {
+  attempt: MercadoPagoAttemptRow
+  orderId: string
+  amountCents: number
+  currency: string
+  description: string
+  opts?: { description?: string; payerEmail?: string; idempotencyKey?: string }
+}): Promise<MercadoPagoAttemptRow> {
+  const { attempt, orderId, amountCents, currency, description, opts } = params
+  const attemptKey = attempt.pix_txid?.trim() || buildMercadoPagoAttemptKey(orderId, 1)
+
+  try {
+    const mp = await mpCreatePixPayment({
+      orderId,
+      amountCents,
+      currency,
+      description,
+      payerEmail: opts?.payerEmail,
+      // PIX-014.6: a chave do provedor é a DA TENTATIVA — nunca a chave do checkout.
+      idempotencyKey: attemptKey,
+    })
+
+    // Rastreabilidade da Order do provedor (persistida como antes, só no sucesso)
+    if (mp.providerOrderId) {
+      await supabaseAdmin
+        .from('premium_orders')
+        .update({
+          provider_order_id: mp.providerOrderId,
+          provider_external_reference: mp.externalReference || orderId,
+        })
+        .eq('id', orderId)
+    }
+
+    const persisted = await persistAttemptResult(attempt.id, {
+      providerPaymentId: mp.providerPaymentId,
+      providerStatus: mp.providerStatus,
+      externalReference: mp.externalReference || orderId,
+      qrCode: mp.qrCode,
+      qrCodeBase64: mp.qrCodeBase64,
+      ticketUrl: mp.ticketUrl,
+      expiresAt: mp.expiresAt,
+      rawResponseMasked: mp.rawResponseMasked,
+    })
+
+    if (persisted) return persisted
+
+    throw new Error('Falha ao persistir pagamento Mercado Pago')
+  } catch (e) {
+    const err = e as MercadoPagoError & { code?: string; status?: number }
+    const marker = `error:${err?.status ?? 'unknown'}:${err?.code ?? 'UNKNOWN'}`
+    const rawMasked = {
+      error_code: err?.code ?? 'UNKNOWN',
+      error_status: err?.status ?? null,
+    }
+    if (isAttemptOutcomeUnknown(err)) {
+      // Timeout / rede / 429 / 5xx: a Order pode existir no provedor.
+      // A tentativa PERMANECE em voo (janela de 90s) e o retry usa a MESMA chave.
+      await markAttemptUncertain(attempt.id, marker, rawMasked)
+    } else {
+      // Rejeição definitiva (inclusive 409 idempotency_key_already_used):
+      // esta chave não deve ser reutilizada → a próxima tentativa recebe chave nova.
+      await closeMercadoPagoAttempt(attempt.id, marker, rawMasked)
+    }
+    throw e
+  }
+}
+
+/**
+ * Resolve a tentativa a usar para este pedido, sem nunca criar cobrança duplicada:
+ * reuso de QR, retry da tentativa em voo, recuperação de Order existente ou nova tentativa.
+ */
+async function resolveMercadoPagoAttempt(params: {
+  orderId: string
+  amountCents: number
+  currency: string
+  description: string
+  opts?: { description?: string; payerEmail?: string; idempotencyKey?: string }
+}): Promise<MercadoPagoAttemptRow> {
+  const latest = await getLatestMercadoPagoAttempt(params.orderId)
+  const state = classifyMercadoPagoAttempt(latest)
+
+  if (latest && state === 'paid') return latest
+  if (latest && state === 'usable_qr') return latest
+
+  if (latest && state === 'in_flight') {
+    // Timeout / resposta perdida / clique duplo: MESMA chave, mesma tentativa.
+    return performMercadoPagoAttempt({ ...params, attempt: latest })
+  }
+
+  if (latest && (state === 'stale' || state === 'closed')) {
+    const recovered = await recoverAttemptFromProviderOrder(params.orderId, latest)
+    if (recovered) return recovered
+    if (state === 'stale') {
+      await closeMercadoPagoAttempt(latest.id, 'error:stale_attempt')
+    }
+  }
+
+  const attemptNumber = (await countMercadoPagoAttempts(params.orderId)) + 1
+  const attempt = await openMercadoPagoAttempt({
+    orderId: params.orderId,
+    attemptNumber,
+    amountCents: params.amountCents,
+    currency: params.currency,
+  })
+
+  // Corrida: a linha adotada pode já ter QR/confirmação da requisição vencedora.
+  const adoptedState = classifyMercadoPagoAttempt(attempt)
+  if (adoptedState === 'usable_qr' || adoptedState === 'paid') return attempt
+
+  return performMercadoPagoAttempt({ ...params, attempt })
+}
+
+/**
+ * Cria (ou retoma) a cobrança Pix real do pedido via Mercado Pago.
+ *
  * - Valida dono do pedido (order_id + user_id)
- * - Reusa pagamento existente com qr_code (idempotência por order_id)
  * - Valor e moeda vêm exclusivamente do pedido (nunca do frontend)
  * - external_reference = orderId (UUID)
- * - NÃO concede VIP, NÃO altera access_grants
+ * - NÃO concede VIP e não altera a concessão de acesso
+ *
+ * PIX-014.6 — idempotência em duas camadas:
+ *   nossa API: chave do checkout → premium_order (uma intenção de compra)
+ *   provedor:  chave DA TENTATIVA (persistida) → uma Order por tentativa
+ *
+ * Retry da MESMA tentativa reutiliza a chave; tentativa encerrada sem cobrança
+ * utilizável abre NOVA tentativa com NOVA chave. O conflito de idempotência do
+ * provedor (409) tem recuperação única e limitada — nunca loop.
  */
 export async function createMercadoPagoPixPaymentForOrder(
   orderId: string,
@@ -223,75 +642,33 @@ export async function createMercadoPagoPixPaymentForOrder(
   const amountCents = (order as unknown as { amount_cents: number }).amount_cents
   const currency = (order as unknown as { currency: string }).currency || 'BRL'
 
-  // Reuso: se já existe pagamento mercadopago com qr_code, retorna
-  const { data: existingMp } = await supabaseAdmin
-    .from('premium_payments')
-    .select(PAYMENT_PUBLIC_COLUMNS + ', qr_code, qr_code_base64, ticket_url, provider_status, external_reference, expires_at')
-    .eq('order_id', orderId)
-    .eq('provider', 'mercadopago')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (existingMp && (existingMp as unknown as { qr_code: string | null }).qr_code) {
-    return existingMp as unknown as PremiumPayment
-  }
-
   const description = opts?.description?.trim() || `VIP ${orderId.slice(0, 8)}`
 
-  const mp = await mpCreatePixPayment({
-    orderId,
-    amountCents,
-    currency,
-    description,
-    payerEmail: opts?.payerEmail,
-    idempotencyKey: opts?.idempotencyKey || orderId,
-  })
-
-  // Persiste provider_order_id em premium_orders (coluna 20250919000001) para rastreabilidade da Order MP
-  if ((mp as unknown as { providerOrderId?: string | null }).providerOrderId) {
-    await supabaseAdmin
-      .from('premium_orders')
-      .update({
-        provider_order_id: (mp as unknown as { providerOrderId: string }).providerOrderId,
-        provider_external_reference: mp.externalReference || orderId,
-      })
-      .eq('id', orderId)
+  // PIX-014.5: Production nunca envia @testuser.com ao Mercado Pago (causa 402)
+  const emailLower = opts?.payerEmail?.trim().toLowerCase() ?? ''
+  if (process.env.VERCEL_ENV === 'production' && emailLower.endsWith('@testuser.com')) {
+    const err = new Error('Usuário de teste não pode realizar pagamento em Production') as Error & { status?: number }
+    err.status = 400
+    throw err
   }
 
-  const { data: inserted, error: insErr } = await supabaseAdmin
-    .from('premium_payments')
-    .insert({
-      order_id: orderId,
-      provider: 'mercadopago',
-      provider_payment_id: mp.providerPaymentId,
-      provider_status: mp.providerStatus,
-      external_reference: mp.externalReference || orderId,
-      status: 'pending',
-      amount_cents: amountCents,
-      currency,
-      qr_code: mp.qrCode,
-      qr_code_base64: mp.qrCodeBase64,
-      ticket_url: mp.ticketUrl,
-      expires_at: mp.expiresAt,
-      raw_response_masked: mp.rawResponseMasked as unknown as Record<string, never>,
-    })
-    .select(PAYMENT_PUBLIC_COLUMNS + ', qr_code, qr_code_base64, ticket_url, provider_status, external_reference, expires_at')
-    .single()
+  const attemptParams = { orderId, amountCents, currency, description, opts }
 
-  if (insErr || !inserted) {
-    if ((insErr as unknown as { code?: string })?.code === '23505') {
-      const { data: raced } = await supabaseAdmin
-        .from('premium_payments')
-        .select(PAYMENT_PUBLIC_COLUMNS)
-        .eq('order_id', orderId)
-        .eq('provider', 'mercadopago')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (raced) return raced as unknown as PremiumPayment
+  // Loop com recuperação ÚNICA para conflito de idempotência (nunca loop infinito).
+  let conflictRecoveryUsed = false
+  for (;;) {
+    try {
+      const attempt = await resolveMercadoPagoAttempt(attemptParams)
+      return attempt as unknown as PremiumPayment
+    } catch (e) {
+      const err = e as MercadoPagoError & { code?: string }
+      if (err?.code === 'MERCADOPAGO_IDEMPOTENCY_CONFLICT' && !conflictRecoveryUsed) {
+        // A tentativa conflitante já foi encerrada em performMercadoPagoAttempt.
+        // Na volta seguinte: recuperação por provider_order_id ou NOVA tentativa com NOVA chave.
+        conflictRecoveryUsed = true
+        continue
+      }
+      throw e
     }
-    throw new Error(insErr?.message || 'Falha ao persistir pagamento Mercado Pago')
   }
-
-  return inserted as unknown as PremiumPayment
 }

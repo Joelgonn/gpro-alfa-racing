@@ -20,6 +20,8 @@ export type MercadoPagoErrorCode =
   | 'MERCADOPAGO_UNAUTHORIZED'
   | 'MERCADOPAGO_RATE_LIMITED'
   | 'MERCADOPAGO_NOT_FOUND'
+  // PIX-014.6 — conflito de idempotência no provedor é causa PRÓPRIA, não erro genérico
+  | 'MERCADOPAGO_IDEMPOTENCY_CONFLICT'
 
 export class MercadoPagoError extends Error {
   readonly code: MercadoPagoErrorCode
@@ -379,19 +381,59 @@ async function mercadoPagoFetch(
 
 function handleHttpError(status: number, bodyText: string): never {
   const truncated = truncateErrorBody(bodyText)
+  // Tenta extrair mensagem estruturada do Mercado Pago (errors[].code/message/cause)
+  let mpDetail = ''
+  let mpErrorCode = ''
+  if (truncated) {
+    try {
+      const parsed = JSON.parse(truncated) as Record<string, unknown>
+      const errors = (parsed as { errors?: Array<{ code?: string; message?: string; cause?: unknown }> }).errors
+      if (Array.isArray(errors) && errors.length > 0) {
+        const first = errors[0]
+        const code = typeof first.code === 'string' ? first.code : ''
+        mpErrorCode = code
+        const msg = typeof first.message === 'string' ? first.message : ''
+        const cause = first.cause !== undefined ? ` cause=${String(first.cause).slice(0, 120)}` : ''
+        mpDetail = ` code=${code} message=${msg}${cause}`.trim()
+      } else if (typeof (parsed as { message?: string }).message === 'string') {
+        mpDetail = ` message=${String((parsed as { message: string }).message).slice(0, 120)}`
+      }
+    } catch {
+      // body não é JSON — usa truncated
+    }
+  }
+  const sanitizedMp = mpDetail ? ` Mercado Pago ${status}${mpDetail}` : truncated ? `: ${truncated.slice(0, 200)}` : ''
   if (status === 401) {
-    throw new MercadoPagoError('MERCADOPAGO_UNAUTHORIZED', `Nao autorizado${truncated ? ': ' + truncated.slice(0, 80) : ''}`, 401)
+    throw new MercadoPagoError('MERCADOPAGO_UNAUTHORIZED', `Nao autorizado${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, 401)
+  }
+  if (status === 402) {
+    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Mercado Pago 402 code=failed${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 120) : '')}`, 402)
   }
   if (status === 404) {
-    throw new MercadoPagoError('MERCADOPAGO_NOT_FOUND', `Recurso nao encontrado${truncated ? ': ' + truncated.slice(0, 80) : ''}`, 404)
+    throw new MercadoPagoError('MERCADOPAGO_NOT_FOUND', `Recurso nao encontrado${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, 404)
+  }
+  // PIX-014.6 — 409 do Mercado Pago tem causa própria e exige tratamento próprio:
+  // `idempotency_key_already_used` significa que a chave já foi registrada no provedor
+  // (a resposta anterior, mesmo com erro, "queima" a chave). Não é erro genérico:
+  // quem chamou precisa decidir entre reutilizar o resultado existente ou abrir uma
+  // NOVA tentativa com NOVA chave. Nunca tratar como falha indefinida.
+  if (status === 409) {
+    if (/idempotency_key_already_used/i.test(mpErrorCode) || /idempotency_key_already_used/i.test(truncated)) {
+      throw new MercadoPagoError(
+        'MERCADOPAGO_IDEMPOTENCY_CONFLICT',
+        `Chave de idempotencia ja utilizada no Mercado Pago${sanitizedMp}`,
+        409,
+      )
+    }
+    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Conflito ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 120) : '')}`, 409)
   }
   if (status === 429) {
     throw new MercadoPagoError('MERCADOPAGO_RATE_LIMITED', 'Rate limit Mercado Pago', 429)
   }
   if (status >= 500) {
-    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Erro gateway ${status}${truncated ? ': ' + truncated.slice(0, 80) : ''}`, status)
+    throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Erro gateway ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, status)
   }
-  throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Requisicao falhou ${status}${truncated ? ': ' + truncated.slice(0, 80) : ''}`, status)
+  throw new MercadoPagoError('MERCADOPAGO_REQUEST_FAILED', `Requisicao falhou ${status}${sanitizedMp || (truncated ? ': ' + truncated.slice(0, 80) : '')}`, status)
 }
 
 // ---------------------------------------------------------------------------

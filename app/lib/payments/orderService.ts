@@ -7,6 +7,9 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import type { PremiumOrder, PaymentDTO, OrderDetailsDTO } from './types'
 import { canTransitionOrder } from './paymentStateMachine'
 import { PAYMENT_PUBLIC_COLUMNS, TERMINAL_PAYMENT_STATUSES } from './types'
+// PIX-014.6 — Parte B: reutilizar o pedido só quando ele ainda é válido ou quando
+// existe cobrança Pix válida para ele (o predicado vive no serviço de pagamentos).
+import { hasUsableMercadoPagoPayment } from './paymentService'
 
 // Cria pedido idempotente: captura preço vigente de premium_plans no backend, nunca do frontend
 export async function createOrderIdempotent(params: {
@@ -113,14 +116,40 @@ export function calculateOrderPayloadHash(userId: string, idempotencyKey: string
 }
 
 export async function findIdempotentOrder(userId: string, payloadHash: string): Promise<PremiumOrder | null> {
+  // PIX-014.6 — Parte B pode criar mais de um pedido para a mesma chave de checkout
+  // (quando o anterior fica encerrado sem cobrança utilizável). O índice de
+  // payload_hash NÃO é único, então a leitura sempre pega o pedido MAIS RECENTE.
   const { data, error } = await supabaseAdmin
     .from('premium_orders')
     .select('id, user_id, plan_id, status, amount_cents, currency, pix_txid, payload_hash, expires_at, paid_at, cancelled_at, created_at, updated_at')
     .eq('user_id', userId)
     .eq('payload_hash', payloadHash)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
   if (error) throw new Error(error.message)
   return (data as unknown as PremiumOrder) || null
+}
+
+/**
+ * PIX-014.6 — Parte B (regra pura): o pedido idempotente ainda é reaproveitável?
+ *
+ * Reaproveitável = não está encerrado E (é pago OU não expirou).
+ * Encerrado (expired/cancelled/failed/refunded/chargeback) ou expirado ⇒ NÃO.
+ * Um pedido pago nunca é substituído por outro (não se cria nova compra).
+ */
+export function isOrderReusableByState(
+  order: Pick<PremiumOrder, 'status' | 'expires_at'>,
+  now: Date = new Date(),
+): boolean {
+  if (!order) return false
+  const closedStatuses = ['expired', 'cancelled', 'failed', 'refunded', 'chargeback']
+  if (closedStatuses.includes(order.status)) return false
+  if (order.status === 'paid') return true
+  if (!order.expires_at) return true
+  const expires = new Date(order.expires_at)
+  if (Number.isNaN(expires.getTime())) return true
+  return expires.getTime() > now.getTime()
 }
 
 export async function createOrderFromPlanCode(params: {
@@ -143,7 +172,17 @@ export async function createOrderFromPlanCode(params: {
       err.status = 409;
       throw err;
     }
-    return { order: existing, idempotent: true }
+
+    // PIX-014.6 — Parte B.
+    // O pedido anterior só é reaproveitado quando ainda é válido OU quando existe
+    // cobrança Pix ainda utilizável (QR válido) para ele. Caso contrário — pedido
+    // expirado/encerrado, sem QR válido e sem pagamento confirmado — abre-se um
+    // NOVO pedido, em vez de bloquear o usuário com "Pedido expirado" até o dia
+    // seguinte (a chave de checkout é por plano+dia).
+    const reusableByState = isOrderReusableByState(existing)
+    if (reusableByState || (await hasUsableMercadoPagoPayment(existing.id))) {
+      return { order: existing, idempotent: true }
+    }
   }
 
   // Verificar se mesma Idempotency-Key foi usada com payload diferente para mesmo usuário
