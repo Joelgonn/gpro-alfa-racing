@@ -23,6 +23,7 @@ import {
 } from './mercadopago-signature'
 import { getMercadoPagoPayment, getMercadoPagoOrder, MercadoPagoError } from './mercadopago-client'
 import { canTransitionOrder, canTransitionPayment } from './paymentStateMachine'
+import { syncUserStateWithGrant, pickBestGrant, interpretGrant } from '@/app/lib/access/accessService'
 
 export type WebhookOutcome =
   | 'stored_pending'
@@ -527,6 +528,28 @@ export async function processWebhookEvent(params: {
       .contains('metadata', { order_id: orderId } as unknown as string)
       .maybeSingle()
     const grantId = (existingGrant as unknown as { id: string } | null)?.id ?? null
+    // PIX-021: sincroniza user_state com o melhor grant ativo (idempotente, não bloqueia webhook)
+    if (grantId) {
+      try {
+        const { data: allGrants } = await supabaseAdmin
+          .from('access_grants')
+          .select('id, user_id, source, invite_code_id, plan, status, starts_at, expires_at, revoked_at, revoked_by, metadata, created_at, updated_at')
+          .eq('user_id', orderForValidation.user_id)
+        const best = pickBestGrant((allGrants as unknown as never[]) ?? [], new Date())
+        if (best && interpretGrant(best as never).hasAccess) {
+          await syncUserStateWithGrant(orderForValidation.user_id, best as never)
+        } else if (existingGrant) {
+          const { data: ensured } = await supabaseAdmin
+            .from('access_grants')
+            .select('id, user_id, source, invite_code_id, plan, status, starts_at, expires_at, revoked_at, revoked_by, metadata, created_at, updated_at')
+            .eq('id', grantId)
+            .maybeSingle()
+          if (ensured && interpretGrant(ensured as never).hasAccess) {
+            await syncUserStateWithGrant(orderForValidation.user_id, ensured as never)
+          }
+        }
+      } catch {}
+    }
     await supabaseAdmin.from('payment_events').update({ processing_status: 'processed', error_message: null }).eq('event_id', eventId)
     return { outcome: 'already_confirmed', stored: true, eventType, dataId, orderId, providerPaymentId: mp.providerPaymentId, grantId }
   }
@@ -536,6 +559,29 @@ export async function processWebhookEvent(params: {
 
   // Mesmo se já confirmado, prossegue para grant (idempotente)
   const grantRes = await ensurePaymentGrant({ id: orderForValidation.id, user_id: orderForValidation.user_id, plan_id: orderForValidation.plan_id })
+
+  // PIX-021: sincroniza user_state com o melhor grant ativo (não altera se grant falhou)
+  if (grantRes.grantId) {
+    try {
+      const { data: allGrants } = await supabaseAdmin
+        .from('access_grants')
+        .select('id, user_id, source, invite_code_id, plan, status, starts_at, expires_at, revoked_at, revoked_by, metadata, created_at, updated_at')
+        .eq('user_id', orderForValidation.user_id)
+      const best = pickBestGrant((allGrants as unknown as never[]) ?? [], new Date())
+      if (best && interpretGrant(best as never).hasAccess) {
+        await syncUserStateWithGrant(orderForValidation.user_id, best as never)
+      } else {
+        const { data: ensured } = await supabaseAdmin
+          .from('access_grants')
+          .select('id, user_id, source, invite_code_id, plan, status, starts_at, expires_at, revoked_at, revoked_by, metadata, created_at, updated_at')
+          .eq('id', grantRes.grantId)
+          .maybeSingle()
+        if (ensured && interpretGrant(ensured as never).hasAccess) {
+          await syncUserStateWithGrant(orderForValidation.user_id, ensured as never)
+        }
+      }
+    } catch {}
+  }
 
   await supabaseAdmin.from('payment_events').update({ processing_status: 'processed', error_message: null }).eq('event_id', eventId)
 
