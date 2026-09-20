@@ -51,7 +51,6 @@ export default function LoginPage() {
 
       if (error) {
         setMessage('Erro: ' + error.message);
-        setLoading(false);
         return;
       }
 
@@ -68,6 +67,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       setMessage('Ocorreu um erro inesperado ao tentar fazer login.');
+    } finally {
       setLoading(false);
     }
   };
