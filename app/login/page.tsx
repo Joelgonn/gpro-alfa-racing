@@ -54,16 +54,14 @@ export default function LoginPage() {
         return;
       }
 
-      // FASE 0 — destino via autoridade real (access_grants), sem flash.
-      // getAccessState() → hasAccess → /dashboard ou /planos?motivo=expired
+      // Garantir sessão propagada para Server Action (evita getLoginDestination pendente/401)
+      await supabase.auth.getSession();
       try {
         const destination = await getLoginDestination(nextPath);
         router.push(destination);
-        router.refresh();
       } catch {
         // Falha ao consultar estado real — fallback seguro preserva comportamento
         router.push(nextPath ?? '/dashboard/manager');
-        router.refresh();
       }
     } catch (err) {
       setMessage('Ocorreu um erro inesperado ao tentar fazer login.');
