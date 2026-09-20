@@ -4,7 +4,7 @@
 // PIX-001.4/5/11 — Botão de compra + tela de pagamento Pix com polling
 //
 // Decisões:
-// - Sem sessão, o botão leva a /login (o pedido só pode existir vinculado a um usuário).
+// - Sem sessão, o botão leva a /cadastro (o pedido só pode existir vinculado a um usuário).
 // - O preço NÃO é enviado: o servidor lê de premium_plans. Só o `planCode` vai no body.
 // - Proteção contra múltiplos cliques: `busy` desabilita o botão durante a criação.
 // - A tela de pagamento faz POLLING em GET /api/payments/orders/[id] (rota já existente)
@@ -41,7 +41,7 @@ export function CheckoutButton({ planCode, isAuthenticated }: Props) {
 
   async function startCheckout() {
     if (!isAuthenticated) {
-      router.push(`/login?next=/planos&plan=${encodeURIComponent(planCode)}`)
+      router.push(`/cadastro?next=${encodeURIComponent('/planos')}`)
       return
     }
     setBusy(true)
