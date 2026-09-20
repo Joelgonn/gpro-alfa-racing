@@ -217,27 +217,29 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
           )}
 
           {isPaid ? (
-            <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-[#070a12]" role="status" aria-live="polite">
-              {/* PIX-023: identidade Lobo Alfa — WebP como background, textos reais por cima */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/pix-lobo-confirmacao.webp"
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full object-cover object-center opacity-95"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/15" aria-hidden />
-              <div className="absolute inset-0 bg-gradient-to-b from-amber-950/10 via-transparent to-transparent" aria-hidden />
-              <div className="relative p-5 sm:p-6 space-y-3 text-center">
-                <p className="text-sm font-black tracking-widest text-amber-300 drop-shadow">Pagamento confirmado!</p>
+            <div className="overflow-hidden rounded-xl border border-amber-500/30 bg-[#070a12]" role="status" aria-live="polite">
+              {/* PIX-024: arte Lobo em área visual separada — lobo destacado, sem sobreposição de textos */}
+              <div className="relative h-40 sm:h-48 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/pix-lobo-confirmacao.webp"
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 h-full w-full object-cover object-[center_30%] sm:object-center"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#070a12] via-[#070a12]/30 to-transparent" aria-hidden />
+                <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#070a12] to-transparent" aria-hidden />
+              </div>
+              <div className="p-5 sm:p-6 space-y-3 text-center">
+                <p className="text-sm font-black tracking-widest text-amber-300">Pagamento confirmado!</p>
                 <div className="space-y-1">
                   <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-200/90">Bem-vindo ao Clã</p>
-                  <p className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                  <p className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white">
                     Agora você é um Lobo!
                   </p>
                 </div>
                 <div className="space-y-1 pt-1">
-                  <p className="text-xs font-bold text-zinc-100 drop-shadow">Seu acesso VIP foi liberado com sucesso.</p>
+                  <p className="text-xs font-bold text-zinc-100">Seu acesso VIP foi liberado com sucesso.</p>
                   <p className="text-[11px] text-zinc-300">Estamos preparando tudo para você.</p>
                   <p className="text-[11px] font-medium text-amber-200">
                     Você será direcionado ao seu painel em {countdown ?? 5} segundo{countdown === 1 ? '' : 's'}...
@@ -296,17 +298,8 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
                 </div>
               )}
 
-              {ticketUrl && (
-                <a
-                  href={ticketUrl}
-                  className="block text-center text-[11px] font-bold text-amber-400 hover:text-amber-300"
-                >
-                  Abrir a página de pagamento
-                </a>
-              )}
-
-              <p className="text-[11px] text-zinc-500">
-                O status é atualizado automaticamente. Você pode deixar esta janela aberta.
+              <p className="text-[11px] font-medium text-zinc-400 text-center">
+                Efetue o pagamento e aguarde. A confirmação será automática e você será redirecionado.
               </p>
             </>
           )}
