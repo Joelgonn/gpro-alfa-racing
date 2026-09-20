@@ -234,17 +234,17 @@ export default function LoginPage() {
                   <p className="mt-1 text-sm font-semibold text-zinc-300">Você recebeu uma credencial. Agora é hora de entrar para o grid.</p>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-400">Valide seu código VIP, crie seu acesso e prepare-se para acompanhar sua jornada no Lobo Alfa.</p>
 
-                  {/* ALFA-015.0 — porta de entrada gratuita (não substitui o fluxo de convite VIP) */}
+                  {/* Porta de entrada para novos usuários */}
                   <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.07] px-4 py-3">
                     <p className="text-xs leading-relaxed text-emerald-200">
-                      Não tem código VIP? O cadastro gratuito está aberto: crie sua conta sem custo e conheça a plataforma.
+                      Não tem código VIP? Crie sua conta para conhecer as formas de acesso à plataforma.
                     </p>
                     <button
                       type="button"
                       onClick={() => router.push('/cadastro')}
                       className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 text-xs font-extrabold uppercase tracking-widest text-emerald-200 transition-colors hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                     >
-                      Criar conta grátis <FaUserPlus aria-hidden />
+                      Criar minha conta <FaUserPlus aria-hidden />
                     </button>
                   </div>
                 </>
@@ -349,7 +349,7 @@ export default function LoginPage() {
               onClick={() => router.push('/cadastro')}
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-yellow-300 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
             >
-              Não tenho conta — criar grátis <FaUserPlus aria-hidden />
+              Não tenho conta — criar minha conta <FaUserPlus aria-hidden />
             </button>
             <button
               type="button"

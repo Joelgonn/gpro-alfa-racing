@@ -67,13 +67,6 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* ALFA-015.0 — porta de entrada gratuita */}
-            <Link
-              href="/cadastro"
-              className="hidden lg:inline-flex h-9 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 text-sm font-semibold text-zinc-200 hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
-            >
-              Criar conta grátis
-            </Link>
             <EnterPlatformButton
               className="hidden sm:inline-flex h-9 items-center justify-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-zinc-900 shadow-[0_0_20px_rgba(250,204,21,0.18)] hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
             >
@@ -111,9 +104,6 @@ export default function LandingPage() {
             <EnterPlatformButton onBeforeNavigate={() => setMobileOpen(false)} className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-yellow-400 px-6 text-sm font-bold text-zinc-900 hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
               Entrar na plataforma <ArrowRight size={16} aria-hidden />
             </EnterPlatformButton>
-            <Link onClick={() => setMobileOpen(false)} href="/cadastro" className="mt-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-6 text-sm font-semibold text-zinc-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
-              Criar conta grátis <UserPlus size={16} aria-hidden />
-            </Link>
           </nav>
         </div>
       </header>
@@ -149,49 +139,28 @@ export default function LandingPage() {
                 Uma plataforma inteligente para organizar decisões, analisar desempenho e evoluir sua jornada no <span className="font-semibold text-zinc-100">GPRO Racing Online</span>. Setup, estratégia, testes e gestão — em um só lugar.
               </p>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <EnterPlatformButton
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-yellow-400 px-7 text-sm font-extrabold tracking-wide text-zinc-900 shadow-[0_8px_24px_rgba(250,204,21,0.22)] hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
-                >
-                  Entrar na plataforma
-                  <ArrowRight size={18} aria-hidden />
-                </EnterPlatformButton>
-                <a
-                  href="#recursos"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-7 text-sm font-semibold text-white hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-                >
-                  Ver recursos
-                </a>
-              </div>
-
-              {/* ALFA-015.0 — cadastro gratuito: criar conta não concede Premium */}
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Link
-                  href="/cadastro"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-6 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
-                >
-                  <UserPlus size={17} aria-hidden />
-                  Criar conta grátis
-                </Link>
-                <span className="text-xs leading-relaxed text-zinc-400">
-                  Cadastro gratuito. O acesso Premium é opcional, via Pix.
-                </span>
-              </div>
-
-              <div className="mt-4 flex flex-col gap-2">
-                <a
-                  href="https://github.com/Joelgonn/gpro-alfa-racing/releases/download/v1.0.0/app-release.apk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-7 text-sm font-bold text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
-                >
-                  <Download size={18} aria-hidden />
-                  BAIXAR APK ANDROID
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-black tracking-wider">v1.0.0</span>
-                </a>
-                <p className="flex items-center gap-1.5 text-xs text-zinc-400">
-                  <Smartphone size={12} aria-hidden /> Android • Instalação manual • Também disponível via acesso web
-                </p>
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-bold tracking-widest text-zinc-300">
+                  <Smartphone size={14} aria-hidden /> EXPERIÊNCIA MOBILE
+                </div>
+                <h3 className="mt-3 text-base font-black tracking-tight text-white">O Alfa Racing também está no Android</h3>
+                <p className="mt-1 text-sm leading-relaxed text-zinc-400">Tenha acesso à plataforma pelo celular, com experiência otimizada para mobile.</p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <a
+                    href="https://github.com/Joelgonn/gpro-alfa-racing/releases/download/v1.0.0/app-release.apk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-extrabold text-zinc-900 hover:bg-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    <Download size={18} aria-hidden />
+                    BAIXAR APP ANDROID
+                  </a>
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-black tracking-wider text-zinc-300">v1.0.0</span>
+                  <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-zinc-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden /> ANDROID
+                  </span>
+                </div>
+                <p className="mt-3 text-xs text-zinc-500">Instalação manual • Acesso web disponível</p>
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-zinc-400">
@@ -416,17 +385,11 @@ export default function LandingPage() {
                   Entrar na plataforma <ArrowRight size={18} aria-hidden />
                 </EnterPlatformButton>
                 <Link
-                  href="/cadastro"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-7 text-sm font-bold text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  href="/planos"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-7 text-sm font-semibold text-white hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                 >
-                  Criar conta grátis <UserPlus size={18} aria-hidden />
+                  Ver planos
                 </Link>
-                <a
-                  href="#recursos"
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/10 bg-white/10 px-7 text-sm font-semibold text-white hover:bg-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-                >
-                  Conhecer recursos
-                </a>
               </div>
             </div>
           </div>
@@ -462,6 +425,11 @@ export default function LandingPage() {
                 <Link href="/login" className="mt-2 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 font-semibold text-zinc-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
                   Entrar <ArrowRight size={12} aria-hidden />
                 </Link>
+              </div>
+              <div>
+                <div className="font-semibold tracking-wide text-zinc-300">Contato</div>
+                <a href="mailto:joelgonn@gmail.com" className="mt-2 block text-zinc-400 hover:text-white hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 rounded">joelgonn@gmail.com</a>
+                <a href="https://wa.me/5544988080039" target="_blank" rel="noopener noreferrer" className="mt-1 block text-zinc-400 hover:text-white hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 rounded">WhatsApp: (44) 98808-0039</a>
               </div>
             </div>
           </div>

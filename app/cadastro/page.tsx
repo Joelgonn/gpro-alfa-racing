@@ -218,20 +218,17 @@ export default function CadastroPage() {
           </div>
 
           <h1 className="mt-6 text-2xl font-black leading-tight tracking-tight text-white sm:text-[28px]">
-            Crie sua conta gratuita.
+            Crie sua conta
           </h1>
           <div className="mt-3 space-y-3 text-sm leading-relaxed text-zinc-300">
-            <p>O cadastro é gratuito e leva menos de um minuto.</p>
-            <p>
-              Você entra na plataforma, conhece os recursos e decide com calma se quer liberar o acesso Premium —
-              que é opcional e feito por Pix.
-            </p>
+            <p>Crie sua conta para acessar a plataforma.</p>
+            <p>Seu acesso pode ser liberado por convite ou por um dos planos disponíveis.</p>
           </div>
 
           <blockquote className="relative mt-5 overflow-hidden rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 via-[#0a0f1f]/60 to-emerald-500/5 px-4 py-3">
             <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-yellow-400 to-emerald-500" />
             <p className="text-sm font-bold leading-relaxed text-white">
-              Conta gratuita não libera recursos Premium. O acesso VIP só é ativado após a confirmação do pagamento.
+              Sua conta é o primeiro passo. O acesso é liberado por convite ou pela contratação de um plano.
             </p>
           </blockquote>
 
@@ -239,22 +236,22 @@ export default function CadastroPage() {
             <div className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-emerald-400" aria-hidden />
               <div>
-                <div className="text-sm font-bold text-white">Conta gratuita</div>
-                <div className="text-xs leading-relaxed text-zinc-400">Acesso imediato à plataforma e à página de planos.</div>
+                <div className="text-sm font-bold text-white">Crie sua conta</div>
+                <div className="text-xs leading-relaxed text-zinc-400">Primeiro passo para utilizar a plataforma.</div>
               </div>
             </div>
             <div className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-yellow-400" aria-hidden />
               <div>
-                <div className="text-sm font-bold text-white">Sem cobrança automática</div>
-                <div className="text-xs leading-relaxed text-zinc-400">Nenhum cartão é pedido no cadastro. Nada é cobrado.</div>
+                <div className="text-sm font-bold text-white">Acesso por convite</div>
+                <div className="text-xs leading-relaxed text-zinc-400">Se você recebeu um convite, seu acesso será liberado após o cadastro.</div>
               </div>
             </div>
             <div className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-sky-400" aria-hidden />
               <div>
-                <div className="text-sm font-bold text-white">Premium quando quiser</div>
-                <div className="text-xs leading-relaxed text-zinc-400">Escolha um plano e pague por Pix, com liberação automática.</div>
+                <div className="text-sm font-bold text-white">Planos disponíveis</div>
+                <div className="text-xs leading-relaxed text-zinc-400">Conheça os planos e escolha como obter seu acesso.</div>
               </div>
             </div>
           </div>
@@ -300,10 +297,10 @@ export default function CadastroPage() {
             ) : (
               /* -------- Estado: formulário -------- */
               <>
-                <h2 className="text-base font-black tracking-tight text-white">Criar conta grátis</h2>
-                <p className="mt-1 text-sm font-semibold text-zinc-300">Sem cartão, sem cobrança, sem compromisso.</p>
+                <h2 className="text-base font-black tracking-tight text-white">Crie sua conta</h2>
+                <p className="mt-1 text-sm font-semibold text-zinc-300">Preencha seus dados para criar sua conta.</p>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                  Preencha seus dados para acessar a plataforma. O acesso Premium é opcional e liberado só após o pagamento.
+                  Seu acesso será liberado por convite ou pela contratação de um plano.
                 </p>
 
                 {message && (
@@ -478,7 +475,7 @@ export default function CadastroPage() {
                       </span>
                     ) : (
                       <>
-                        Criar conta grátis <FaUserPlus aria-hidden />
+                        Criar minha conta <FaUserPlus aria-hidden />
                       </>
                     )}
                   </button>

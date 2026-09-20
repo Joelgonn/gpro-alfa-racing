@@ -48,14 +48,25 @@ function durationLabel(days: number | null) {
 export default async function PlanosPage() {
   // A flag de integração controla o CTA. Lida só no servidor.
   const pixEnabled = process.env.PIX_ENABLED === 'true'
+  // Isolamento Preview: plano de homologação E2E (server-side, nunca NEXT_PUBLIC, nunca query param)
+  // Só Preview (VERCEL_ENV=preview) com PIX_E2E_PLAN_CODE habilitado enxerga o plano mesmo se is_active=false.
+  const e2ePlanCode = process.env.PIX_E2E_PLAN_CODE?.trim() || null
+  const isPreviewE2E = e2ePlanCode && process.env.VERCEL_ENV === 'preview' && pixEnabled
 
   const user = await getAuthenticatedUser()
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('premium_plans')
     .select('code, name, description, duration_days, price_cents, currency')
-    .eq('is_active', true)
     .order('price_cents', { ascending: true })
+
+  if (isPreviewE2E) {
+    // Preview homologação: ativos + plano E2E específico (mesmo se inativo)
+    query = query.or(`is_active.eq.true,code.eq.${e2ePlanCode}`)
+  } else {
+    query = query.eq('is_active', true)
+  }
+  const { data, error } = await query
 
   const plans: PlanRow[] = error ? [] : ((data as PlanRow[]) || [])
 
@@ -64,11 +75,15 @@ export default async function PlanosPage() {
       <div className="mx-auto max-w-5xl px-4 py-12 md:py-16 space-y-10">
         <header className="text-center space-y-3">
           <p className="text-[11px] font-black uppercase tracking-[0.3em] text-amber-400">Lobo Alfa</p>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">Planos VIP</h1>
-          <p className="text-sm text-zinc-400 max-w-2xl mx-auto">
-            Escolha um plano para liberar os recursos premium. O pagamento é feito por <strong>Pix</strong>,
-            com confirmação automática assim que o pagamento é identificado.
-          </p>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight">Escolha seu acesso</h1>
+          <div className="mx-auto max-w-2xl space-y-2 text-sm leading-relaxed text-zinc-400">
+            <p>
+              Conheça os planos disponíveis. Seu acesso pode ser liberado <strong className="font-semibold text-zinc-200">por convite</strong> ou por um dos planos abaixo.
+            </p>
+            <p>
+              Para utilizar a plataforma você precisa ter uma conta. Crie sua conta quando for contratar um plano ou utilize um convite se já recebeu um.
+            </p>
+          </div>
         </header>
 
         {plans.length === 0 ? (
@@ -149,7 +164,7 @@ export default async function PlanosPage() {
               href="/cadastro"
               className="text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-200"
             >
-              Não tem conta? Criar conta grátis
+              Não tem conta? Crie sua conta
             </Link>
           )}
         </div>
