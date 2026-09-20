@@ -62,6 +62,13 @@ export interface PostLoginAccess {
   accessPlan?: string | null
 }
 
+/** Novo modelo V2 — autoridade real via AccessState */
+export interface PostLoginState {
+  hasAccess?: boolean | null
+  status?: string | null
+  isAdmin?: boolean | null
+}
+
 // ============================================
 // HELPERS INTERNOS
 // ============================================
@@ -243,7 +250,9 @@ export function safeInternalPath(raw: unknown, fallback: string | null = null): 
 }
 
 /**
- * Destino após login bem-sucedido.
+ * Destino após login bem-sucedido — V1 legado (cache).
+ * Mantido para compatibilidade com testes e invite flow.
+ * NÃO usar para nova lógica de expiração; usar V2 com hasAccess.
  *
  * Ordem de precedência:
  * 1. `?next=` interno explicitamente pedido pelo usuário (ex.: voltar para /planos).
@@ -268,5 +277,35 @@ export function resolvePostLoginDestination(
   const plan = (access.accessPlan ?? '').trim()
   if (plan) return fallback
 
+  return FREE_LANDING_PATH
+}
+
+/**
+ * Destino pós-login V2 — autoridade real via AccessState.
+ * FASE 0: elimina decisão baseada em user_state.access_plan.
+ * Ordem:
+ * 1. ?next= interno
+ * 2. hasAccess true (active/lifetime) ou isAdmin → /dashboard
+ * 3. hasAccess false (expired/revoked/pending/none) → /planos?motivo=expired se status expired/revoked/pending, senão /planos
+ * 4. Erro 401 → /login (tratado no caller)
+ * 5. Erro 500 → não mascarar, caller decide
+ */
+export function resolvePostLoginDestinationFromState(
+  input: { next?: unknown; state: PostLoginState | null },
+  fallback: string = PREMIUM_LANDING_PATH
+): string {
+  const wanted = safeInternalPath(input?.next, null)
+  if (wanted) return wanted
+
+  const s = input?.state
+  if (!s) return fallback
+  if (s.isAdmin) return fallback
+  if (s.hasAccess) return fallback
+
+  // hasAccess false — distinguir expirado vs nunca teve
+  const st = (s.status ?? '').trim()
+  if (st === 'expired' || st === 'revoked' || st === 'pending') {
+    return `${FREE_LANDING_PATH}?motivo=expired`
+  }
   return FREE_LANDING_PATH
 }

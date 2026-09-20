@@ -53,7 +53,7 @@ export async function signUpWithInviteCode(formData: FormData) {
     // 1. Validação prévia (sem consumir) — para feedback rápido; decisão final é no UPDATE atômico
     const { data: preCheck, error: preError } = await supabaseAdmin
       .from('invite_codes')
-      .select('id, code, is_used, created_at, expires_at, revoked_at, invite_type')
+      .select('id, code, is_used, created_at, expires_at, revoked_at, invite_type, duration_days')
       .eq('code', inviteCode)
       .maybeSingle()
 
@@ -245,6 +245,7 @@ export async function signUpWithInviteCode(formData: FormData) {
         id: (preCheck as any).id as string,
         invite_type: (preCheck as any).invite_type as string | null,
         expires_at: (preCheck as any).expires_at as string | null,
+        duration_days: (preCheck as any).duration_days as number | null | undefined,
       }
 
       // Só concede se invite_type é VIP (ou null legado); se fosse comum não-VIP, skip — aqui todos vip_* ou null legado concedem

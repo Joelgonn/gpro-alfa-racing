@@ -29,6 +29,7 @@ function sanitizeInvite(row: any) {
     revoked_at: row.revoked_at ?? null,
     revoked_by: row.revoked_by ?? null,
     invite_type: row.invite_type ?? null,
+    duration_days: row.duration_days ?? null,
     status: computeStatus(row),
   }
 }
@@ -39,7 +40,7 @@ export async function GET(_request: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from('invite_codes')
-      .select('id, code, is_used, used_by, used_at, created_by, created_at, expires_at, revoked_at, revoked_by, invite_type, metadata')
+      .select('id, code, is_used, used_by, used_at, created_by, created_at, expires_at, revoked_at, revoked_by, invite_type, duration_days, metadata')
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -68,9 +69,19 @@ export async function POST(request: NextRequest) {
 
     const validityType: ValidityType = body.validityType
     const customExpiresAt: string | undefined = body.customExpiresAt
+    let durationDays: number | null | undefined = body.durationDays
 
     if (!['30_days', 'lifetime', 'custom'].includes(validityType)) {
       return NextResponse.json({ success: false, error: 'validityType inválido. Use 30_days, lifetime ou custom.' }, { status: 400 })
+    }
+
+    // FASE 1: durationDays tem prioridade sobre invite_type legado
+    if (durationDays !== undefined) {
+      if (durationDays !== null) {
+        if (typeof durationDays !== 'number' || !Number.isInteger(durationDays) || durationDays < 1 || durationDays > 3650) {
+          return NextResponse.json({ success: false, error: 'durationDays deve ser null (lifetime) ou inteiro entre 1 e 3650.' }, { status: 400 })
+        }
+      }
     }
 
     let expires_at: string | null = null
@@ -105,6 +116,14 @@ export async function POST(request: NextRequest) {
       invite_type = 'vip_custom'
     }
 
+    // Se durationDays não foi enviado, manter compatibilidade (derivar do invite_type)
+    if (durationDays === undefined) {
+      if (invite_type === 'vip_lifetime') durationDays = null
+      else if (invite_type === 'vip_30_days') durationDays = 30
+      else if (invite_type === 'vip_custom') durationDays = null // vip_custom legado usa expires_at do convite; sem duration explícita, grant usará fallback
+      else durationDays = 30
+    }
+
     // Código gerado no servidor, aleatoriedade criptográfica, único
     const uuid = crypto.randomUUID().replace(/-/g, '').toUpperCase()
     const part1 = uuid.slice(0, 4)
@@ -124,9 +143,10 @@ export async function POST(request: NextRequest) {
           created_by: admin.id,
           expires_at,
           invite_type,
-          metadata: { validityType } as any,
+          duration_days: durationDays,
+          metadata: { validityType, durationDays } as any,
         })
-        .select('id, code, is_used, used_by, used_at, created_by, created_at, expires_at, revoked_at, revoked_by, invite_type')
+        .select('id, code, is_used, used_by, used_at, created_by, created_at, expires_at, revoked_at, revoked_by, invite_type, duration_days')
         .single()
 
       if (!error && data) {

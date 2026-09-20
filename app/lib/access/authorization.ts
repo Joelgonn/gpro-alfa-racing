@@ -128,6 +128,15 @@ export async function requireDashboardAccess(currentPath: string = '/dashboard')
     redirect(`/login?next=${encodeURIComponent(target)}`)
   }
 
+  // FASE 3: distingue expirado/revogado/pending de nunca teve VIP
+  if (
+    decision.reason === 'grant_expired' ||
+    decision.reason === 'grant_revoked' ||
+    decision.reason === 'grant_pending'
+  ) {
+    redirect(`${FREE_LANDING_PATH}?motivo=expired`)
+  }
+
   redirect(`${FREE_LANDING_PATH}?motivo=premium`)
 }
 

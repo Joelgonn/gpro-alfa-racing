@@ -6,7 +6,9 @@ import Image from 'next/image';
 import { FaUserAstronaut, FaLock, FaTicketAlt, FaSignInAlt, FaArrowLeft, FaUserPlus } from 'react-icons/fa';
 import { supabase } from '../lib/supabase';
 import { signUpWithInviteCode } from '../actions/signup';
-import { resolvePostLoginDestination, safeInternalPath, type PostLoginAccess } from '../lib/auth-flow';
+import { getLoginDestination } from '../actions/getLoginDestination';
+import { safeInternalPath, resolvePostLoginDestination } from '../lib/auth-flow';
+// resolvePostLoginDestination mantido para compatibilidade com testes legados (FASE 0 usa getLoginDestination via hasAccess)
 
 export default function LoginPage() {
   const router = useRouter();
@@ -53,33 +55,17 @@ export default function LoginPage() {
         return;
       }
 
-      // ALFA-015.0 — destino após login.
-      // Ordem: ?next= explícito → Admin → Premium ativo → usuário gratuito (/planos).
-      // Sem leitura de user_state (usuário legado/sem linha), o destino atual é preservado.
-      let access: PostLoginAccess | null = null;
-      const userId = data?.user?.id;
-      if (userId) {
-        try {
-          const { data: userState, error: stateError } = await supabase
-            .from('user_state')
-            .select('role, access_plan')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-          if (!stateError && userState) {
-            const row = userState as { role?: string | null; access_plan?: string | null };
-            access = {
-              role: row.role ?? null,
-              accessPlan: row.access_plan ?? null,
-            };
-          }
-        } catch {
-          access = null;
-        }
+      // FASE 0 — destino via autoridade real (access_grants), sem flash.
+      // getAccessState() → hasAccess → /dashboard ou /planos?motivo=expired
+      try {
+        const destination = await getLoginDestination(nextPath);
+        router.push(destination);
+        router.refresh();
+      } catch {
+        // Falha ao consultar estado real — fallback seguro preserva comportamento
+        router.push(nextPath ?? '/dashboard/manager');
+        router.refresh();
       }
-
-      router.push(resolvePostLoginDestination({ next: nextPath, access }));
-      router.refresh();
     } catch (err) {
       setMessage('Ocorreu um erro inesperado ao tentar fazer login.');
       setLoading(false);

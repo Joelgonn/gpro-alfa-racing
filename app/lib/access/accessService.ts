@@ -485,17 +485,35 @@ export type InviteForGrant = {
   id: string
   invite_type: string | null
   expires_at: string | null
+  duration_days?: number | null
 }
 
 /**
  * Calcula expires_at do access_grant derivado do convite.
- * - vip_30_days => now +30d
- * - vip_lifetime => null (vitalício)
- * - vip_custom => expires_at do convite (preserva data custom)
- * - null/antigo => 30d (compatibilidade, documentado)
+ * FASE 1: duration_days tem prioridade sobre invite_type legado.
+ * - duration_days = null => lifetime (vitalício)
+ * - duration_days = 7|30|... => now + duration_days
+ * - fallback invite_type:
+ *   - vip_lifetime => null
+ *   - vip_custom => invite.expires_at (compatibilidade)
+ *   - vip_30_days / null / undefined => now +30d
  * Não aceita validade do cliente — só invite do DB.
  */
 export function calculateGrantExpiration(invite: InviteForGrant, now: Date = new Date()): string | null {
+  const dur = (invite as { duration_days?: number | null }).duration_days
+  if (typeof dur === 'number') {
+    if (dur === null) return null
+    // dur já validado por CHECK, mas garante
+  }
+  if (dur !== undefined && dur !== null) {
+    if (dur === null) return null
+    const d = new Date(now)
+    d.setDate(d.getDate() + dur)
+    return d.toISOString()
+  }
+  // duration_days null = lifetime (quando coluna existe e é null)
+  // Distingue: dur === null => lifetime, dur === undefined => fallback legado
+  if ((invite as { duration_days?: number | null }).duration_days === null) return null
   const t = invite.invite_type
   if (t === 'vip_lifetime') return null
   if (t === 'vip_custom') return invite.expires_at ?? null
@@ -517,6 +535,56 @@ export function planForInvite(_invite: InviteForGrant): AccessPlan {
 export function vipStatusForGrant(expiresAt: string | null): string {
   if (expiresAt === null) return 'lifetime'
   return 'active'
+}
+
+/**
+ * FASE 2: calcula novo expires_at preservando período existente.
+ * Regra: max(now, bestExpiresAt) + durationDays, com lifetime (null) preservado.
+ * - bestGrant null/none/expired/revoked/pending => now + duration
+ * - bestGrant active futuro => best.expires_at + duration
+ * - durationDays null => lifetime (null)
+ * - lifetime existente nunca é reduzido (null vence)
+ */
+export function calculateRenewalExpiresAt(
+  bestGrant: AccessGrantRow | null,
+  durationDays: number | null,
+  now: Date = new Date()
+): string | null {
+  if (durationDays === null) return null
+  // Lifetime existente deve permanecer lifetime, não converter para temporal
+  if (bestGrant && bestGrant.expires_at === null && bestGrant.status === 'active') {
+    // Se duration é temporal mas best é lifetime, preserva lifetime (não reduz)
+    // Produto decidiu: lifetime nunca reduzido por compra
+    return null
+  }
+  let base: Date
+  if (!bestGrant || !bestGrant.expires_at) {
+    // Sem grant, grant sem expires, ou expirado/revogado já tratado como !bestGrant ativo
+    // Para expirado, interpretGrant já marca hasAccess false, mas pickBestGrant não retorna expirado como bestActive
+    // Então bestGrant será null ou ativo futuro; se null, base = now
+    base = new Date(now)
+  } else {
+    const exp = new Date(bestGrant.expires_at)
+    if (isNaN(exp.getTime())) {
+      base = new Date(now)
+    } else {
+      // bestGrant ativo futuro => exp > now => base = exp, senão now
+      const isExpired = exp.getTime() <= now.getTime()
+      // Se expirado mas ainda é best (quando não há ativo), pickBestGrant retornaria expired, não active
+      // Nesse caso, não devemos preservar expirado, mas usar now
+      const interpreted = interpretGrant(bestGrant, now)
+      if (!interpreted.hasAccess) {
+        base = new Date(now)
+      } else {
+        base = exp.getTime() > now.getTime() ? exp : new Date(now)
+      }
+    }
+  }
+  // Se durationDays não foi passado mas best existe, usar 30 como fallback?
+  const days = durationDays ?? 30
+  const result = new Date(base)
+  result.setDate(result.getDate() + days)
+  return result.toISOString()
 }
 
 /**
@@ -561,6 +629,7 @@ export async function ensureVipGrantForInvite(
   const expiresAt = calculateGrantExpiration(invite, new Date(nowIso))
   const plan = planForInvite(invite)
 
+  const durationForMeta = (invite as { duration_days?: number | null }).duration_days ?? null
   const payload = {
     user_id: userId,
     source: 'invite' as const,
@@ -569,7 +638,7 @@ export async function ensureVipGrantForInvite(
     status: 'active' as const,
     starts_at: nowIso,
     expires_at: expiresAt,
-    metadata: {} as any,
+    metadata: { duration_days: durationForMeta } as any,
   }
 
   const { data: inserted, error: insErr } = await supabaseAdmin
@@ -930,6 +999,7 @@ export const _pure = {
   interpretGrant,
   pickBestGrant,
   calculateGrantExpiration,
+  calculateRenewalExpiresAt,
   planForInvite,
   vipStatusForGrant,
 }

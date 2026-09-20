@@ -23,7 +23,7 @@ import {
 } from './mercadopago-signature'
 import { getMercadoPagoPayment, getMercadoPagoOrder, MercadoPagoError } from './mercadopago-client'
 import { canTransitionOrder, canTransitionPayment } from './paymentStateMachine'
-import { syncUserStateWithGrant, pickBestGrant, interpretGrant } from '@/app/lib/access/accessService'
+import { syncUserStateWithGrant, pickBestGrant, interpretGrant, calculateRenewalExpiresAt } from '@/app/lib/access/accessService'
 
 export type WebhookOutcome =
   | 'stored_pending'
@@ -219,11 +219,25 @@ async function confirmPaymentAndOrder(
 async function ensurePaymentGrant(
   order: { id: string; user_id: string; plan_id: string },
 ): Promise<{ grantId: string | null; isNew: boolean }> {
-  // Buscar duração do plano para calcular expires_at
+  // Buscar duração do plano para calcular expires_at — FASE 2: usa melhor grant para preservar período
   const { data: plan } = await supabaseAdmin.from('premium_plans').select('duration_days').eq('id', order.plan_id).maybeSingle()
   const durationDays = (plan as unknown as { duration_days: number | null })?.duration_days ?? 30
   const now = new Date()
-  const expiresAt = durationDays === null ? null : new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+  // FASE 2: calcula com max(now, bestExpiresAt) + duration, preserva lifetime
+  let expiresAt: string | null
+  try {
+    const { data: grants } = await supabaseAdmin
+      .from('access_grants')
+      .select('id, user_id, source, invite_code_id, plan, status, starts_at, expires_at, revoked_at, revoked_by, metadata, created_at, updated_at')
+      .eq('user_id', order.user_id)
+    const best = pickBestGrant((grants as unknown as never[]) ?? [], now)
+    expiresAt = calculateRenewalExpiresAt(best as unknown as never, durationDays, now)
+  } catch {
+    // Fallback seguro: comportamento antigo se falhar
+    expiresAt = durationDays === null ? null : new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+  }
+  // Metadata preserva duração para auditoria
+  const durationForMeta = durationDays
 
   // Idempotência: já existe grant para este pedido?
   const { data: existing } = await supabaseAdmin
@@ -259,6 +273,7 @@ async function ensurePaymentGrant(
     metadata: {
       order_id: order.id,
       created_via: 'pix010_webhook',
+      duration_days: durationForMeta,
     } as unknown as Record<string, unknown>,
   }
 
