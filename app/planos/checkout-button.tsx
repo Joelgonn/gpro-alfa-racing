@@ -94,12 +94,18 @@ export function CheckoutButton({ planCode, isAuthenticated }: Props) {
 // ---------------------------------------------------------------------------
 
 function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+  const router = useRouter()
   const [data, setData] = useState<OrderResponse | null>(null)
   const [status, setStatus] = useState<string>('Carregando…')
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const startedAt = useRef(Date.now())
   const stopped = useRef(false)
+  // PIX-022: estado de sucesso com countdown e redirect único
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const redirectScheduled = useRef(false)
+  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -141,6 +147,37 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
     else setStatus('Preparando a cobrança…')
   }, [isPaid, isTerminalBad, orderStatus])
 
+  // PIX-022: quando pago, interrompe polling e agenda redirect único de 5s
+  useEffect(() => {
+    if (!isPaid || redirectScheduled.current) return
+    redirectScheduled.current = true
+    stopped.current = true
+    setCountdown(5)
+    countdownTimer.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          if (countdownTimer.current) clearInterval(countdownTimer.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    redirectTimer.current = setTimeout(() => {
+      router.push('/dashboard')
+    }, 5000)
+    return () => {
+      if (countdownTimer.current) clearInterval(countdownTimer.current)
+      if (redirectTimer.current) clearTimeout(redirectTimer.current)
+    }
+  }, [isPaid, router])
+
+  useEffect(() => {
+    return () => {
+      if (countdownTimer.current) clearInterval(countdownTimer.current)
+      if (redirectTimer.current) clearTimeout(redirectTimer.current)
+    }
+  }, [])
+
   const qrCode = data?.pizzData?.qrCode ?? null
   const qrImage = data?.pizzData?.qrCodeBase64 ?? null
   const ticketUrl = data?.pizzData?.ticketUrl ?? null
@@ -158,7 +195,7 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={isPaid ? undefined : onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
@@ -180,10 +217,19 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
           )}
 
           {isPaid ? (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-              <p className="text-xs font-bold text-emerald-300">
-                Tudo certo! A confirmação foi recebida e o acesso é liberado automaticamente.
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-center" role="status" aria-live="polite">
+              <p className="text-sm font-black text-emerald-300">Pagamento confirmado!</p>
+              <p className="text-xs font-bold text-emerald-200">Seu acesso VIP foi liberado com sucesso.</p>
+              <p className="text-[11px] text-emerald-300/80">Estamos preparando tudo para você.</p>
+              <p className="text-[11px] text-zinc-400">
+                Você será direcionado ao seu painel em {countdown ?? 5} segundo{countdown === 1 ? '' : 's'}...
               </p>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-emerald-900/30" aria-hidden>
+                <div
+                  className="h-full bg-emerald-400 transition-all duration-1000 ease-linear"
+                  style={{ width: `${((5 - (countdown ?? 5)) / 5) * 100}%` }}
+                />
+              </div>
             </div>
           ) : isTerminalBad ? (
             <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4">
@@ -250,13 +296,23 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
           )}
 
           <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-zinc-200 hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-            >
-              Fechar
-            </button>
+            {isPaid ? (
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="rounded-xl bg-emerald-500 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
+                Ir para o painel agora
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-zinc-200 hover:bg-white/[0.10] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              >
+                Fechar
+              </button>
+            )}
           </div>
         </div>
       </div>
