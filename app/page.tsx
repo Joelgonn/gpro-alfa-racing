@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { EnterPlatformButton } from '@/app/components/EnterPlatformButton';
 import {
   Menu,
   X,
@@ -73,20 +74,18 @@ export default function LandingPage() {
             >
               Criar conta grátis
             </Link>
-            <Link
-              href="/login"
+            <EnterPlatformButton
               className="hidden sm:inline-flex h-9 items-center justify-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-zinc-900 shadow-[0_0_20px_rgba(250,204,21,0.18)] hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
             >
               Entrar na plataforma
               <ArrowRight size={16} aria-hidden />
-            </Link>
-            <Link
-              href="/login"
+            </EnterPlatformButton>
+            <EnterPlatformButton
               className="inline-flex sm:hidden h-9 items-center justify-center rounded-full bg-yellow-400 px-4 text-sm font-bold text-zinc-900 hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
-              aria-label="Entrar na plataforma"
+              ariaLabel="Entrar na plataforma"
             >
               Entrar
-            </Link>
+            </EnterPlatformButton>
             <button
               type="button"
               aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
@@ -109,9 +108,9 @@ export default function LandingPage() {
             <a onClick={() => setMobileOpen(false)} href="#recursos" className="rounded-xl px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Recursos</a>
             <a onClick={() => setMobileOpen(false)} href="#diferenciais" className="rounded-xl px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Diferenciais</a>
             <a onClick={() => setMobileOpen(false)} href="#fluxo" className="rounded-xl px-4 py-3 text-sm font-medium text-zinc-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">Como funciona</a>
-            <Link onClick={() => setMobileOpen(false)} href="/login" className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-yellow-400 px-6 text-sm font-bold text-zinc-900 hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
+            <EnterPlatformButton onBeforeNavigate={() => setMobileOpen(false)} className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-yellow-400 px-6 text-sm font-bold text-zinc-900 hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
               Entrar na plataforma <ArrowRight size={16} aria-hidden />
-            </Link>
+            </EnterPlatformButton>
             <Link onClick={() => setMobileOpen(false)} href="/cadastro" className="mt-1 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-6 text-sm font-semibold text-zinc-200 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500">
               Criar conta grátis <UserPlus size={16} aria-hidden />
             </Link>
@@ -151,13 +150,12 @@ export default function LandingPage() {
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  href="/login"
+                <EnterPlatformButton
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-yellow-400 px-7 text-sm font-extrabold tracking-wide text-zinc-900 shadow-[0_8px_24px_rgba(250,204,21,0.22)] hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#030712]"
                 >
                   Entrar na plataforma
                   <ArrowRight size={18} aria-hidden />
-                </Link>
+                </EnterPlatformButton>
                 <a
                   href="#recursos"
                   className="inline-flex h-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-7 text-sm font-semibold text-white hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
@@ -412,12 +410,11 @@ export default function LandingPage() {
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-300">Entre na plataforma e retome de onde parou — com seus dados, sua estratégia e seu ritmo.</p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/login"
+                <EnterPlatformButton
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-yellow-400 px-7 text-sm font-extrabold text-zinc-900 shadow-lg hover:bg-yellow-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
                 >
                   Entrar na plataforma <ArrowRight size={18} aria-hidden />
-                </Link>
+                </EnterPlatformButton>
                 <Link
                   href="/cadastro"
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-7 text-sm font-bold text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
