@@ -7,7 +7,7 @@ import { requireAdmin } from '@/app/lib/auth'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { accessLogger, maskInviteId, nextCorrelationId } from '@/app/lib/access/accessLogger'
 
-type ValidityType = '30_days' | 'lifetime' | 'custom'
+type ValidityType = '7_days' | '30_days' | '90_days' | '365_days' | 'lifetime' | 'custom'
 
 function computeStatus(row: any): 'disponivel' | 'utilizado' | 'expirado' | 'revogado' {
   if (row.revoked_at) return 'revogado'
@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
     const customExpiresAt: string | undefined = body.customExpiresAt
     let durationDays: number | null | undefined = body.durationDays
 
-    if (!['30_days', 'lifetime', 'custom'].includes(validityType)) {
-      return NextResponse.json({ success: false, error: 'validityType inválido. Use 30_days, lifetime ou custom.' }, { status: 400 })
+    if (!['7_days', '30_days', '90_days', '365_days', 'lifetime', 'custom'].includes(validityType)) {
+      return NextResponse.json({ success: false, error: 'validityType inválido. Use 7_days, 30_days, 90_days, 365_days, lifetime ou custom.' }, { status: 400 })
     }
 
     // FASE 1: durationDays tem prioridade sobre invite_type legado
@@ -87,11 +87,30 @@ export async function POST(request: NextRequest) {
     let expires_at: string | null = null
     let invite_type: string = 'vip_30_days'
 
-    if (validityType === '30_days') {
+    if (validityType === '7_days') {
+      const d = new Date()
+      d.setDate(d.getDate() + 7)
+      expires_at = d.toISOString()
+      invite_type = 'vip_30_days'
+      if (durationDays === undefined) durationDays = 7
+    } else if (validityType === '30_days') {
       const d = new Date()
       d.setDate(d.getDate() + 30)
       expires_at = d.toISOString()
       invite_type = 'vip_30_days'
+      if (durationDays === undefined) durationDays = 30
+    } else if (validityType === '90_days') {
+      const d = new Date()
+      d.setDate(d.getDate() + 90)
+      expires_at = d.toISOString()
+      invite_type = 'vip_30_days'
+      if (durationDays === undefined) durationDays = 90
+    } else if (validityType === '365_days') {
+      const d = new Date()
+      d.setDate(d.getDate() + 365)
+      expires_at = d.toISOString()
+      invite_type = 'vip_30_days'
+      if (durationDays === undefined) durationDays = 365
     } else if (validityType === 'lifetime') {
       expires_at = null
       invite_type = 'vip_lifetime'

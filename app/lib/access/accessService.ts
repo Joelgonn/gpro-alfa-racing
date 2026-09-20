@@ -501,19 +501,15 @@ export type InviteForGrant = {
  */
 export function calculateGrantExpiration(invite: InviteForGrant, now: Date = new Date()): string | null {
   const dur = (invite as { duration_days?: number | null }).duration_days
-  if (typeof dur === 'number') {
-    if (dur === null) return null
-    // dur já validado por CHECK, mas garante
-  }
-  if (dur !== undefined && dur !== null) {
-    if (dur === null) return null
+  // Prioridade: duration_days numérico válido (7,30,90,365)
+  if (typeof dur === 'number' && Number.isInteger(dur) && dur >= 1 && dur <= 3650) {
     const d = new Date(now)
     d.setDate(d.getDate() + dur)
     return d.toISOString()
   }
-  // duration_days null = lifetime (quando coluna existe e é null)
-  // Distingue: dur === null => lifetime, dur === undefined => fallback legado
-  if ((invite as { duration_days?: number | null }).duration_days === null) return null
+  // duration null + vip_lifetime => vitalício (único caso onde null é lifetime)
+  if (dur === null && invite.invite_type === 'vip_lifetime') return null
+  // Fallback legado por invite_type
   const t = invite.invite_type
   if (t === 'vip_lifetime') return null
   if (t === 'vip_custom') return invite.expires_at ?? null

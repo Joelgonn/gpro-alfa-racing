@@ -17,7 +17,7 @@ type Invite = {
   status: 'disponivel' | 'utilizado' | 'expirado' | 'revogado'
 }
 
-type ValidityType = '30_days' | 'lifetime' | 'custom'
+type ValidityType = '7_days' | '30_days' | '90_days' | '365_days' | 'lifetime' | 'custom'
 
 const statusStyles: Record<string, string> = {
   disponivel: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -70,6 +70,13 @@ export default function VipInvitesPage() {
     setError(null)
     try {
       const body: any = { validityType }
+      // FASE 1: envia durationDays explicitamente para 7/30/90/365
+      if (validityType === '7_days') body.durationDays = 7
+      else if (validityType === '90_days') body.durationDays = 90
+      else if (validityType === '365_days') body.durationDays = 365
+      else if (validityType === '30_days') body.durationDays = 30
+      else if (validityType === 'lifetime') body.durationDays = null
+      // custom mantém compatibilidade (durationDays não enviado, usa fallback legado)
       if (validityType === 'custom') {
         if (!customDate) throw new Error('Informe a data personalizada')
         body.customExpiresAt = new Date(customDate).toISOString()
@@ -130,7 +137,10 @@ export default function VipInvitesPage() {
               onChange={e => setValidityType(e.target.value as ValidityType)}
               className="border border-slate-200 rounded-lg px-3 py-2 bg-white"
             >
+              <option value="7_days">7 dias</option>
               <option value="30_days">30 dias</option>
+              <option value="90_days">90 dias</option>
+              <option value="365_days">365 dias</option>
               <option value="lifetime">Vitalício</option>
               <option value="custom">Data personalizada</option>
             </select>
