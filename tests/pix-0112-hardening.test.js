@@ -19,7 +19,7 @@ const server = read('utils/supabase/server.ts');
 // 1. Freshness
 console.log('--- 1. Freshness ---');
 assert(sig.includes('Math.abs(now - tsMs)') && sig.includes('windowMs'), 'freshness janela implementada');
-assert(sig.includes("reason: 'mismatch'") && sig.includes('drift'), 'ts expirado/futuro → mismatch');
+assert((sig.includes("reason: 'mismatch'") || sig.includes("reason: 'timestamp_expired'")) && sig.includes('drift'), 'ts expirado/futuro → mismatch/timestamp_expired');
 
 // 2. Manifest robusto (compatível com pix-0011: não exige hard-code de placeholders, mas testado via execução)
 console.log('\n--- 2. Manifest ---');
@@ -67,8 +67,8 @@ const hasOk = out.includes('"ok":true');
 const hasOld = out.includes('"old":true');
 const hasBad = out.includes('"bad":true');
 assert(hasOk, 'HMAC válido dentro da janela → verified');
-assert(hasOld, 'HMAC com ts expirado (>5min) → mismatch');
-assert(hasBad, 'template sem 3 placeholders → null');
+assert(hasOld, 'HMAC com ts expirado (>10min) → timestamp_expired/mismatch');
+assert(hasBad, 'template sem {ts} → null');
 
 console.log('\n=== PIX-011.2 OK ===');
 if(process.exitCode) console.log('❌ Falhas PIX-011.2');

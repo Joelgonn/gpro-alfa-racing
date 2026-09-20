@@ -219,15 +219,12 @@ assert(!/fetch\(|axios|https\.request/.test(routeCode + svcCode), 'nenhuma chama
 assert(!/MERCADOPAGO_ACCESS_TOKEN/.test(routeCode + svcCode + sigCode), 'Access Token nunca referenciado no webhook')
 assert(!/console\.log\(/.test(routeCode), 'nenhum log cru do payload')
 
-// Item 6: assinatura explicitamente pendente, fail-closed disponível
-assert(sig.includes('NÃO VERIFICADO / PENDENTE DE CONTRATO OFICIAL'), 'módulo de assinatura marcado como PENDENTE')
+// Item 6: contrato oficial PIX-020, fail-closed disponível
+assert(sig.includes('CONTRATO OFICIAL') && sig.includes('checkout-api-orders/notifications'), 'PIX-020 contrato oficial documentado')
 assert(sig.includes('SIGNATURE_TEMPLATE_ENV') && sig.includes('SIGNATURE_ENFORCE_ENV'), 'template e enforce vêm de configuração (não hard-coded)')
-// Nenhuma fórmula de manifesto ADIVINHADA no código: uma fórmula conteria os placeholders
-// de dados (`{data_id}`) e/ou `{request_id}` literais — o módulo legítimo só valida `{ts}`
-// (para exigir timestamp) e recebe o resto por configuração.
-assert(!sigCode.includes('{data_id}') && !sigCode.includes('{request_id}'),
-  'nenhuma fórmula de manifesto adivinhada no código (placeholders de dados vêm só de configuração)')
-assert(sigCode.includes('buildManifest') && sigCode.includes('template.trim()'), 'manifesto construído a partir do template recebido')
+// PIX-020: manifesto oficial usa {data_id},{request_id},{ts} via template (não hard-coded no route)
+assert(sigCode.includes('buildManifest') && sigCode.includes('normalizedDataId') && sigCode.includes('toLowerCase'), 'manifesto via buildManifest com lowercase (PIX-020)')
+assert(sigCode.includes('template.trim()'), 'manifesto construído a partir do template recebido')
 assert(route.includes("verdict.status !== 'verified'") && route.includes('401'), 'fail-closed: enforce bloqueia assinatura não verificada')
 assert(sig.includes('timingSafeEqual'), 'comparação de assinatura em tempo constante')
 

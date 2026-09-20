@@ -25,6 +25,9 @@ import {
   readSignatureHeaders,
   verifySignature,
   extractDataId,
+  parseSignatureHeader,
+  buildManifest,
+  computeHmacHex,
   SIGNATURE_TEMPLATE_ENV,
   SIGNATURE_SECRET_ENV,
 } from '@/app/lib/payments/mercadopago-signature'
@@ -83,33 +86,101 @@ export async function POST(request: NextRequest) {
   }
 
   // ---- 3. Assinatura (FAIL-CLOSED, OBRIGATÓRIA) ----------------------------
-  // O manifesto oficial ainda não foi capturado. O verificador só aprova se houver
-  // TEMPLATE + SEGREDO configurados; caso contrário retorna 'not_verified'.
+  // PIX-020: contrato oficial Orders API
+  //   Manifest: id:<data.id em lowercase>;request-id:<x-request-id>;ts:<ts>;
+  //   data.id para HMAC vem do QUERY PARAM data.id (lowercase), não do body.
+  //   Body data.id é preservado apenas para processamento pós-assinatura.
   const headers = readSignatureHeaders(request.headers)
-  const dataId = extractDataId(payload)
+  const queryDataIdRaw = request.nextUrl.searchParams.get('data.id')
+  const queryDataId = queryDataIdRaw ? queryDataIdRaw.trim() : null
+  const bodyDataId = extractDataId(payload)
+  // Para assinatura, usar query param (lowercase tratado em buildManifest/verifySignature)
+  const signatureDataId = queryDataId
+  // Para diagnóstico, manter ambos (bodyDataId pode divergir)
+  const dataId = bodyDataId || queryDataId
 
   const verdict = verifySignature({
     headers,
-    dataId,
+    dataId: signatureDataId,
     secret: process.env[SIGNATURE_SECRET_ENV] || null,
     template: process.env[SIGNATURE_TEMPLATE_ENV] || null,
   })
+  // Para logs mascarados, reutilizar env (sem expor)
+  const secretForLog = process.env[SIGNATURE_SECRET_ENV] || null
+  const templateForLog = process.env[SIGNATURE_TEMPLATE_ENV] || null
 
   // Fail-closed SEMPRE: não há mais flag de ambiente para desligar a verificação.
-  // Qualquer veredito que não seja 'verified' (ausente, malformada, sem segredo,
-  // sem template, divergente ou erro) encerra aqui — antes do passo 4 —, de modo
-  // que NADA é gravado em payment_events. A ausência de MERCADOPAGO_WEBHOOK_SECRET
-  // ou MERCADOPAGO_WEBHOOK_SIGNATURE_TEMPLATE resulta em rejeição segura, não em
-  // permissão. O caminho legítimo só abre quando o contrato for capturado do
-  // Sandbox e as variáveis reais forem configuradas — sem alterar este código.
   const signatureStatus = verdict.status
 
   if (verdict.status !== 'verified') {
+    // Observabilidade segura PIX-020 — granular sem expor segredo
+    const parsed = parseSignatureHeader(headers.signature)
+    const ts = parsed?.ts ?? null
+    const v1 = parsed?.v1 ?? null
+    let driftMs: number | null = null
+    if (ts) {
+      const tsNum = Number(ts)
+      if (Number.isFinite(tsNum)) {
+        const tsMs = tsNum < 1e12 ? tsNum * 1000 : tsNum
+        driftMs = Math.abs(Date.now() - tsMs)
+      }
+    }
+    const templateHasTs = typeof templateForLog === 'string' && templateForLog.includes('{ts}')
+    // Prefixos mascarados (6 chars) para diagnóstico sem expor HMAC completo
+    const dataIdPrefix = signatureDataId ? signatureDataId.slice(0, 8) + '***' : null
+    const requestIdPrefix = headers.requestId ? headers.requestId.slice(0, 8) + '***' : null
+    const v1Prefix = v1 ? v1.slice(0, 6) + '***' : null
+    let expectedPrefix: string | null = null
+    if (signatureDataId && ts && secretForLog && templateHasTs) {
+      try {
+        const manifestForLog = buildManifest(templateForLog ?? undefined, {
+          dataId: signatureDataId,
+          requestId: headers.requestId,
+          ts,
+        })
+        if (manifestForLog) {
+          const expected = computeHmacHex(secretForLog, manifestForLog)
+          expectedPrefix = expected.slice(0, 6) + '***'
+        }
+      } catch {}
+    }
+    // Reason granular PIX-020
+    let granularReason: string
+    if (verdict.status === 'not_verified') {
+      const r = (verdict as { reason: string }).reason
+      if (r === 'no_headers') granularReason = 'missing_headers'
+      else if (r === 'malformed') granularReason = 'malformed_signature'
+      else if (r === 'missing_data_id') granularReason = 'missing_data_id'
+      else if (r === 'no_template') granularReason = 'missing_template'
+      else if (r === 'no_secret') granularReason = 'missing_secret'
+      else granularReason = r
+    } else if (verdict.status === 'invalid') {
+      const r = (verdict as { reason: string }).reason
+      if (r === 'timestamp_expired') granularReason = 'timestamp_expired'
+      else if (r === 'hmac_mismatch') granularReason = 'hmac_mismatch'
+      else granularReason = 'mismatch'
+    } else {
+      granularReason = (verdict as { reason?: string }).reason || verdict.status
+    }
+
     accessLogger.warn('pix.webhook.rejected', {
       correlationId,
       result: 'signature_not_verified',
-      reason: verdict.status === 'invalid' ? 'mismatch' : verdict.status,
+      reason: granularReason,
       durationMs: Date.now() - t0,
+      meta: {
+        dataIdPrefix,
+        requestIdPrefix,
+        ts,
+        driftMs,
+        v1Prefix,
+        expectedPrefix,
+        templateHasTs,
+        // Compatibilidade: has* para logs antigos
+        hasRequestId: Boolean(headers.requestId),
+        hasDataId: Boolean(signatureDataId),
+        bodyDataIdPrefix: bodyDataId ? bodyDataId.slice(0, 8) + '***' : null,
+      },
     })
     return NextResponse.json({ received: false, reason: 'signature_not_verified' }, { status: 401 })
   }
@@ -121,7 +192,8 @@ export async function POST(request: NextRequest) {
     meta: {
       signature: signatureStatus,
       hasRequestId: Boolean(headers.requestId),
-      hasDataId: Boolean(dataId),
+      hasDataId: Boolean(signatureDataId),
+      dataIdPrefix: signatureDataId ? signatureDataId.slice(0, 8) + '***' : null,
     },
   })
 

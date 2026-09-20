@@ -1,30 +1,14 @@
 // app/lib/payments/mercadopago-signature.ts
-// PIX-001.1 — Validação de assinatura do webhook do Mercado Pago
+// PIX-001.1 / PIX-020 — Validação de assinatura do webhook do Mercado Pago
 //
-// ⚠️ ESTADO: **NÃO VERIFICADO / PENDENTE DE CONTRATO OFICIAL**
+// CONTRATO OFICIAL (Orders API) — https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/notifications
+//   Query params: data.id + type=order
+//   Headers: x-signature (ts=<ts>,v1=<hmac>), x-request-id
+//   Manifest: id:<data.id em lowercase>;request-id:<x-request-id>;ts:<ts>;
+//   HMAC: HMAC-SHA256(secret, manifest) comparado com v1 em tempo constante
 //
-// A documentação oficial informa que a assinatura é derivada de um SEGREDO + TIMESTAMP e
-// enviada no header `x-signature` (formato `ts=...,v1=...`), e que o `x-request-id` participa.
-// PORÉM **não foi possível confirmar, na fonte oficial, a fórmula exata do manifesto**:
-//   - ordem exata dos campos;
-//   - se o `data.id` entra com ou sem prefixo (`id:`);
-//   - se o separador é `;` ou `&`;
-//   - codificação e normalização de cada campo.
-//
-// CONSEQUÊNCIA (decidida de propósito): este módulo **NÃO adivinha**. Ele:
-//   1) extrai os headers corretamente (isso é seguro);
-//   2) calcula candidatos comparáveis apenas quando um TEMPLATE é fornecido por configuração;
-//   3) se não houver template validado, retorna `configured: false` e o webhook é marcado
-//      como NÃO verificado (nunca "aprovado por engano").
-//
-// PARA ATIVAR (quando o contrato for capturado do Sandbox):
-//   - definir `MERCADOPAGO_WEBHOOK_SIGNATURE_TEMPLATE` com os nomes de campo do manifesto,
-//     por exemplo (APENAS ILUSTRATIVO — NÃO USAR SEM CONFIRMAR):
-//       "id:{data_id};request-id:{request_id};ts:{ts}"
-//   - definir `MERCADOPAGO_WEBHOOK_SECRET`.
-// O webhook já opera em fail-closed permanente: não existe flag para desligar a
-// verificação. `SIGNATURE_ENFORCE_ENV` é mantido apenas como identificador
-// histórico/compatibilidade e NÃO é mais consultado por nenhum código.
+// NOTA: data.id para a assinatura DEVE vir do query parameter data.id (lowercase),
+//       não do body. O body é usado apenas para processamento após a assinatura.
 //
 // Este arquivo não faz I/O, não lê banco e não registra segredo em log.
 
@@ -37,8 +21,8 @@ export type SignatureHeaders = {
 
 export type SignatureVerdict =
   | { status: 'verified'; method: string }
-  | { status: 'not_verified'; reason: 'no_headers' | 'malformed' | 'no_secret' | 'no_template' }
-  | { status: 'invalid'; reason: 'mismatch' }
+  | { status: 'not_verified'; reason: 'no_headers' | 'malformed' | 'no_secret' | 'no_template' | 'missing_data_id' }
+  | { status: 'invalid'; reason: 'mismatch' | 'timestamp_expired' | 'hmac_mismatch' }
   | { status: 'error'; reason: string }
 
 export const SIGNATURE_TEMPLATE_ENV = 'MERCADOPAGO_WEBHOOK_SIGNATURE_TEMPLATE'
@@ -73,6 +57,7 @@ export function parseSignatureHeader(raw: string | null): { ts: string; v1: stri
 /**
  * Monta o manifesto a partir de um template de CONFIGURAÇÃO (nunca hard-coded).
  * Placeholders suportados: {data_id} {request_id} {ts}
+ * PIX-020: dataId já deve vir em lowercase (query param data.id lowercased).
  * Retorna null se o template não tiver sido confirmado/fornecido.
  */
 export function buildManifest(
@@ -81,8 +66,10 @@ export function buildManifest(
 ): string | null {
   if (!template || typeof template !== 'string' || !template.trim()) return null
   if (!template.includes('{ts}')) return null // sem ts o manifesto é inútil
+  // PIX-020: data_id em lowercase conforme contrato oficial
+  const normalizedDataId = params.dataId != null ? String(params.dataId).toLowerCase() : ''
   return template
-    .replace(/\{data_id\}/g, params.dataId ?? '')
+    .replace(/\{data_id\}/g, normalizedDataId)
     .replace(/\{request_id\}/g, params.requestId ?? '')
     .replace(/\{ts\}/g, params.ts)
 }
@@ -106,7 +93,8 @@ export function safeEqualHex(a: string, b: string): boolean {
 
 /**
  * Verifica a assinatura SE e SOMENTE SE houver template confirmado por configuração.
- * Sem template => 'not_verified' (nunca 'verified').
+ * PIX-020: dataId deve vir do query param data.id em lowercase (passado pelo caller).
+ * Sem dataId => missing_data_id, timestamp expirado => timestamp_expired, HMAC divergente => hmac_mismatch.
  */
 export function verifySignature(params: {
   headers: SignatureHeaders
@@ -125,6 +113,11 @@ export function verifySignature(params: {
 
   if (!secret) return { status: 'not_verified', reason: 'no_secret' }
 
+  // PIX-020: data.id do query param é obrigatório para o manifesto oficial
+  if (!dataId || typeof dataId !== 'string' || !dataId.trim()) {
+    return { status: 'not_verified', reason: 'missing_data_id' }
+  }
+
   const manifest = buildManifest(template ?? undefined, {
     dataId,
     requestId: headers.requestId,
@@ -140,14 +133,14 @@ export function verifySignature(params: {
   const drift = Math.abs(now - tsMs)
   const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST
   const windowMs = isTestEnv ? 10 * 365 * 24 * 60 * 60 * 1000 : 10 * 60 * 1000
-  if (drift > windowMs) return { status: 'invalid', reason: 'mismatch' }
+  if (drift > windowMs) return { status: 'invalid', reason: 'timestamp_expired' }
 
   try {
     const expected = computeHmacHex(secret, manifest)
     if (safeEqualHex(expected, parsed.v1.toLowerCase())) {
       return { status: 'verified', method: 'hmac-sha256(template)' }
     }
-    return { status: 'invalid', reason: 'mismatch' }
+    return { status: 'invalid', reason: 'hmac_mismatch' }
   } catch (e) {
     return { status: 'error', reason: String((e as Error)?.message || 'erro').slice(0, 80) }
   }
