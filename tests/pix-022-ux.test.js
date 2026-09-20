@@ -73,7 +73,12 @@ assert(src.includes("Fechar") && src.includes("isPaid ?"), 'Fechar condicional a
 
 // 13. Visual claro: role status, aria-live, barra de progresso
 assert(src.includes('role="status"') && src.includes('aria-live="polite"'), 'acessibilidade status')
-assert(src.includes('bg-emerald-500') && src.includes('rounded-full'), 'barra de progresso visual')
+assert(src.includes('rounded-full') && (src.includes('bg-emerald-500') || src.includes('from-amber-400') || src.includes('from-amber-500')), 'barra de progresso visual')
+
+// 13b. PIX-023: identidade Lobo Alfa (WebP como background, textos reais)
+assert(src.includes('/images/pix-lobo-confirmacao.webp'), 'PIX-023: WebP Lobo Alfa como background')
+assert(src.includes('Bem-vindo ao Clã') && src.includes('Agora você é um Lobo!'), 'PIX-023: mensagens Bem-vindo ao Clã / Agora você é um Lobo!')
+assert(src.includes('object-cover') && src.includes('opacity-'), 'PIX-023: WebP com object-cover e overlay')
 
 // 14. Mantém no modal, não cria nova página
 assert(src.includes('role="dialog"') && src.includes('PixPanel'), 'estado permanece no modal PixPanel')

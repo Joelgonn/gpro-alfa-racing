@@ -217,18 +217,38 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
           )}
 
           {isPaid ? (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-center" role="status" aria-live="polite">
-              <p className="text-sm font-black text-emerald-300">Pagamento confirmado!</p>
-              <p className="text-xs font-bold text-emerald-200">Seu acesso VIP foi liberado com sucesso.</p>
-              <p className="text-[11px] text-emerald-300/80">Estamos preparando tudo para você.</p>
-              <p className="text-[11px] text-zinc-400">
-                Você será direcionado ao seu painel em {countdown ?? 5} segundo{countdown === 1 ? '' : 's'}...
-              </p>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-emerald-900/30" aria-hidden>
-                <div
-                  className="h-full bg-emerald-400 transition-all duration-1000 ease-linear"
-                  style={{ width: `${((5 - (countdown ?? 5)) / 5) * 100}%` }}
-                />
+            <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-[#070a12]" role="status" aria-live="polite">
+              {/* PIX-023: identidade Lobo Alfa — WebP como background, textos reais por cima */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/pix-lobo-confirmacao.webp"
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full object-cover object-center opacity-95"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/15" aria-hidden />
+              <div className="absolute inset-0 bg-gradient-to-b from-amber-950/10 via-transparent to-transparent" aria-hidden />
+              <div className="relative p-5 sm:p-6 space-y-3 text-center">
+                <p className="text-sm font-black tracking-widest text-amber-300 drop-shadow">Pagamento confirmado!</p>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-200/90">Bem-vindo ao Clã</p>
+                  <p className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                    Agora você é um Lobo!
+                  </p>
+                </div>
+                <div className="space-y-1 pt-1">
+                  <p className="text-xs font-bold text-zinc-100 drop-shadow">Seu acesso VIP foi liberado com sucesso.</p>
+                  <p className="text-[11px] text-zinc-300">Estamos preparando tudo para você.</p>
+                  <p className="text-[11px] font-medium text-amber-200">
+                    Você será direcionado ao seu painel em {countdown ?? 5} segundo{countdown === 1 ? '' : 's'}...
+                  </p>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10" aria-hidden>
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-1000 ease-linear"
+                    style={{ width: `${((5 - (countdown ?? 5)) / 5) * 100}%` }}
+                  />
+                </div>
               </div>
             </div>
           ) : isTerminalBad ? (
@@ -300,7 +320,7 @@ function PixPanel({ orderId, onClose }: { orderId: string; onClose: () => void }
               <button
                 type="button"
                 onClick={() => router.push('/dashboard')}
-                className="rounded-xl bg-emerald-500 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                className="rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:from-amber-400 hover:to-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
               >
                 Ir para o painel agora
               </button>
