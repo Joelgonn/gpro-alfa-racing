@@ -1,5 +1,5 @@
-// tests/alfa-006-manager.test.js - Sprint ALFA-006.1 Stabilize Manager Dashboard
-// Casos: staff calc, timestamp, estados menu/office, token, loading, retry
+// tests/alfa-006-manager.test.js - Sprint ALFA-006.1 Stabilize Manager Dashboard (refatoração hierarquia)
+// Valida nova estrutura: onboarding + NextRaceHero + TeamStateGroup + QuickShortcuts
 
 const fs = require('fs');
 const path = require('path');
@@ -28,46 +28,61 @@ assert(managerCode.includes('Sincronização não identificada'),'fallback sem t
 assert(read('app/context/GameContext.tsx').includes('lastImportAt') && read('app/context/GameContext.tsx').includes('updatedAt'),'GameContext expõe timestamps');
 assert(read('app/lib/db.ts').includes('updated_at') && read('app/lib/db.ts').includes('last_import_at'),'db retorna timestamps');
 
-// Desacoplamento
-console.log('\n=== Desacoplamento menu/office ===');
-assert(!managerCode.includes('if (!menuData || !officeData)'),'bloqueio global removido');
-// F1 tinha blocos inline, F2 extraiu para componentes ManagerHero/RaceStatusStrip mas mantém lógica desacoplada
-const hasInlineBlocks = managerCode.includes('!menuData ?') && managerCode.includes('!officeData ?');
-const hasComponentBlocks = managerCode.includes('ManagerHero') && managerCode.includes('RaceStatusStrip');
-assert(hasInlineBlocks || hasComponentBlocks,'blocos independentes (inline ou componentes)');
-assert(managerCode.includes('getMenuEmptyState') && managerCode.includes('getOfficeEmptyState'),'empty states específicos');
-assert(managerCode.includes('Ambas') || managerCode.includes('!menuData && !officeData'),'banner ambos ausentes');
+// Onboarding sem dados (primeiro acesso)
+console.log('\n=== Onboarding sem dados ===');
+assert(managerCode.includes('Bem-vindo ao Lobo Alfa'),'onboarding título Bem-vindo ao Lobo Alfa');
+assert(managerCode.includes('CONFIGURAR MINHA INTEGRAÇÃO') || managerCode.includes('Configurar minha integração'),'onboarding CTA CONFIGURAR MINHA INTEGRAÇÃO');
+assert(managerCode.includes('/dashboard/configuracoes/integracao'),'onboarding rota /dashboard/configuracoes/integracao');
+assert(managerCode.includes('lastImportAt') && managerCode.includes('hasData'),'onboarding usa hasData');
+assert(managerCode.includes('lastImportAt || (menuData && officeData)') || managerCode.includes('lastImportAt || (menuData && officeData)') ,'hasData baseada em lastImportAt || (menuData && officeData)');
+assert(managerCode.includes('O Alfa reúne suas ferramentas'),'onboarding texto spec');
+assert(managerCode.includes('Para começar, conecte sua conta do GPRO'),'onboarding orientação spec');
 
-// Mensagens token
-console.log('\n=== Mensagens ===');
-assert(managerCode.includes('Configure sua integração GPRO'),'msg token ausente');
-assert(managerCode.includes('Revise seu token'),'msg token inválido');
-assert(managerCode.includes('Não foi possível atualizar este bloco'),'msg erro temporário');
-assert(managerCode.includes('ainda não recebeu dados'),'msg não sincronizado');
-// Sanitização: deve filtrar gpro_token mas não expor
-assert(managerCode.includes("gpro_token") && managerCode.includes('Erro na integração'), 'sanitização token sem exposição');
+// Dashboard com dados — nova hierarquia
+console.log('\n=== Dashboard com dados — hierarquia ===');
+assert(managerCode.includes('NextRaceHero'),'dashboard contém NextRaceHero');
+assert(managerCode.includes('TeamStateGroup'),'dashboard contém TeamStateGroup');
+assert(managerCode.includes('QuickShortcuts'),'dashboard contém QuickShortcuts');
+assert(read('app/dashboard/manager/components/NextRaceHero.tsx').includes('Próxima Corrida'),'NextRaceHero renderiza Próxima Corrida');
+assert(read('app/dashboard/manager/components/TeamStateGroup.tsx').includes('Piloto') && read('app/dashboard/manager/components/TeamStateGroup.tsx').includes('Carro'),'TeamStateGroup agrupa Piloto+Carro');
+assert(read('app/dashboard/manager/components/TeamStateGroup.tsx').includes('Equipe Técnica') || read('app/dashboard/manager/components/TeamStateGroup.tsx').includes('Staff'),'TeamStateGroup agrupa Staff/TD');
+assert(read('app/dashboard/manager/components/QuickShortcuts.tsx').includes('/dashboard/setup'),'QuickShortcuts contém Setup');
+assert(managerCode.includes("from './components/NextRaceHero'") && managerCode.includes("from './components/TeamStateGroup'") && managerCode.includes("from './components/QuickShortcuts'"),'manager importa 3 novos componentes');
 
-// Retry granular
-console.log('\n=== Retry ===');
-assert(managerCode.includes('handleSync') && managerCode.includes('disabled={isSyncing}'),'retry impede múltiplos cliques');
-// F1: aria-label no page, F2: no EmptyState/RaceStatusStrip
-const retryInPage = managerCode.includes('aria-label="Sincronizar bloco');
-const retryInComponents = read('app/dashboard/manager/components/EmptyState.tsx').includes('aria-label') || read('app/dashboard/manager/components/RaceStatusStrip.tsx').includes('aria-label');
-assert(retryInPage || retryInComponents,'retry granular por bloco');
+// Elementos antigos removidos
+console.log('\n=== Elementos antigos removidos ===');
+assert(!managerCode.includes('SyncBanner'),'SyncBanner removido do manager');
+assert(!managerCode.includes("from './components/SyncBanner'"),'import SyncBanner removido');
+assert(!managerCode.includes("from './components/EmptyState'"),'import EmptyState removido');
+assert(!managerCode.includes('getMenuEmptyState') && !managerCode.includes('getOfficeEmptyState'),'get*EmptyState removidos');
+assert(!managerCode.includes("!menuData && !officeData") || managerCode.includes('hasData'),'banner antigo !menuData&&!officeData removido (substituído por hasData)');
+
+// 6 atalhos
+console.log('\n=== Atalhos 6 rotas ===');
+const qs = read('app/dashboard/manager/components/QuickShortcuts.tsx');
+assert(qs.includes('/dashboard/setup'),'atalho Setup → /dashboard/setup');
+assert(qs.includes('/dashboard/strategy'),'atalho Estratégia → /dashboard/strategy');
+assert(qs.includes('/dashboard/tests'),'atalho Testes → /dashboard/tests');
+assert(qs.includes('/dashboard/calendar'),'atalho Calendário → /dashboard/calendar');
+assert(qs.includes('/dashboard/configuracoes/integracao'),'atalho Integração → /dashboard/configuracoes/integracao');
+assert(qs.includes('/dashboard/market'),'atalho Mercado → /dashboard/market');
+
+// Sanitização token (mantido)
+console.log('\n=== Sanitização ===');
+assert(managerCode.includes("gpro_token") && managerCode.includes('Erro na integração'),'sanitização token sem exposição');
 
 // A11y
 console.log('\n=== A11y ===');
-assert(managerCode.includes('aria-live="polite"') || read('app/dashboard/manager/components/EmptyState.tsx').includes('aria-live'),'aria-live');
+assert(managerCode.includes('aria-live="polite"'),'aria-live');
 assert(managerCode.includes('aria-busy'),'aria-busy');
-const avatarInPage = managerCode.includes('aria-label="Alterar avatar');
 const avatarInHero = read('app/dashboard/manager/components/ManagerHero.tsx').includes('aria-label="Alterar avatar');
-assert(avatarInPage || avatarInHero, 'avatar aria-label');
+assert(avatarInHero, 'avatar aria-label em ManagerHero');
 assert(managerCode.includes('focus-visible:ring'),'foco visível');
 
 // Staff calc import
 console.log('\n=== Staff import ===');
 assert(read('app/lib/staff.ts').includes('calcStaffLevel'),'staff.ts existe');
-assert(managerCode.includes("from '@/app/lib/staff'"),'manager importa staff');
+assert(read('app/dashboard/manager/components/TeamStateGroup.tsx').includes('calcStaffLevel') || managerCode.includes("from '@/app/lib/staff'"),'TeamStateGroup ou manager importa staff');
 
 // Build check handled separately
 console.log('\n=== ALFA-006.1 ok ===');

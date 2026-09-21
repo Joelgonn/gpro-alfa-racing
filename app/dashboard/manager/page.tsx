@@ -16,13 +16,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TRACK_FLAGS } from '@/app/lib/tracks';
 import { calcStaffLevel } from '@/app/lib/staff';
 import { ManagerHero } from './components/ManagerHero';
-import { RaceStatusStrip } from './components/RaceStatusStrip';
-import { DriverSummary } from './components/DriverSummary';
-import { CarHealthCard } from './components/CarHealth';
-import { TechDirectorCard } from './components/TechDirectorCard';
-import { StaffCard } from './components/StaffCard';
-import { EmptyState } from './components/EmptyState';
-import { SyncBanner } from './components/SyncBanner';
+import { NextRaceHero } from './components/NextRaceHero';
+import { TeamStateGroup } from './components/TeamStateGroup';
+import { QuickShortcuts } from './components/QuickShortcuts';
 import { ToastProvider, useToast } from './components/feedback';
 
 // ============================================
@@ -318,35 +314,47 @@ function ManagerContent() {
   // ✅ Loading
   if (isGlobalLoading) {
     return (
-      <div className="flex flex-col h-[100dvh] items-center justify-center bg-[#030712] text-emerald-400 font-sans text-xs gap-4">
+      <div className="flex flex-col h-[100dvh] items-center justify-center bg-white text-emerald-600 font-sans text-xs gap-4">
         <div className="relative">
-          <div className="w-16 h-16 border-2 border-emerald-500/20 rounded-full absolute"></div>
-          <Loader2 className="animate-spin w-8 h-8 text-emerald-400" />
+          <div className="w-16 h-16 border-2 border-emerald-500/10 rounded-full absolute"></div>
+          <Loader2 className="animate-spin w-8 h-8 text-emerald-500" />
         </div>
-        <span className="animate-pulse tracking-widest text-emerald-300 font-bold">CARREGANDO PERFIL...</span>
+        <span className="animate-pulse tracking-widest text-emerald-600 font-bold">CARREGANDO PERFIL...</span>
       </div>
     );
   }
 
-  // Helpers para mensagens específicas por estado (sem expor token)
-  const getMenuEmptyState = () => {
-    if (syncStatus === 'error' && syncError) {
-      if (syncError.toLowerCase().includes('token não encontrado') || syncError.toLowerCase().includes('integração não configurada')) return { title: 'Configure sua integração GPRO para carregar os dados da equipe.', action: 'Configurar Integração', href: '/dashboard/configuracoes/integracao' };
-      if (syncError.toLowerCase().includes('inválido') || syncError.toLowerCase().includes('expirou')) return { title: 'Não foi possível autenticar na GPRO. Revise seu token.', action: 'Revisar token', href: '/dashboard/configuracoes/integracao' };
-      return { title: 'Não foi possível atualizar este bloco agora.', action: 'Tentar novamente' };
-    }
-    if (isSyncing) return { title: 'Sincronizando dados da equipe...', action: null };
-    return { title: 'Este módulo ainda não recebeu dados da GPRO.', action: 'Sincronizar Agora' };
-  };
-  const getOfficeEmptyState = () => {
-    if (syncStatus === 'error' && syncError) {
-      if (syncError.toLowerCase().includes('token não encontrado') || syncError.toLowerCase().includes('integração não configurada')) return { title: 'Configure sua integração GPRO para carregar a próxima corrida.', action: 'Configurar Integração', href: '/dashboard/configuracoes/integracao' };
-      if (syncError.toLowerCase().includes('inválido') || syncError.toLowerCase().includes('expirou')) return { title: 'Não foi possível autenticar na GPRO. Revise seu token.', action: 'Revisar token', href: '/dashboard/configuracoes/integracao' };
-      return { title: 'Não foi possível atualizar este bloco agora.', action: 'Tentar novamente' };
-    }
-    if (isSyncing) return { title: 'Sincronizando dados de corrida...', action: null };
-    return { title: 'Este módulo ainda não recebeu dados da GPRO.', action: 'Sincronizar Agora' };
-  };
+  // Primeiro acesso: sem dados sincronizados (lastImportAt é o critério canónico; fallback menuData/officeData)
+  const hasData = !!(lastImportAt || (menuData && officeData));
+  if (!hasData) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center bg-white px-4 py-10">
+        <div className="w-full max-w-xl rounded-[24px] border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            Lobo Alfa
+          </div>
+          <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Bem-vindo ao Lobo Alfa</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            O Alfa reúne suas ferramentas de estratégia, setup, planejamento e análise do GPRO em um único lugar.
+          </p>
+          <p className="mt-3 text-sm font-bold text-slate-900">Para começar, conecte sua conta do GPRO.</p>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/configuracoes/integracao')}
+            className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:w-auto"
+          >
+            Configurar minha integração
+          </button>
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+            Você precisará do seu token da API do GPRO para concluir esta etapa.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+
 
   // ✅ Decode nomes
   const decodedFirstName = decodeText(manager.firstName);
@@ -355,17 +363,17 @@ function ManagerContent() {
   const decodedNationalityName = decodeText(driver.nationalityName);
 
   return (
-    <div className="min-h-screen bg-[#030712] text-zinc-100 font-sans pb-24 md:pb-12 selection:bg-yellow-500/20 selection:text-yellow-900 relative overflow-x-hidden">
+    <div className="min-h-screen bg-white text-slate-900 font-sans pb-24 md:pb-12 selection:bg-yellow-500/20 selection:text-yellow-900 relative overflow-x-hidden">
       
-      {/* GLOWS - reduzido para performance WebView */}
+      {/* GLOWS sutis claros */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-30%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.06] blur-[80px] rounded-full" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-600/[0.04] blur-[80px] rounded-full" />
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/[0.04] blur-[80px] rounded-full" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/[0.03] blur-[80px] rounded-full" />
       </div>
 
       {/* HEADER - SEM SELETOR DE PISTA */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/10 bg-[#0a0f1f]/80 p-3 sm:p-4 relative shadow-sm transition-shadow duration-300">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-emerald-500/[0.02] pointer-events-none" />
+      <header className="sticky top-0 z-40 backdrop-blur-xl border-b border-slate-200 bg-white/90 p-3 sm:p-4 relative shadow-sm transition-shadow duration-300">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/[0.02] via-transparent to-amber-500/[0.02] pointer-events-none" />
         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 lg:gap-4 relative z-10">
           
           <div className="flex items-center gap-3">
@@ -373,7 +381,7 @@ function ManagerContent() {
               <User size={14} className="sm:w-4 sm:h-4 text-white" />
             </div>
             <div className="flex flex-col text-left">
-              <h1 className="text-[10px] sm:text-[11px] font-black text-white uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
+              <h1 className="text-[10px] sm:text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5 flex items-center gap-2">
                 Perfil do Manager
                 <span className="text-[10px] sm:text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-black">PRO</span>
               </h1>
@@ -390,7 +398,7 @@ function ManagerContent() {
                 <span className="text-[8px] sm:text-[10px] font-bold text-emerald-600">CONECTADO</span>
               </div>
               
-              <div className="text-right border-l border-white/10 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
+              <div className="text-right border-l border-slate-200 pl-3 sm:pl-4 shrink-0 flex flex-col justify-center">
                 <p className="text-[10px] sm:text-[8px] text-slate-400 uppercase font-black tracking-widest leading-none mb-0.5 sm:mb-1">Última Sinc.</p>
                 <p className="text-xs sm:text-sm font-black text-emerald-600 leading-none" aria-live="polite" aria-atomic="true">
                   {formatTimeAgo(lastUpdatedReal)}
@@ -402,25 +410,11 @@ function ManagerContent() {
       </header>
 
       <div className="p-4 max-w-[1600px] mx-auto space-y-5 animate-fadeIn relative z-10" aria-busy={isSyncing}>
-        {/* Status global sincronização - aria-live */}
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {isSyncing ? 'Sincronizando dados com GPRO' : syncStatus === 'success' ? 'Sincronização concluída' : syncStatus === 'error' && syncError ? `Erro: ${syncError}` : ''}
         </div>
-        {/* Banner integrado quando ambos ausentes - diferencia estados */}
-        {(!menuData && !officeData) && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center" role="status" aria-live="polite">
-            <p className="text-sm font-black text-amber-800">{syncStatus === 'error' && syncError ? syncError : isSyncing ? 'Sincronizando dados da GPRO...' : 'Este módulo ainda não recebeu dados da GPRO. Configure sua integração e sincronize.'}</p>
-            <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-center">
-              <button onClick={handleSync} disabled={isSyncing} aria-label="Sincronizar dados da GPRO" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-                {isSyncing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Zap size={14} aria-hidden />} {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
-              </button>
-              <a href="/dashboard/configuracoes/integracao" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white border border-white/10 px-6 text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Configurar Integração</a>
-            </div>
-            {(!menuData || !officeData) && <p className="mt-2 text-xs font-bold text-amber-700">Algumas informações estão disponíveis. Tente atualizar os módulos pendentes.</p>}
-          </div>
-        )}
-        
-        {/* HERO - Gerente + Piloto */}
+
+        {/* HERO — identidade Gerente (compacto) */}
         <ManagerHero
           manager={manager}
           driver={driver}
@@ -436,32 +430,32 @@ function ManagerContent() {
         />
         <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} accept="image/*" className="hidden" aria-hidden />
 
-                {/* RACE STATUS STRIP - Campeonato | Próxima | Clima */}
-        <RaceStatusStrip
-          championship={championship}
-          nextRace={nextRace}
+        {/* PRÓXIMA CORRIDA — hero principal */}
+        <NextRaceHero
+          track={nextRace.track}
+          season={nextRace.season}
+          race={nextRace.race}
+          donePractice={nextRace.donePractice}
+          doneQ1={nextRace.doneQ1}
+          doneQ2={nextRace.doneQ2}
           weather={weather}
-          getFlagUrlTrack={(n)=> TRACK_FLAGS[n] ? "/flags/"+TRACK_FLAGS[n]+".png" : null}
-          officeData={officeData}
-          getOfficeEmptyState={getOfficeEmptyState}
-          isSyncing={isSyncing}
-          onSync={handleSync}
+          getFlagUrlTrack={(n) => (TRACK_FLAGS[n] ? `/flags/${TRACK_FLAGS[n]}.png` : null)}
+          hasOffice={!!officeData}
         />
 
-                {/* RESUMO PILOTO + CARRO */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <DriverSummary driver={driver} />
-          <CarHealthCard car={car} />
-        </div>
+        {/* ESTADO DA EQUIPE — piloto + carro + técnico agrupados */}
+        <TeamStateGroup
+          driver={{ ...driver, talento: driver.talento, concentracao: driver.concentracao, experiencia: driver.experiencia, energia: driver.energia, overall: driver.overall, name: decodedDriverName }}
+          car={car}
+          techDirector={techDirector}
+          staffFacilities={staffFacilities}
+        />
 
-                {/* TECH DIRECTOR + STAFF */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TechDirectorCard techDirector={techDirector} />
-          <StaffCard staffFacilities={staffFacilities} />
-        </div>
+        {/* ATALHOS */}
+        <QuickShortcuts />
 
                 {/* FOOTER */}
-        <div className="text-center text-[9px] font-mono text-slate-400 space-y-1 pt-4 border-t border-white/10/50" role="contentinfo" aria-live="polite">
+        <div className="text-center text-[9px] font-mono text-slate-500 space-y-1 pt-4 border-t border-slate-200" role="contentinfo" aria-live="polite">
           <p>ÚLTIMA SINCRONIZAÇÃO EM {lastUpdatedReal ? new Date(lastUpdatedReal).toLocaleString() : 'Sincronização não identificada'}</p>
           <p className="tracking-widest font-black">SISTEMA INTEGRADO v2.1.0</p>
         </div>
