@@ -16,6 +16,7 @@ export default function IntegracaoGPRO() {
   const router = useRouter();
   const [token, setToken] = useState('');
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -127,16 +128,18 @@ export default function IntegracaoGPRO() {
 
   const saveToken = async () => {
     if (!userId) return;
-    
+    if (saving || syncing) return;
+
     // Se o campo mostra placeholder, não salvar placeholder
     if (token.includes('•')) {
       setError('Digite um novo token para atualizar');
       return;
     }
-    
+
     setSaving(true);
+    setSyncing(false);
     setError(null);
-    
+
     try {
       const res = await fetch('/api/gpro/token', {
         method: 'POST',
@@ -145,14 +148,41 @@ export default function IntegracaoGPRO() {
       });
       const payload = await res.json();
       if (!res.ok || !payload.success) throw new Error(payload.error || 'Falha ao salvar token');
-      setSaved(true);
       setCharCount(token.length);
-      setTimeout(() => setSaved(false), 4000);
+
+      // Primeiro sync automático (reutiliza POST /api/gpro/sync canónico)
+      setSaving(false);
+      setSyncing(true);
+      try {
+        const syncRes = await fetch('/api/gpro/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+        const syncPayload = await syncRes.json().catch(() => ({}));
+        if (!syncRes.ok) {
+          const msg = syncPayload?.error || `Falha na sincronização (${syncRes.status})`;
+          if (msg.toLowerCase().includes('inválido') || msg.toLowerCase().includes('expirou')) throw new Error('O token GPRO é inválido ou expirou. Atualize a integração.');
+          if (syncRes.status === 404 && msg.toLowerCase().includes('token')) throw new Error('Integração não configurada. Verifique o token.');
+          throw new Error(msg);
+        }
+        if (!syncPayload.success) throw new Error(syncPayload.error || 'Erro na sincronização');
+        setSaved(true);
+        setTimeout(() => {
+          setSaved(false);
+          router.push('/dashboard/manager');
+        }, 1200);
+      } catch (syncErr: any) {
+        // Token salvo mas sync falhou → permanecer em Integração com erro acionável
+        setError(syncErr.message || 'Erro ao sincronizar. Tente novamente.');
+      } finally {
+        setSyncing(false);
+      }
     } catch (e: any) {
       // Nunca logar token
       setError(e.message || 'Erro ao salvar token');
-    } finally {
       setSaving(false);
+      setSyncing(false);
     }
   };
 
@@ -289,22 +319,23 @@ export default function IntegracaoGPRO() {
             </motion.div>
           </div>
           
-          {/* Descrição com ícones */}
+          {/* Descrição com passos numerados */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="flex items-start gap-3 mb-6 bg-gradient-to-r from-amber-50/30 to-emerald-50/30 p-4 rounded-xl border border-amber-200/20"
+            className="mb-6 bg-gradient-to-r from-amber-50/30 to-emerald-50/30 p-4 rounded-xl border border-amber-200/20"
           >
-            <Shield size={16} className="text-amber-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-slate-600 text-[11px] leading-relaxed font-bold">
-                Insira seu token de API do GPRO para importar dados automaticamente.
-              </p>
-              <p className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
-                <Lock size={10} /> O token será armazenado com segurança e usado apenas para sincronização.
-              </p>
-            </div>
+            <p className="text-slate-800 text-[11px] font-black leading-relaxed">Conecte sua conta do GPRO</p>
+            <ol className="mt-2 list-decimal list-inside space-y-1 text-[11px] font-bold text-slate-600">
+              <li>Entre na sua conta do GPRO.</li>
+              <li>Gere ou copie sua API/token na área de integração do GPRO.</li>
+              <li>Cole o token no campo abaixo.</li>
+              <li>Clique em Salvar — validaremos e carregaremos seus dados automaticamente.</li>
+            </ol>
+            <p className="text-[9px] text-slate-400 font-bold mt-2 flex items-center gap-1">
+              <Lock size={10} /> O token será armazenado com segurança e usado apenas para sincronização.
+            </p>
           </motion.div>
           
           {/* Input do Token com visual premium */}
@@ -374,15 +405,16 @@ export default function IntegracaoGPRO() {
               )}
             </AnimatePresence>
             
-            {/* Botão Salvar com animações */}
+            {/* Botão Salvar com estados saving/syncing */}
             <motion.button
-              whileHover={!saving && !saved ? { scale: 1.01 } : {}}
-              whileTap={!saving && !saved ? { scale: 0.98 } : {}}
+              whileHover={!saving && !syncing && !saved ? { scale: 1.01 } : {}}
+              whileTap={!saving && !syncing && !saved ? { scale: 0.98 } : {}}
               onClick={saveToken}
-              disabled={saving}
+              disabled={saving || syncing}
+              aria-busy={saving || syncing}
               className={`
                 flex items-center justify-center gap-2 w-full rounded-xl py-3.5 font-black text-xs uppercase tracking-widest transition-all duration-500 relative overflow-hidden shadow-md
-                ${saving 
+                ${saving || syncing
                   ? 'bg-slate-100 text-slate-400 border border-slate-200/50 cursor-not-allowed' 
                   : saved
                     ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 border border-emerald-400 text-white shadow-lg shadow-emerald-500/20'
@@ -391,7 +423,7 @@ export default function IntegracaoGPRO() {
               `}
             >
               {/* Brilho no hover */}
-              {!saving && !saved && (
+              {!saving && !syncing && !saved && (
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               )}
               
@@ -399,6 +431,11 @@ export default function IntegracaoGPRO() {
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   <span>Salvando...</span>
+                </>
+              ) : syncing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Sincronizando dados do GPRO...</span>
                 </>
               ) : saved ? (
                 <>
@@ -409,12 +446,12 @@ export default function IntegracaoGPRO() {
                   >
                     <CheckCircle size={18} />
                   </motion.div>
-                  <span>Token Salvo com Sucesso!</span>
+                  <span>Dados carregados com sucesso!</span>
                 </>
               ) : (
                 <>
                   <Save size={16} />
-                  <span>Salvar Token</span>
+                  <span>Salvar</span>
                   <Zap size={12} className="opacity-70" />
                 </>
               )}
@@ -445,7 +482,7 @@ export default function IntegracaoGPRO() {
             
             <p className="text-[10px] text-slate-400 text-center font-bold mt-3 flex items-center justify-center gap-1.5">
               <Rocket size={10} className="text-amber-400" />
-              Após salvar o token, volte ao Dashboard e clique em <span className="text-amber-500">GPRO SYNC</span> para importar os dados.
+              Ao clicar em Salvar, seus dados serão carregados automaticamente.
               <Rocket size={10} className="text-amber-400" />
             </p>
           </motion.div>
