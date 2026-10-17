@@ -28,6 +28,7 @@ export const TRACK_FLAGS: Record<string, string> = {
   "Fiorano": "it",
   "Fuji": "jp",
   "Grobnik": "hr",
+  "Hanoi": "vn",
   "Hockenheim": "de",
   "Hungaroring": "hu",
   "Imola": "sm",

@@ -1,0 +1,58 @@
+BACKUP VERIFICAVEL - Fase 2 (reconhecimento Hanoi)
+==================================================
+
+Baseline (antes do patch da Fase 2)
+-----------------------------------
+arquivo    = data/calculadora.backup-20261017-hanoi.xlsx
+sha256     = 81eccfe83e953cf078bb611344423f9cf10b7c3a2047f8aab15b353a8d5fb3e3
+bytes      = 1639284
+nota       = data/calculadora.backup-20261017-hanoi.sha256.txt (nota original, preservada)
+
+Estado apos o patch da Fase 2
+-----------------------------
+arquivo    = data/calculadora.xlsx
+sha256     = e87d9cdb6694d87906ade646b29c8ea64247bfecfec20c73504a35d63ba86059
+bytes      = 1308982
+
+Alteracoes aplicadas na planilha (4, todas em XML interno; ZIP reempacotado)
+----------------------------------------------------------------------------
+1. xl/worksheets/sheet5.xml (Tracks)
+   <c r="Y68" s="585"/>  ->  <c r="Y68" s="585"><v>37</v></c>
+   Tracks!Y68 = 37 — WS Base provisorio (coluna Y, "WS (25)", PROCV indice 25)
+
+2. xl/worksheets/sheet2.xml (Tyre&Fuel)
+   Tyre&Fuel!D15: ramo "Rain" do VLOOKUP
+   Tracks!A4:AQ67,29,0  ->  Tracks!A4:AQ68,29,0
+
+3. xl/worksheets/sheet8.xml (RaceHistory)
+   Tracks!$A$4:$Q$67  ->  Tracks!$A$4:$Q$68   (315 ocorrencias)
+
+4. xl/worksheets/sheet7.xml (Planejamento)
+   dataValidation de lista (17 celulas de toggle "Teste?") sem <formula1>
+   -> restaurado <formula1>Yesno</formula1>
+
+Preservado sem alteracao
+------------------------
+- Tracks!S68 = 194.32 (Wings base, coluna S, PROCV indice 19) — intacta
+- Linhas 4..67 da aba Tracks (as 64 pistas anteriores) — identicas ao backup
+- Todos os intervalos que ja cobriam a linha 68 — nao ampliados
+- 32 das 36 entradas do ZIP — CONTEUDO DESCOMPACTADO identico ao backup.
+  O arquivo foi reempacotado, portanto os bytes comprimidos do ZIP podem
+  diferir em todas as 36 entradas, inclusive nas 32 inalteradas.
+
+Verificacao de escopo
+---------------------
+Reverter as 4 edicoes no arquivo novo reproduz, byte a byte, o CONTEUDO
+DESCOMPACTADO das 4 entradas alteradas; as outras 32 entradas tem o mesmo
+SHA256 do conteudo descompactado. Os fluxos comprimidos do ZIP nao sao
+identicos: o reempacotamento (mesmas 36 entradas, mesma ordem e nomes)
+reduziu o arquivo de 1639284 para 1308982 bytes.
+
+Restaurar o baseline
+--------------------
+copiar data/calculadora.backup-20261017-hanoi.xlsx sobre data/calculadora.xlsx
+
+Reaplicar o patch
+-----------------
+pwsh -File scripts/hanoi-fase2-patch-xlsx.ps1 -DryRun   (verifica contagens)
+pwsh -File scripts/hanoi-fase2-patch-xlsx.ps1           (aplica)

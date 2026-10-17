@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
+import fs from 'fs/promises';
 import { HyperFormula } from 'hyperformula';
 import ExcelJS from 'exceljs';
 import { Mutex } from 'async-mutex';
@@ -117,6 +118,29 @@ let sheetIdMap: Record<string, number> = {};
 let loadingPromise: Promise<any> | null = null;
 const calculationMutex = new Mutex();
 
+// Fase 2 (reconhecimento Hanoi) — invalidação do cache do motor.
+// O singleton do HyperFormula era construído uma única vez por processo. Como a
+// planilha é atualizada fora do processo (data/calculadora.xlsx), um servidor já
+// aquecido continuava servindo o workbook antigo: pistas novas não apareciam em
+// `tracks`/`tyre_suppliers` e os VLOOKUP da pista nova retornavam #N/A até reiniciar.
+// Correção mínima: guardar a impressão digital do arquivo (tamanho + mtime) e
+// reconstruir o motor apenas quando a planilha realmente muda.
+const WORKBOOK_PATH = path.join(process.cwd(), 'data', 'calculadora.xlsx');
+let hfSourceFingerprint: string | null = null; // impressão digital do workbook já carregado
+let loadingFingerprint: string | null = null;  // impressão digital do workbook em carregamento
+
+// `null` = impressão digital desconhecida (falha ao consultar o arquivo).
+// Deve ser tratada como "não sei se mudou", NUNCA como "mudou": uma falha
+// transitória de fs.stat não pode descartar um engine válido em memória.
+async function getWorkbookFingerprint(): Promise<string | null> {
+    try {
+        const stats = await fs.stat(WORKBOOK_PATH);
+        return `${stats.size}:${stats.mtimeMs}`;
+    } catch {
+        return null;
+    }
+}
+
 // --- HELPERS ---
 const colToInt = (colStr: string): number => {
     let col = 0;
@@ -160,17 +184,27 @@ function getPlanningCoordinates(slotIndex: number): { rowHeader: number; rowBody
 
 // --- MOTOR DE EXCEL ---
 async function getHyperFormulaInstance() {
-    if (hfInstance && sheetIdMap[CELLS.MAIN_SHEET] !== undefined) {
+    const fingerprint = await getWorkbookFingerprint();
+
+    // Engine pronto e correspondente à planilha atual
+    // (fingerprint desconhecida → mantém o engine em memória)
+    if (hfInstance && sheetIdMap[CELLS.MAIN_SHEET] !== undefined &&
+        (fingerprint === null || hfSourceFingerprint === fingerprint)) {
         return { hf: hfInstance, mainSheetId: sheetIdMap[CELLS.MAIN_SHEET], sheetIdMap };
     }
 
-    if (loadingPromise) return loadingPromise;
+    // Um carregamento para esta mesma planilha já está em andamento (single-flight)
+    if (loadingPromise && (fingerprint === null || loadingFingerprint === fingerprint)) return loadingPromise;
+
+    // Planilha alterada (ou primeira carga): descarta o estado do workbook antigo
+    hfInstance = null;
+    sheetIdMap = {};
+    loadingFingerprint = fingerprint;
 
     loadingPromise = (async () => {
         console.log("Iniciando carregamento do Excel...");
         const workbook = new ExcelJS.Workbook();
-        const filePath = path.join(process.cwd(), 'data', 'calculadora.xlsx');
-        await workbook.xlsx.readFile(filePath);
+        await workbook.xlsx.readFile(WORKBOOK_PATH);
 
         const sheetsContent: Record<string, any[][]> = {};
 
@@ -248,6 +282,7 @@ async function getHyperFormulaInstance() {
 
         console.log("Engine Pronto.");
         hfInstance = hf;
+        hfSourceFingerprint = fingerprint;
         return { hf, mainSheetId: sheetIdMap[CELLS.MAIN_SHEET], sheetIdMap };
     })();
 
