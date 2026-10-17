@@ -126,6 +126,54 @@ export async function saveSnapshot(data: GproSnapshotPayload): Promise<string> {
   return persistSnapshot(data);
 }
 
+export interface LatestSnapshot {
+  id: string;
+  endpoint: string;
+  season: number | null;
+  race: number | null;
+  payload: GproSnapshotPayload['payload'];
+  createdAt: string;
+}
+
+/**
+ * Lê o snapshot mais recente de um endpoint para um usuário.
+ *
+ * Operação somente-leitura: NÃO dispara nenhuma chamada à API GPRO.
+ * Retorna null quando não houver snapshot ou em caso de erro de leitura
+ * (erros de leitura são não fatais para o fluxo do chamador).
+ */
+export async function getLatestSnapshot(
+  userId: string,
+  endpoint: string
+): Promise<LatestSnapshot | null> {
+  const { data, error } = await supabase
+    .from('gpro_import_snapshots')
+    .select('id, endpoint, season, race, payload, created_at')
+    .eq('user_id', userId)
+    .eq('endpoint', endpoint)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`Erro ao ler último snapshot ${endpoint}:`, error);
+    return null;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    endpoint: data.endpoint,
+    season: data.season ?? null,
+    race: data.race ?? null,
+    payload: data.payload,
+    createdAt: data.created_at,
+  };
+}
+
 /**
  * Salva múltiplos snapshots em BULK (uma única requisição)
  * MUITO mais rápido que inserts individuais

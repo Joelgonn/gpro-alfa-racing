@@ -1,47 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveSnapshots } from '@/app/lib/gpro-snapshot';
+import { saveSnapshots, saveSnapshot, getLatestSnapshot } from '@/app/lib/gpro-snapshot';
+import { fetchGproJson, type GproJson } from '@/app/lib/gpro-gateway';
+import { mapTesting } from '@/app/lib/gpro-testing';
+import {
+  MAX_SPONSOR_ENRICHMENTS_PER_SYNC,
+  indexExistingSponsors,
+  selectSponsorsForEnrichment,
+  shouldRefreshAvailSponsors,
+  buildSponsorRow,
+  type ExistingSponsor,
+  type GproSponsor,
+  type GproSponsorDetail,
+} from '@/app/lib/gpro-sponsors';
 import type { Capture } from '@/app/lib/capture';
-import { requireAuth, resolveUserId } from '@/app/lib/auth';
+import { acquireAvailSponsorsClaim, releaseAvailSponsorsClaim } from '@/app/lib/gpro-sync-claim';
+import { resolveUserId } from '@/app/lib/auth';
 // PIX-015 — autorização centralizada (import GPRO é recurso Premium)
 import { guardPremiumApi } from '@/app/lib/access/authorization';
 import { supabaseAdmin } from '@/app/lib/supabase-admin';
 import { getGproToken } from '@/app/lib/gpro-token';
-
-const GPRO_LANG = 'br';
-const GPRO_API_BASE = 'https://gpro.net';
-
-type GproJson = Record<string, any>;
-
-// ============================================
-// HELPERS DE REQUISIÇÃO GPRO
-// ============================================
-
-async function fetchGproJson(path: string, token: string): Promise<GproJson> {
-  const response = await fetch(`${GPRO_API_BASE}/${GPRO_LANG}/backend/api/v2/${path}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
-    cache: 'no-store',
-  });
-
-  const contentType = response.headers.get('content-type') || '';
-  const payload = contentType.includes('application/json') ? await response.json() : await response.text();
-
-  if (!response.ok) {
-    const message = typeof payload === 'string' 
-      ? payload 
-      : payload?.errorMsg || payload?.message || payload?.error || `GPRO ${path} retornou ${response.status}`;
-    throw new Error(message);
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    throw new Error(`Resposta inválida do endpoint GPRO ${path}`);
-  }
-
-  return payload;
-}
 
 // ============================================
 // MAPEADORES DE DADOS GPRO - ENRIQUECIMENTO
@@ -344,21 +321,6 @@ function mapTestPoints(data: GproJson | null) {
   };
 }
 
-// ========== TESTING (Testing) ==========
-function mapTesting(data: GproJson | null) {
-  if (!data) return null;
-
-  return {
-    track: String(data.trackName ?? ''),
-    weather: String(
-      data.weatherTransl ??
-      data.weather ??
-      'Dry'
-    ),
-    temp: Number(data.temp ?? 0),
-  };
-}
-
 // ========== STAFF (StaffAndFacilities) ==========
 function mapStaff(data: GproJson) {
   return {
@@ -377,6 +339,19 @@ function getTrackName(data: GproJson): string {
 // ============================================
 
 export async function POST(request: NextRequest) {
+  // ============================================
+  // ALFA-010 - INSTRUMENTAÇÃO DE CONSUMO DE API
+  // ============================================
+  // Declaradas fora do try para permitir log estruturado também em falha.
+  // NUNCA registrar token/headers.
+  const syncStartedAt = Date.now();
+  const syncRunId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const endpointCalls: Record<string, number> = {};
+  let enrichedSponsorsCount = 0;
+  let syncUserId: string | null = null;
+  let syncSeasonRace: { season: number; race: number } | null = null;
+  let apiRequestsRemaining: number | null = null;
+
   try {
     // PIX-015: sincronização com a GPRO exige acesso Premium (free → 403, admin → liberado).
     const denied = await guardPremiumApi();
@@ -384,13 +359,18 @@ export async function POST(request: NextRequest) {
 
     // 1. Autenticação server-side (não confia em userId do cliente)
     let requestedUserId: string | null = null;
+    // ALFA-010: flag opcional para forçar atualização de patrocinadores
+    // (retrocompatível: ausente = comportamento otimizado padrão).
+    let requestedRefreshSponsors = false;
     try {
       const body = await request.clone().json();
       requestedUserId = body.userId || body.user_id || null;
+      requestedRefreshSponsors = body.refreshSponsors === true;
     } catch {
       // body vazio será tratado como sem ID solicitado
     }
     const userId = await resolveUserId(requestedUserId);
+    syncUserId = userId;
 
     // 2. Conexão com Supabase (service role isolado)
     const supabase = supabaseAdmin;
@@ -405,6 +385,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ============================================
+    // ALFA-010 - INSTRUMENTAÇÃO DE CONSUMO DE API
+    // ============================================
+    const gpro = (path: string) => {
+      const endpoint = path.split('?')[0];
+      endpointCalls[endpoint] = (endpointCalls[endpoint] || 0) + 1;
+      return fetchGproJson(path, token);
+    };
+
     // 4. Buscar dados da GPRO em paralelo
     const [
       menuData,
@@ -418,19 +407,19 @@ export async function POST(request: NextRequest) {
       testingData,
       practiceData, // ✅ ADICIONADO - Buscar Practice para os totais
     ] = await Promise.all([
-      fetchGproJson('Menu', token),
-      fetchGproJson('Office', token),
-      fetchGproJson('TrackProfile', token),
-      fetchGproJson('DriProfile', token),
-      fetchGproJson('UpdateCar', token),
-      fetchGproJson('StaffAndFacilities', token),
-      fetchGproJson('TDProfile', token),
-      fetchGproJson('Qualify2', token),
-      fetchGproJson('Testing', token).catch((error) => {
+      gpro('Menu'),
+      gpro('Office'),
+      gpro('TrackProfile'),
+      gpro('DriProfile'),
+      gpro('UpdateCar'),
+      gpro('StaffAndFacilities'),
+      gpro('TDProfile'),
+      gpro('Qualify2'),
+      gpro('Testing').catch((error) => {
         console.warn('⚠️ Endpoint Testing indisponível, continuando sem dados de testes:', error.message);
         return null;
       }),
-      fetchGproJson('Practice', token).catch((error) => {
+      gpro('Practice').catch((error) => {
         console.warn('⚠️ Endpoint Practice indisponível, continuando sem dados de totais:', error.message);
         return null;
       }),
@@ -444,6 +433,10 @@ export async function POST(request: NextRequest) {
       season: Number(officeData.seasonNb ?? 0),
       race: Number(officeData.raceNb ?? 0),
     };
+    syncSeasonRace = seasonRace;
+    apiRequestsRemaining = Number.isFinite(Number(menuData?.apiRequestsRemaining))
+      ? Number(menuData.apiRequestsRemaining)
+      : null;
 
     if (seasonRace.season && seasonRace.race) {
       console.log(`📅 Season ${seasonRace.season}, Race ${seasonRace.race} extraídos do Office`);
@@ -498,73 +491,112 @@ export async function POST(request: NextRequest) {
     // ============================================
     // ALFA-008.14 - SINCRONIZAÇÃO CATÁLOGO PATROCINADORES (NÃO BLOQUEANTE, IDEMPOTENTE)
     // ============================================
+    // ALFA-010 - Otimização de consumo de API GPRO:
+    //   - AvailSponsors: no máximo 1x por corrida (season/race). Fora disso,
+    //     reutiliza o payload do último snapshot (0 chamadas GPRO);
+    //   - exclusão mútua por claim persistente (gpro_sponsor_sync_state)
+    //     evita refresh duplicado sob concorrência; `refreshSponsors` respeita
+    //     o lock (se houver sync em andamento, a execução é adiada);
+    //   - NegotiateSponsor: SOMENTE para patrocinadores sem categoria/país
+    //     persistidos, com limite por sync;
+    //   - valores já existentes nunca são sobrescritos por vazio/null.
     try {
-      const availData = await fetchGproJson('AvailSponsors', token).catch((e) => {
-        console.warn('⚠️ AvailSponsors indisponível:', e.message);
-        return null;
+      // Força explícita (sync manual completo). Retrocompatível: ausente = otimizado.
+      const forceSponsorRefresh = requestedRefreshSponsors === true;
+
+      const lastAvail = await getLatestSnapshot(userId, 'AvailSponsors');
+
+      const shouldRefreshSponsors = shouldRefreshAvailSponsors({
+        lastSeason: lastAvail?.season ?? null,
+        lastRace: lastAvail?.race ?? null,
+        season: seasonRace.season,
+        race: seasonRace.race,
+        force: forceSponsorRefresh,
       });
-      const sponsorsList: any[] = Array.isArray(availData?.sponsors) ? availData.sponsors : [];
+
+      let sponsorsList: GproSponsor[] = [];
+      let sponsorsSyncDeferred = false;
+
+      if (shouldRefreshSponsors) {
+        // ALFA-010 - Exclusão mútua persistente: no máximo UM processo busca
+        // AvailSponsors por (user_id, season, race), mesmo sob concorrência
+        // entre instâncias serverless. O lock é liberado sempre ao final.
+        const claim = await acquireAvailSponsorsClaim(userId, seasonRace.season, seasonRace.race);
+
+        if (claim.status === 'busy') {
+          sponsorsSyncDeferred = true;
+          console.log('⏳ AvailSponsors já em sincronização por outra execução — adiando (0 chamadas GPRO)');
+        } else {
+          try {
+            const availData = await gpro('AvailSponsors').catch((e: unknown) => {
+              console.warn('⚠️ AvailSponsors indisponível:', e instanceof Error ? e.message : e);
+              return null;
+            });
+            sponsorsList = Array.isArray(availData?.sponsors) ? availData.sponsors : [];
+
+            if (availData && sponsorsList.length > 0) {
+              await saveSnapshot({
+                userId,
+                endpoint: 'AvailSponsors',
+                source: 'manager_sync',
+                payload: availData,
+                season: seasonRace.season,
+                race: seasonRace.race,
+              }).catch((e: unknown) => console.warn('⚠️ Falha ao salvar snapshot AvailSponsors:', e instanceof Error ? e.message : e));
+              console.log(`📦 AvailSponsors: ${sponsorsList.length} patrocinadores encontrados`);
+            }
+          } finally {
+            // Em sucesso, a dedup por corrida passa a ser feita pelo snapshot;
+            // em falha/vazio, a liberação permite nova tentativa.
+            await releaseAvailSponsorsClaim(userId, seasonRace.season, seasonRace.race, claim.token);
+          }
+        }
+      } else {
+        // Reutiliza o último snapshot: nenhuma chamada AvailSponsors nesta sync.
+        sponsorsList = Array.isArray(lastAvail?.payload?.sponsors) ? lastAvail.payload.sponsors : [];
+        console.log(`ℹ️ AvailSponsors reutilizado do snapshot (season ${lastAvail?.season}, race ${lastAvail?.race}) — 0 chamadas GPRO`);
+      }
+
       if (sponsorsList.length > 0) {
-        console.log(`📦 AvailSponsors: ${sponsorsList.length} patrocinadores encontrados`);
-        // Enriquecer com NegotiateSponsor quando necessário (categoria/país detalhado) — limitado a 10 para não sobrecarregar
-        const enriched = await Promise.all(
-          sponsorsList.slice(0, 20).map(async (s: any) => {
-            try {
-              const detail = await fetchGproJson(`NegotiateSponsor?id=${s.sponsorId}`, token).catch(() => null);
-              if (detail && detail.category) {
-                return {
-                  sponsor_id: Number(s.sponsorId),
-                  name: String(s.name || detail.name || ''),
-                  country: detail.country || s.natCode || null,
-                  category: detail.category || null,
-                  finances: Number(s.finances ?? detail.finances ?? 0),
-                  expectations: Number(s.expectations ?? detail.expectations ?? 0),
-                  patience: Number(s.patience ?? detail.patience ?? 0),
-                  reputation: Number(s.reputation ?? detail.reputation ?? 0),
-                  image: Number(s.image ?? detail.image ?? 0),
-                  negotiation: Number(s.negotiation ?? detail.negotiation ?? 0),
-                  raw_data: s,
-                  last_sync_at: new Date().toISOString(),
-                };
-              }
-            } catch {}
-            return {
-              sponsor_id: Number(s.sponsorId),
-              name: String(s.name || ''),
-              country: s.natCode || null,
-              category: null,
-              finances: Number(s.finances ?? 0),
-              expectations: Number(s.expectations ?? 0),
-              patience: Number(s.patience ?? 0),
-              reputation: Number(s.reputation ?? 0),
-              image: Number(s.image ?? 0),
-              negotiation: Number(s.negotiation ?? 0),
-              raw_data: s,
-              last_sync_at: new Date().toISOString(),
-            };
+        // Catálogo atual — leitura Supabase (sem custo de API GPRO).
+        const sponsorIds = sponsorsList
+          .map((s) => Number(s?.sponsorId))
+          .filter((id) => Number.isFinite(id));
+
+        const { data: existingRows, error: existingError } = await supabase
+          .from('gpro_sponsors')
+          .select('sponsor_id, name, country, category, finances, expectations, patience, reputation, image, negotiation')
+          .in('sponsor_id', sponsorIds);
+
+        if (existingError) {
+          console.warn('⚠️ Erro ao ler gpro_sponsors (seguindo sem preservar existentes):', existingError.message);
+        }
+
+        const existingById = indexExistingSponsors((existingRows as ExistingSponsor[]) ?? []);
+        const toEnrich = selectSponsorsForEnrichment(sponsorsList, existingById, MAX_SPONSOR_ENRICHMENTS_PER_SYNC);
+
+        const detailsById = new Map<number, GproSponsorDetail>();
+        await Promise.all(
+          toEnrich.map(async (s) => {
+            const detail = await gpro(`NegotiateSponsor?id=${s.sponsorId}`).catch(() => null);
+            if (detail) detailsById.set(Number(s.sponsorId), detail as GproSponsorDetail);
           })
         );
-        // Fallback para demais sem detalhe
-        const remaining = sponsorsList.slice(20).map((s: any) => ({
-          sponsor_id: Number(s.sponsorId),
-          name: String(s.name || ''),
-          country: s.natCode || null,
-          category: null,
-          finances: Number(s.finances ?? 0),
-          expectations: Number(s.expectations ?? 0),
-          patience: Number(s.patience ?? 0),
-          reputation: Number(s.reputation ?? 0),
-          image: Number(s.image ?? 0),
-          negotiation: Number(s.negotiation ?? 0),
-          raw_data: s,
-          last_sync_at: new Date().toISOString(),
-        }));
-        const allSponsors = [...enriched.filter(Boolean), ...remaining].filter((x) => x && x.sponsor_id);
+        enrichedSponsorsCount = toEnrich.length;
+
+        const allSponsors = sponsorsList
+          .map((s) => buildSponsorRow(s, detailsById.get(Number(s.sponsorId)), existingById.get(Number(s.sponsorId))))
+          .filter((row) => Number.isFinite(row.sponsor_id));
+
         if (allSponsors.length > 0) {
-          const { error: upsertError } = await supabase.from('gpro_sponsors').upsert(allSponsors, { onConflict: 'sponsor_id' });
+          const { error: upsertError } = await supabase
+            .from('gpro_sponsors')
+            .upsert(allSponsors, { onConflict: 'sponsor_id' });
           if (upsertError) console.warn('⚠️ Erro ao upsert gpro_sponsors:', upsertError.message);
-          else console.log(`✅ gpro_sponsors upsert ${allSponsors.length} registros`);
+          else console.log(`✅ gpro_sponsors upsert ${allSponsors.length} registros (${enrichedSponsorsCount} enriquecidos nesta sync)`);
         }
+      } else if (sponsorsSyncDeferred) {
+        console.log('ℹ️ Sincronização de patrocinadores adiada (execução concorrente em andamento)');
       } else {
         console.log('ℹ️ AvailSponsors vazio ou indisponível');
       }
@@ -696,6 +728,23 @@ export async function POST(request: NextRequest) {
     // RESPOSTA DA API
     // ============================================
 
+    // ALFA-010 - Log estruturado de consumo (diagnóstico da franquia GPRO).
+    // Observação: apiRequestsRemaining é o valor retornado pelo Menu APÓS as
+    // chamadas desta sync; não representa o delta exato consumido.
+    const totalGproCalls = Object.values(endpointCalls).reduce((sum, n) => sum + n, 0);
+    console.log('📊 [gpro-sync]', JSON.stringify({
+      syncRunId,
+      userId: syncUserId,
+      season: syncSeasonRace?.season ?? null,
+      race: syncSeasonRace?.race ?? null,
+      endpointCalls,
+      totalGproCalls,
+      enrichedSponsors: enrichedSponsorsCount,
+      apiRequestsRemaining,
+      durationMs: Date.now() - syncStartedAt,
+      result: 'success',
+    }));
+
     return NextResponse.json({
       success: true,
       driver_static: driverStatic,
@@ -720,6 +769,20 @@ export async function POST(request: NextRequest) {
     if (error?.status === 403) {
       return NextResponse.json({ error: error.message || 'Acesso negado' }, { status: 403 });
     }
+    const totalGproCalls = Object.values(endpointCalls).reduce((sum, n) => sum + n, 0);
+    console.log('📊 [gpro-sync]', JSON.stringify({
+      syncRunId,
+      userId: syncUserId,
+      season: syncSeasonRace?.season ?? null,
+      race: syncSeasonRace?.race ?? null,
+      endpointCalls,
+      totalGproCalls,
+      enrichedSponsors: enrichedSponsorsCount,
+      apiRequestsRemaining,
+      durationMs: Date.now() - syncStartedAt,
+      result: 'error',
+      error: error instanceof Error ? error.message : String(error),
+    }));
     console.error('Erro no sync com GPRO:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro interno ao sincronizar com GPRO. Tente novamente mais tarde.' },
