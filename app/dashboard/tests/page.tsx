@@ -80,6 +80,18 @@ function isValidNumber(value: any): boolean {
   return Number.isFinite(Number(value));
 }
 
+// ALFA-010 - Data/hora da última sincronização de testes (exibida na UI)
+function formatTestingSyncAt(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 // --- COMPONENTES AUXILIARES ---
 
 function PrioritySelector({ value, onChange }: { value: string, onChange: (val: string) => void }) {
@@ -385,6 +397,11 @@ export default function TestsPage() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  // ALFA-010 - dados de testes vindo do snapshot (sem auto-sync da API GPRO)
+  const [testingSnapshotAt, setTestingSnapshotAt] = useState<string | null>(null);
+  const [isRefreshingTesting, setIsRefreshingTesting] = useState(false);
+  const [isLoadingTesting, setIsLoadingTesting] = useState(false);
+  const [testingError, setTestingError] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('Gerente');
 
   const [testTrack, setTestTrack] = useState<string>("Adelaide");
@@ -587,51 +604,98 @@ export default function TestsPage() {
     return () => { mounted = false; };
   }, [router]);
 
+  // ALFA-010 - Aplica dados de Testing vindos do snapshot ou de atualização leve
+  const applyTestingData = useCallback((testing: { track?: string; weather?: string; temp?: number } | null | undefined) => {
+    if (!testing) {
+      setTestWeatherRaw('');
+      setWeather('Dry');
+      return;
+    }
+    if (testing.track) setTestTrack(testing.track);
+    if (testing.weather !== undefined) {
+      setTestWeatherRaw(testing.weather);
+      setWeather(mapTestingWeather(testing.weather || ''));
+    }
+    if (isValidNumber(testing.temp)) {
+      setInputs(prev => ({
+        ...prev,
+        temp: Number(testing.temp)
+      }));
+    }
+  }, []);
+
   // Carregar dados GPRO - Testing
+  // ALFA-010: lê o snapshot persistido (0 chamadas GPRO), em vez de
+  // disparar a sincronização completa da API no mount da página.
   useEffect(() => {
     if (!userId) return;
 
     let mounted = true;
 
-    const loadTestingData = async () => {
+    const loadTestingSnapshot = async () => {
+      setIsLoadingTesting(true);
+      setTestingError(null);
       try {
-        const response = await fetch('/api/gpro/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
-        });
-        
+        const response = await fetch('/api/gpro/testing', { cache: 'no-store' });
+
         const data = await response.json();
-        
+
         if (!mounted) return;
-        
+
         if (data.success && data.testing) {
-          setTestTrack(data.testing.track || 'Adelaide');
-          setTestWeatherRaw(data.testing.weather || '');
-          setWeather(mapTestingWeather(data.testing.weather || ''));
-          
-          if (isValidNumber(data.testing.temp)) {
-            setInputs(prev => ({
-              ...prev,
-              temp: Number(data.testing.temp)
-            }));
-          }
+          applyTestingData(data.testing);
+          setTestingSnapshotAt(data.createdAt || null);
         } else {
-          setTestWeatherRaw('');
-          setWeather('Dry');
+          applyTestingData(null);
+          setTestingSnapshotAt(null);
         }
       } catch (error) {
         if (!mounted) return;
-        console.warn('⚠️ Não foi carregado os testes do GPRO:', error);
-        setTestWeatherRaw('');
-        setWeather('Dry');
+        console.warn('⚠️ Não foi possível ler os testes do snapshot:', error);
+        applyTestingData(null);
+        setTestingError('Não foi possível carregar os testes salvos.');
+      } finally {
+        if (mounted) setIsLoadingTesting(false);
       }
     };
 
-    loadTestingData();
+    loadTestingSnapshot();
 
     return () => { mounted = false; };
-  }, [userId]);
+  }, [userId, applyTestingData]);
+
+  // ALFA-010 - Atualização manual explícita (consome 1 chamada GPRO - endpoint Testing)
+  const handleRefreshTesting = useCallback(async () => {
+    if (!userId || isRefreshingTesting) return;
+
+    setIsRefreshingTesting(true);
+    setTestingError(null);
+    try {
+      const response = await fetch('/api/gpro/testing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data?.error || 'Falha ao atualizar dados de testes');
+      }
+
+      applyTestingData(data.testing);
+      setTestingSnapshotAt(data.createdAt || null);
+    } catch (error) {
+      console.warn('⚠️ Falha ao atualizar os testes do GPRO:', error);
+      setTestingError(
+        error instanceof Error && error.message
+          ? `${error.message} Tente novamente.`
+          : 'Não foi possível atualizar os testes. Tente novamente.'
+      );
+    } finally {
+      setIsRefreshingTesting(false);
+    }
+  }, [userId, isRefreshingTesting, applyTestingData]);
 
   const runCalculations = useCallback(async () => {
     if (!userId || !testTrack || !isDataSynced) return;
@@ -842,16 +906,52 @@ export default function TestsPage() {
                             </button>
                         </div>
 
-                        {testWeatherRaw && (
-                            <div className="flex justify-center mb-4">
+                        <div className="flex flex-col items-center gap-2 mb-4">
+                            {testWeatherRaw && (
                                 <div className="bg-slate-100 border border-slate-200 rounded-full px-2.5 py-0.5 shadow-sm">
                                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                         <Info size={11} className="text-emerald-600" />
                                         Clima GPRO: <span className="text-slate-800">{testWeatherRaw}</span>
                                     </span>
                                 </div>
+                            )}
+
+                            {/* ALFA-010 - Última sincronização + atualização manual (1 chamada GPRO) */}
+                            <div className="flex flex-col items-center gap-1.5">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-center flex items-center gap-1.5">
+                                        {isLoadingTesting ? (
+                                            <>
+                                                <Loader2 size={11} className="animate-spin" />
+                                                Carregando testes…
+                                            </>
+                                        ) : testingSnapshotAt ? (
+                                            `Testes: ${formatTestingSyncAt(testingSnapshotAt)}`
+                                        ) : (
+                                            'Sem dados de testes'
+                                        )}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleRefreshTesting}
+                                        disabled={isRefreshingTesting || isLoadingTesting || !userId}
+                                        title="Atualiza apenas os dados de testes — consome 1 chamada da API GPRO"
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-wider hover:bg-emerald-100 hover:border-emerald-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isRefreshingTesting
+                                            ? <Loader2 size={11} className="animate-spin" />
+                                            : <RotateCcw size={11} />}
+                                        {isRefreshingTesting ? 'Atualizando' : 'Atualizar'}
+                                    </button>
+                                </div>
+                                {testingError && (
+                                    <span role="alert" className="flex items-center gap-1.5 text-[9px] font-bold text-rose-600 text-center">
+                                        <ShieldAlert size={11} />
+                                        {testingError}
+                                    </span>
+                                )}
                             </div>
-                        )}
+                        </div>
 
                         <div className="grid grid-cols-3 gap-2.5 mb-5">
                             <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-2.5 flex flex-col justify-center items-center group hover:border-emerald-300 transition-all duration-200 hover:shadow-sm">
